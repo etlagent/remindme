@@ -31,6 +31,7 @@ export default function Home() {
   const [contextType, setContextType] = useState<string>("event"); // event, personal, business, todo, project, trip
   const [persistentEvent, setPersistentEvent] = useState("");
   const [showEventInput, setShowEventInput] = useState(false);
+  const [showSessionFields, setShowSessionFields] = useState(false);
   const [sectionName, setSectionName] = useState("");
   const [panelParticipants, setPanelParticipants] = useState("");
   const [linkedInUrls, setLinkedInUrls] = useState("");
@@ -221,8 +222,28 @@ export default function Home() {
       const data = await response.json();
       setParsedProfileData(data);
       
-      // Show success message
-      alert(`✅ Parsed: ${data.name || 'Profile'}\n${data.role || ''} at ${data.company || ''}\n\nLinkedIn data stored. Add your notes below, then click "Organize with AI" to save.`);
+      // Show parsed data in notes field for review
+      const parsedSummary = `✅ Parsed LinkedIn Profile:
+
+Name: ${data.name || 'Unknown'}
+Company: ${data.company || 'Unknown'}
+Role: ${data.role || 'Unknown'}
+${data.follower_count ? `Followers: ${data.follower_count}` : ''}
+
+About:
+${data.about || 'No about section'}
+
+Experience:
+${data.experience?.map((exp: any) => `• ${exp.role} at ${exp.company} (${exp.dates})`).join('\n') || 'No experience listed'}
+
+Education:
+${data.education?.map((edu: any) => `• ${edu.school}${edu.degree ? ` - ${edu.degree}` : ''}`).join('\n') || 'No education listed'}
+
+---
+Add your notes below:
+`;
+      
+      setCaptureText(parsedSummary);
       
       // Clear the paste field
       setLinkedInProfilePaste("");
@@ -414,51 +435,64 @@ export default function Home() {
                       <Calendar className="h-4 w-4 text-gray-500" />
                       <span className="text-sm font-medium text-gray-600">Event Name</span>
                     </div>
-                    {!showEventInput && !persistentEvent ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowEventInput(true)}
-                        className="text-gray-600 border-dashed"
-                      >
-                        + Set Event
-                      </Button>
-                    ) : showEventInput ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g., Tech Summit 2025"
-                          value={persistentEvent}
-                          onChange={(e) => setPersistentEvent(e.target.value)}
-                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          autoFocus
-                        />
+                    <div className="flex gap-2">
+                      {!showEventInput && !persistentEvent ? (
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => setShowEventInput(false)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={() => setShowEventInput(true)}
+                          className="text-gray-600 border-dashed"
                         >
-                          Set
+                          + Set Event
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-blue-100 text-blue-700 px-3 py-1">
-                          {persistentEvent}
-                        </Badge>
+                      ) : showEventInput ? (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="e.g., Tech Summit 2025"
+                            value={persistentEvent}
+                            onChange={(e) => setPersistentEvent(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => setShowEventInput(false)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            Set
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-100 text-blue-700 px-3 py-1">
+                            {persistentEvent}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setPersistentEvent("");
+                              setShowEventInput(false);
+                            }}
+                            className="text-gray-500 h-6 px-2"
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {!showSessionFields && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setPersistentEvent("");
-                            setShowEventInput(false);
-                          }}
-                          className="text-gray-500 h-6 px-2"
+                          onClick={() => setShowSessionFields(true)}
+                          className="text-gray-600 border-dashed"
                         >
-                          ✕
+                          + Set Session
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -466,94 +500,117 @@ export default function Home() {
               {/* Event-specific fields */}
               {contextType === "event" && (
                 <>
-                  {/* Section Name */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Type className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Section/Session Name</span>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="e.g., AI in Healthcare Panel"
-                      value={sectionName}
-                      onChange={(e) => setSectionName(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Panel Participants */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Panel Participants</span>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="e.g., Sarah Chen, Mike Johnson, Lisa Park"
-                      value={panelParticipants}
-                      onChange={(e) => setPanelParticipants(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
-                  </div>
-
-                  {/* LinkedIn Profile URLs */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URLs (Panel/Session)</span>
-                    </div>
-                    <textarea
-                      placeholder="Paste LinkedIn URLs for panel participants (one per line)&#10;https://linkedin.com/in/person1&#10;https://linkedin.com/in/person2&#10;https://linkedin.com/in/person3&#10;https://linkedin.com/in/person4"
-                      value={linkedInUrls}
-                      onChange={(e) => setLinkedInUrls(e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">URLs will be saved for later. Add session notes below.</p>
-                  </div>
-
-                  {/* Company LinkedIn URLs */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Company LinkedIn URLs</span>
-                    </div>
-                    <textarea
-                      placeholder="Paste company LinkedIn URLs (one per line)&#10;e.g., https://linkedin.com/company/stripe/"
-                      value={companyLinkedInUrls}
-                      onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">For running your company insights bookmarklet</p>
-                  </div>
-
-                  {/* Paste Entire LinkedIn Profile */}
-                  <div className="border-t border-gray-200 pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Type className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
+                  {/* Session fields - only show when "+ Set Session" is clicked */}
+                  {showSessionFields && (
+                    <>
+                      {/* Section Name */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Type className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-600">Session Name</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowSessionFields(false);
+                              setSectionName("");
+                              setPanelParticipants("");
+                              setLinkedInUrls("");
+                            }}
+                            className="text-gray-500 h-6 px-2"
+                          >
+                            ✕ Remove Session
+                          </Button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g., AI in Healthcare Panel"
+                          value={sectionName}
+                          onChange={(e) => setSectionName(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
                       </div>
-                      <Button
-                        onClick={handleParseLinkedInProfile}
-                        disabled={isParsing || !linkedInProfilePaste.trim()}
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        {isParsing ? "Parsing..." : "Parse Profile"}
-                      </Button>
-                    </div>
-                    <textarea
-                      placeholder="Copy entire LinkedIn profile and paste here, then click 'Parse Profile' to extract information..."
-                      value={linkedInProfilePaste}
-                      onChange={(e) => setLinkedInProfilePaste(e.target.value)}
-                      rows={6}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Desktop: Ctrl+A on profile → Ctrl+C → paste. Mobile: Desktop mode → Select All → Copy</p>
-                  </div>
+
+                      {/* Panel Participants */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-600">Panel Participants</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g., Sarah Chen, Mike Johnson, Lisa Park"
+                          value={panelParticipants}
+                          onChange={(e) => setPanelParticipants(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* LinkedIn Profile URLs */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                        </div>
+                        <textarea
+                          placeholder="Paste LinkedIn URLs (one per line) - will be saved for later"
+                          value={linkedInUrls}
+                          onChange={(e) => setLinkedInUrls(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* 1-on-1 Contact Fields - Only show when session is NOT set */}
+                  {!showSessionFields && (
+                    <>
+                      {/* LinkedIn URL */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-600">LinkedIn URL</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="https://linkedin.com/in/brian-griffin-64065719/"
+                          value={linkedInUrls}
+                          onChange={(e) => setLinkedInUrls(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
+                      </div>
+
+                      {/* Paste Entire LinkedIn Profile */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Type className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile (optional)</span>
+                          </div>
+                          <Button
+                            onClick={handleParseLinkedInProfile}
+                            disabled={isParsing || !linkedInProfilePaste.trim()}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            {isParsing ? "Parsing..." : "Parse Profile"}
+                          </Button>
+                        </div>
+                        <textarea
+                          placeholder="Copy entire LinkedIn profile and paste here, then click 'Parse Profile' to extract full details..."
+                          value={linkedInProfilePaste}
+                          onChange={(e) => setLinkedInProfilePaste(e.target.value)}
+                          rows={4}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Desktop: Ctrl+A → Ctrl+C → paste. Mobile: Desktop mode → Select All → Copy</p>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
