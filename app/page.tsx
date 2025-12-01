@@ -46,6 +46,7 @@ export default function Home() {
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [editedPreview, setEditedPreview] = useState<any>(null);
+  const [showLinkedInData, setShowLinkedInData] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -822,7 +823,18 @@ Add your notes below:
                         />
                       </div>
 
-                      {/* Keywords */}
+                      {/* Background (Collapsible) */}
+                      <div className="bg-white rounded border border-gray-200">
+                        <button
+                          onClick={() => setShowLinkedInData(!showLinkedInData)}
+                          className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
+                        >
+                          <h4 className="font-semibold text-gray-700">Background</h4>
+                          <span className="text-gray-500">{showLinkedInData ? '▼' : '▶'}</span>
+                        </button>
+                        {showLinkedInData && (
+                          <div className="px-4 pb-4 space-y-3">
+                            {/* Keywords */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
                         <input
@@ -924,6 +936,9 @@ Add your notes below:
                           </div>
                         ) : (
                           <p className="text-sm text-gray-400 italic">No industries yet</p>
+                        )}
+                      </div>
+                          </div>
                         )}
                       </div>
 
