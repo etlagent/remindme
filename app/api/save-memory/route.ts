@@ -65,7 +65,11 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (memoryError) throw memoryError;
+    if (memoryError) {
+      console.error("❌ Memory insert error:", memoryError);
+      throw memoryError;
+    }
+    console.log("✅ Memory created:", memory.id);
 
     // 3. Create or update people
     const peopleIds: string[] = [];
@@ -79,19 +83,26 @@ export async function POST(request: Request) {
             name: personData.name,
             company: personData.company,
             role: personData.role,
+            location: personData.location || null,
             linkedin_url: personData.linkedin_url || null,
             company_linkedin_url: personData.company_linkedin_url || null,
-            business_needs: personData.business_needs,
+            business_needs: personData.business_needs || null,
+            opportunities: personData.opportunities || null,
             technologies: personData.technologies || [],
             interests: personData.interests || [],
             skills: personData.skills || [],
-            inspiration_level: personData.inspiration_level,
-            relationship_potential: personData.relationship_potential,
+            inspiration_level: personData.inspiration_level || null,
+            relationship_potential: personData.relationship_potential || null,
+            relationship_notes: personData.relationship_notes || null,
           })
           .select()
           .single();
 
-        if (personError) throw personError;
+        if (personError) {
+          console.error("❌ Person insert error:", personError);
+          throw personError;
+        }
+        console.log("✅ Person created:", person.id, "-", personData.name);
         peopleIds.push(person.id);
 
         // If we have business profile data (from parsed LinkedIn), save it separately
@@ -130,7 +141,11 @@ export async function POST(request: Request) {
         .from("memory_people")
         .insert(memoryPeopleLinks);
 
-      if (linkError) throw linkError;
+      if (linkError) {
+        console.error("❌ Memory-People link error:", linkError);
+        throw linkError;
+      }
+      console.log("✅ Linked memory to", peopleIds.length, "people");
     }
 
     // 5. Create follow-ups
@@ -148,7 +163,11 @@ export async function POST(request: Request) {
         .from("follow_ups")
         .insert(followUps);
 
-      if (followUpError) throw followUpError;
+      if (followUpError) {
+        console.error("❌ Follow-ups insert error:", followUpError);
+        throw followUpError;
+      }
+      console.log("✅ Created", followUps.length, "follow-ups");
     }
 
     // 6. Create embedding and save to Pinecone
@@ -213,7 +232,14 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, memoryId: memory.id });
+    return NextResponse.json({ 
+      success: true, 
+      memoryId: memory.id,
+      peopleCount: peopleIds.length,
+      followUpsCount: structuredData.follow_ups?.length || 0,
+      eventId: eventId,
+      message: "Memory saved successfully!"
+    });
   } catch (error: any) {
     console.error("Error saving memory:", error);
     return NextResponse.json(

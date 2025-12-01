@@ -942,6 +942,141 @@ Add your notes below:
                           <p className="text-sm text-gray-400 italic">No industries yet</p>
                         )}
                       </div>
+
+                      {/* Skills */}
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Skills</h4>
+                        <input
+                          type="text"
+                          placeholder="Add skill (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const person = editedPreview.people?.[0];
+                              if (person) {
+                                const newSkills = [...(person.skills || []), e.currentTarget.value.trim()];
+                                const updatedPerson = {...person, skills: newSkills};
+                                const updatedPeople = [...(editedPreview.people || [])];
+                                updatedPeople[0] = updatedPerson;
+                                setEditedPreview({...editedPreview, people: updatedPeople});
+                              }
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        {(editedPreview.people?.[0]?.skills && editedPreview.people[0].skills.length > 0) ? (
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.people[0].skills.map((skill: string, idx: number) => (
+                              <Badge 
+                                key={idx} 
+                                className="bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const person = editedPreview.people[0];
+                                  const newSkills = person.skills.filter((_: any, i: number) => i !== idx);
+                                  const updatedPerson = {...person, skills: newSkills};
+                                  const updatedPeople = [...editedPreview.people];
+                                  updatedPeople[0] = updatedPerson;
+                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                }}
+                              >
+                                {skill} ×
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No skills yet</p>
+                        )}
+                      </div>
+
+                      {/* Technologies */}
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Technologies</h4>
+                        <input
+                          type="text"
+                          placeholder="Add technology (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const person = editedPreview.people?.[0];
+                              if (person) {
+                                const newTechnologies = [...(person.technologies || []), e.currentTarget.value.trim()];
+                                const updatedPerson = {...person, technologies: newTechnologies};
+                                const updatedPeople = [...(editedPreview.people || [])];
+                                updatedPeople[0] = updatedPerson;
+                                setEditedPreview({...editedPreview, people: updatedPeople});
+                              }
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        {(editedPreview.people?.[0]?.technologies && editedPreview.people[0].technologies.length > 0) ? (
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.people[0].technologies.map((tech: string, idx: number) => (
+                              <Badge 
+                                key={idx} 
+                                className="bg-cyan-100 text-cyan-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const person = editedPreview.people[0];
+                                  const newTechnologies = person.technologies.filter((_: any, i: number) => i !== idx);
+                                  const updatedPerson = {...person, technologies: newTechnologies};
+                                  const updatedPeople = [...editedPreview.people];
+                                  updatedPeople[0] = updatedPerson;
+                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                }}
+                              >
+                                {tech} ×
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No technologies yet</p>
+                        )}
+                      </div>
+
+                      {/* Interests */}
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Interests</h4>
+                        <input
+                          type="text"
+                          placeholder="Add interest (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const person = editedPreview.people?.[0];
+                              if (person) {
+                                const newInterests = [...(person.interests || []), e.currentTarget.value.trim()];
+                                const updatedPerson = {...person, interests: newInterests};
+                                const updatedPeople = [...(editedPreview.people || [])];
+                                updatedPeople[0] = updatedPerson;
+                                setEditedPreview({...editedPreview, people: updatedPeople});
+                              }
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        {(editedPreview.people?.[0]?.interests && editedPreview.people[0].interests.length > 0) ? (
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.people[0].interests.map((interest: string, idx: number) => (
+                              <Badge 
+                                key={idx} 
+                                className="bg-pink-100 text-pink-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const person = editedPreview.people[0];
+                                  const newInterests = person.interests.filter((_: any, i: number) => i !== idx);
+                                  const updatedPerson = {...person, interests: newInterests};
+                                  const updatedPeople = [...editedPreview.people];
+                                  updatedPeople[0] = updatedPerson;
+                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                }}
+                              >
+                                {interest} ×
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No interests yet</p>
+                        )}
+                      </div>
                           </div>
                         )}
                       </div>
