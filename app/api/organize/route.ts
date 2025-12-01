@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -33,6 +33,9 @@ export async function POST(request: Request) {
     if (linkedInUrls) {
       contextPrompt += `\n\nLinkedIn profile URLs provided:\n${linkedInUrls}\n\nMatch these URLs to the people mentioned in the notes. Extract names from the URLs if possible and associate each URL with the corresponding person.`;
     }
+    if (companyLinkedInUrls) {
+      contextPrompt += `\n\nCompany LinkedIn URLs provided:\n${companyLinkedInUrls}\n\nExtract company names from these URLs and associate them with the people mentioned. Store these company URLs for later use with company insights scraping.`;
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -47,7 +50,8 @@ Extract and structure the following information from the user's notes:
    - name (or null if not mentioned)
    - company
    - role
-   - linkedin_url (if provided)
+   - linkedin_url (personal profile URL if provided)
+   - company_linkedin_url (company page URL if provided)
    - business_needs
    - technologies (array)
    - interests (array)

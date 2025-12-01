@@ -34,6 +34,7 @@ export default function Home() {
   const [sectionName, setSectionName] = useState("");
   const [panelParticipants, setPanelParticipants] = useState("");
   const [linkedInUrls, setLinkedInUrls] = useState("");
+  const [companyLinkedInUrls, setCompanyLinkedInUrls] = useState("");
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
@@ -134,6 +135,7 @@ export default function Home() {
           sectionName: sectionName || null,
           panelParticipants: panelParticipants || null,
           linkedInUrls: linkedInUrls || null,
+          companyLinkedInUrls: companyLinkedInUrls || null,
         }),
       });
 
@@ -411,20 +413,36 @@ export default function Home() {
                     <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
                   </div>
 
-                  {/* LinkedIn URLs */}
+                  {/* LinkedIn Profile URLs */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URLs</span>
                     </div>
                     <textarea
-                      placeholder="Paste LinkedIn profile URLs (one per line)"
+                      placeholder="Paste personal LinkedIn profile URLs (one per line)&#10;e.g., https://linkedin.com/in/brian-griffin-64065719/"
                       value={linkedInUrls}
                       onChange={(e) => setLinkedInUrls(e.target.value)}
                       rows={3}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                     <p className="text-xs text-gray-500 mt-1">One URL per line</p>
+                  </div>
+
+                  {/* Company LinkedIn URLs */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Company LinkedIn URLs</span>
+                    </div>
+                    <textarea
+                      placeholder="Paste company LinkedIn URLs (one per line)&#10;e.g., https://linkedin.com/company/stripe/"
+                      value={companyLinkedInUrls}
+                      onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">For running your company insights bookmarklet</p>
                   </div>
                 </>
               )}
@@ -448,12 +466,25 @@ export default function Home() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URLs</span>
                     </div>
                     <textarea
-                      placeholder="Paste LinkedIn profile URLs (one per line)"
+                      placeholder="Paste personal LinkedIn profile URLs (one per line)"
                       value={linkedInUrls}
                       onChange={(e) => setLinkedInUrls(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Company LinkedIn URLs</span>
+                    </div>
+                    <textarea
+                      placeholder="Paste company LinkedIn URLs (one per line)"
+                      value={companyLinkedInUrls}
+                      onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
                       rows={2}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
