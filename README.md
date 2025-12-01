@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RemindMe
+
+AI-powered personal memory assistant for networking events and life moments.
+
+## Overview
+
+RemindMe helps you remember people, conversations, and important moments by letting you quickly capture thoughts via voice, text, or screenshots—then AI organizes everything for you.
+
+### Key Features
+
+- **Quick Capture**: Record voice notes, type, or paste from your Notes app
+- **AI Organization**: Automatically structures memories into people, events, and follow-ups
+- **Section Filters**: Organize by Personal, Business, Projects, Relationships, ToDos, Events, Trips
+- **Smart Insights**: AI evaluates inspiration level and relationship potential
+- **Follow-up Tracking**: Never forget to reconnect with important contacts
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ and npm
+
+### Installation
 
 ```bash
+# Clone the repo
+git clone https://github.com/etlagent/remindme.git
+cd remindme
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Running Offline (for travel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The app works fully offline for UI development. Database and AI features will be added in future updates.
 
-## Learn More
+## Current Status
 
-To learn more about Next.js, take a look at the following resources:
+**Phase 1: UI Prototype** ✅
+- Split-screen layout (Capture + Library)
+- Section filtering system
+- Mock data for People, Events, and Follow-ups
+- Mobile-responsive design matching Etlagent style
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Phase 2: Database Integration** (Next)
+- Supabase connection
+- Real data persistence
+- User authentication
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Phase 3: AI Features** (Upcoming)
+- OpenAI Whisper for voice transcription
+- GPT-4 for memory structuring
+- Q&A chat interface
 
-## Deploy on Vercel
+## Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Components**: Shadcn/ui
+- **Icons**: Lucide React
+- **Database**: Supabase (planned)
+- **AI**: OpenAI (planned)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+remindme/
+├── app/
+│   ├── page.tsx          # Main split-screen UI
+│   ├── layout.tsx        # Root layout
+│   └── globals.css       # Global styles
+├── components/
+│   └── ui/               # Shadcn components
+└── lib/
+    └── utils.ts          # Utility functions
+```
+
+## Roadmap
+
+- [ ] Connect to Supabase database
+- [ ] Implement voice recording and transcription
+- [ ] Add OpenAI memory structuring
+- [ ] Build Q&A chat interface
+- [ ] Create person and event detail pages
+- [ ] Add screenshot OCR processing
+- [ ] Deploy to remindme.vitruvity.com
+- [ ] Mobile app integration with Bookmark/Agora
+
+## License
+
+Private project for Etlagent/Vitruvity.
