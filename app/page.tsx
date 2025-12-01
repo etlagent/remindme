@@ -47,6 +47,7 @@ export default function Home() {
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [editedPreview, setEditedPreview] = useState<any>(null);
   const [showLinkedInData, setShowLinkedInData] = useState(false);
+  const [showAboutMe, setShowAboutMe] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -787,7 +788,7 @@ Add your notes below:
                   <h3 className="text-lg font-semibold text-gray-800">Memory Preview</h3>
                 </div>
 
-                <Card className="bg-gray-50 border-gray-200 p-4 space-y-3">
+                <Card className="bg-gray-50 border-gray-200 p-4 space-y-2">
                   {isEditingPreview && editedPreview ? (
                     // Edit Mode
                     <>
@@ -803,25 +804,28 @@ Add your notes below:
                               {person.follower_count && (
                                 <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
                               )}
-                              {person.about && (
-                                <div className="mt-2">
-                                  <p className="text-sm font-semibold text-gray-700">About me</p>
-                                  <p className="text-sm text-gray-600">{person.about}</p>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
                       )}
 
-                      <div>
-                        <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-                        <Textarea
-                          value={editedPreview.summary || ""}
-                          onChange={(e) => setEditedPreview({...editedPreview, summary: e.target.value})}
-                          className="min-h-[100px] bg-white"
-                        />
-                      </div>
+                      {/* About me (Collapsible) */}
+                      {editedPreview.people && editedPreview.people.length > 0 && editedPreview.people[0].about && (
+                        <div className="bg-white rounded border border-gray-200">
+                          <button
+                            onClick={() => setShowAboutMe(!showAboutMe)}
+                            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
+                          >
+                            <h4 className="font-semibold text-gray-700">About me</h4>
+                            <span className="text-gray-500">{showAboutMe ? '▼' : '▶'}</span>
+                          </button>
+                          {showAboutMe && (
+                            <div className="px-4 pb-4">
+                              <p className="text-sm text-gray-600">{editedPreview.people[0].about}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Background (Collapsible) */}
                       <div className="bg-white rounded border border-gray-200">
@@ -945,8 +949,41 @@ Add your notes below:
                       {/* My Notes */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
-                        <div className="bg-white p-3 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap">
-                          {captureText.split('---')[1]?.trim() || captureText.split('Add your notes below:')[1]?.trim() || captureText}
+                        <input
+                          type="text"
+                          placeholder="Add additional note (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const notes = editedPreview.additional_notes || [];
+                              const newNotes = [...notes, e.currentTarget.value.trim()];
+                              setEditedPreview({...editedPreview, additional_notes: newNotes});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        <div className="bg-white p-3 rounded border border-gray-200 text-sm text-gray-700 space-y-2">
+                          <div className="whitespace-pre-wrap">
+                            {captureText.split('---')[1]?.trim() || captureText.split('Add your notes below:')[1]?.trim() || captureText}
+                          </div>
+                          {editedPreview.additional_notes && editedPreview.additional_notes.length > 0 && (
+                            <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
+                              {editedPreview.additional_notes.map((note: string, idx: number) => (
+                                <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                                  <span className="flex-1">• {note}</span>
+                                  <button
+                                    onClick={() => {
+                                      const newNotes = editedPreview.additional_notes.filter((_: any, i: number) => i !== idx);
+                                      setEditedPreview({...editedPreview, additional_notes: newNotes});
+                                    }}
+                                    className="text-red-600 hover:text-red-700 text-xs font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
