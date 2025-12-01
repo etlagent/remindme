@@ -23,6 +23,7 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<Section>("all");
   const [captureText, setCaptureText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [noteCount, setNoteCount] = useState(0);
   const recognitionRef = useRef<any>(null);
 
   // Initialize speech recognition
@@ -38,12 +39,14 @@ export default function Home() {
 
         recognition.onresult = (event: any) => {
           const transcript = event.results[0][0].transcript;
-          // Append the new transcript to existing text with a space
-          setCaptureText((prev) => {
-            if (prev && !prev.endsWith(" ") && !prev.endsWith("\n")) {
-              return prev + " " + transcript;
-            }
-            return prev + transcript;
+          // Increment note count and add numbered marker
+          setNoteCount((prevCount) => {
+            const newCount = prevCount + 1;
+            setCaptureText((prev) => {
+              const separator = prev ? "\n\n" : "";
+              return prev + separator + `Note ${newCount}: ${transcript}`;
+            });
+            return newCount;
           });
         };
 
