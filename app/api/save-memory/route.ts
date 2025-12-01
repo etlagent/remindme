@@ -58,6 +58,9 @@ export async function POST(request: Request) {
         what: structuredData.summary || null,
         energy_summary: structuredData.summary || null,
         sections: structuredData.sections || [],
+        keywords: structuredData.keywords || [],
+        companies: structuredData.companies || [],
+        industries: structuredData.industries || [],
       })
       .select()
       .single();

@@ -70,11 +70,17 @@ Extract and structure the following information from the user's notes:
 
 3. **Summary**: A brief summary of the encounter/notes
 
-4. **Follow-ups**: Array of suggested follow-up actions with:
+4. **Keywords**: Array of important keywords, topics, and themes mentioned (e.g., "quantum physics", "trains", "locomotives", "MarTech", "AdTech", "SaaS")
+
+5. **Companies**: Array of all companies mentioned (from LinkedIn experience or conversation)
+
+6. **Industries**: Array of industries mentioned (e.g., "advertising", "healthcare", "biotech", "financial services", "retail", "manufacturing")
+
+7. **Follow-ups**: Array of suggested follow-up actions with:
    - description
    - priority ("low", "medium", or "high")
 
-5. **Sections**: Array of applicable categories from: ["personal", "business", "projects", "relationships", "todos", "events", "trips"]
+8. **Sections**: Array of applicable categories from: ["personal", "business", "projects", "relationships", "todos", "events", "trips"]
 
 Return ONLY valid JSON with no additional text.${contextPrompt}`,
         },
