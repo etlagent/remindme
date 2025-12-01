@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { AuthButton } from "@/components/AuthButton";
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
 
@@ -156,10 +157,11 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-lg">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-800">
             RemindMe
           </h1>
+          <AuthButton />
         </div>
       </header>
 
@@ -168,7 +170,18 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left: Capture Section */}
           <Card className="bg-white border-gray-200 shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-6 text-gray-700">Quick Capture</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-700">Quick Capture</h2>
+              {/* Screenshot Upload */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+              >
+                <ImageIcon className="mr-2 h-3 w-3" />
+                Choose File
+              </Button>
+            </div>
             
             {/* Voice Recording */}
             <div className="mb-6">
@@ -207,17 +220,6 @@ export default function Home() {
                 placeholder="Describe how the person or moment felt, what excited you, any thoughts or ideas..."
                 className="min-h-[150px] bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
               />
-            </div>
-
-            {/* Screenshot Upload */}
-            <div className="mb-6">
-              <Button
-                variant="outline"
-                className="w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
-              >
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Upload Screenshot from Notes
-              </Button>
             </div>
 
             {/* Save Button */}
