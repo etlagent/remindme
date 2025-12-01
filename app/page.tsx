@@ -154,6 +154,9 @@ export default function Home() {
 
       const data = await response.json();
       setAiPreview(data);
+      setEditedPreview(JSON.parse(JSON.stringify(data))); // Set up for editing immediately
+      setIsEditingPreview(true); // Go straight to edit mode
+      setShowRawNotes(false);
     } catch (error) {
       console.error("Error organizing notes:", error);
       alert("Failed to organize notes. Please try again.");
@@ -781,23 +784,6 @@ Add your notes below:
               <div className="mb-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800">Memory Preview</h3>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleApproveAndSave}
-                      disabled={isProcessing}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      {isProcessing ? "Saving..." : "Add Memory"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleEditPreview}
-                      className="text-gray-600"
-                    >
-                      Edit
-                    </Button>
-                  </div>
                 </div>
 
                 <Card className="bg-gray-50 border-gray-200 p-4 space-y-3">
