@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, parsedProfileData } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, parsedProfileData, parsedProfilesArray } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -89,8 +89,12 @@ Return ONLY valid JSON with no additional text.${contextPrompt}`,
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
 
-    // If parsed LinkedIn data exists, merge it with AI results
-    if (parsedProfileData) {
+    // If multiple parsed profiles exist (panel scenario), use them directly
+    if (parsedProfilesArray && parsedProfilesArray.length > 0) {
+      result.people = parsedProfilesArray;
+    }
+    // If single parsed LinkedIn data exists, merge it with AI results
+    else if (parsedProfileData) {
       // Merge parsed LinkedIn data into the first person or create new person
       if (!result.people || result.people.length === 0) {
         result.people = [parsedProfileData];

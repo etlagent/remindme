@@ -37,7 +37,9 @@ export default function Home() {
   const [companyLinkedInUrls, setCompanyLinkedInUrls] = useState("");
   const [linkedInProfilePaste, setLinkedInProfilePaste] = useState("");
   const [parsedProfileData, setParsedProfileData] = useState<any>(null);
+  const [parsedProfilesArray, setParsedProfilesArray] = useState<any[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [isParsingUrls, setIsParsingUrls] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
@@ -118,8 +120,8 @@ export default function Home() {
   };
 
   const handleOrganizeWithAI = async () => {
-    if (!captureText.trim() && !parsedProfileData) {
-      alert("Please add some notes or parse a LinkedIn profile!");
+    if (!captureText.trim() && !parsedProfileData && parsedProfilesArray.length === 0) {
+      alert("Please add some notes or parse LinkedIn profile(s)!");
       return;
     }
 
@@ -139,7 +141,8 @@ export default function Home() {
           panelParticipants: panelParticipants || null,
           linkedInUrls: linkedInUrls || null,
           companyLinkedInUrls: companyLinkedInUrls || null,
-          parsedProfileData: parsedProfileData, // Send parsed data to be merged, not processed by AI
+          parsedProfileData: parsedProfileData, // Single profile
+          parsedProfilesArray: parsedProfilesArray.length > 0 ? parsedProfilesArray : null, // Multiple profiles
         }),
       });
 
@@ -228,6 +231,48 @@ export default function Home() {
       alert("Failed to parse LinkedIn profile. Please try again.");
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const handleParseLinkedInUrls = async () => {
+    const urls = linkedInUrls.split('\n').filter(url => url.trim());
+    
+    if (urls.length === 0) {
+      alert("Please paste LinkedIn URLs (one per line)!");
+      return;
+    }
+
+    setIsParsingUrls(true);
+    const parsedProfiles: any[] = [];
+
+    try {
+      for (const url of urls) {
+        const response = await fetch("/api/parse-linkedin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            profileText: `LinkedIn URL: ${url.trim()}`,
+            isUrl: true 
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          data.linkedin_url = url.trim();
+          parsedProfiles.push(data);
+        }
+      }
+
+      setParsedProfilesArray(parsedProfiles);
+      
+      const names = parsedProfiles.map(p => p.name || 'Unknown').join(', ');
+      alert(`✅ Parsed ${parsedProfiles.length} profiles:\n${names}\n\nAdd your panel notes below, then click "Organize with AI" to save all.`);
+      
+    } catch (error) {
+      console.error("Error parsing LinkedIn URLs:", error);
+      alert("Failed to parse some LinkedIn URLs. Please try again.");
+    } finally {
+      setIsParsingUrls(false);
     }
   };
 
@@ -452,20 +497,20 @@ export default function Home() {
                     <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
                   </div>
 
-                  {/* LinkedIn Profile URL */}
+                  {/* LinkedIn Profile URLs */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URL</span>
+                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URLs (Panel/Session)</span>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="https://linkedin.com/in/brian-griffin-64065719/"
+                    <textarea
+                      placeholder="Paste LinkedIn URLs for panel participants (one per line)&#10;https://linkedin.com/in/person1&#10;https://linkedin.com/in/person2&#10;https://linkedin.com/in/person3&#10;https://linkedin.com/in/person4"
                       value={linkedInUrls}
                       onChange={(e) => setLinkedInUrls(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={4}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
+                    <p className="text-xs text-gray-500 mt-1">URLs will be saved for later. Add session notes below.</p>
                   </div>
 
                   {/* Company LinkedIn URLs */}
@@ -623,26 +668,26 @@ export default function Home() {
             </div>
             
             {/* Voice Recording */}
-            <div className="mb-6">
+            <div className="mb-4">
               <Button
                 onClick={handleMicClick}
-                className={`w-full h-32 text-lg font-semibold transition-all ${
+                className={`w-full h-16 text-base font-medium transition-all ${
                   isRecording
                     ? "bg-red-100 hover:bg-red-200 text-red-700 animate-pulse"
                     : "bg-blue-50 hover:bg-blue-100 text-blue-700"
                 }`}
               >
-                <Mic className="mr-2 h-8 w-8" />
-                {isRecording ? "Recording... Tap to Stop" : "Tap to Record"}
+                <Mic className={`mr-2 h-5 w-5 ${isRecording ? "animate-pulse" : ""}`} />
+                {isRecording ? "Recording..." : "Tap to Record"}
               </Button>
               {isRecording && (
-                <p className="text-center text-sm text-blue-600 mt-2">
-                  Speak naturally about the person or moment...
+                <p className="text-center text-xs text-gray-600 mt-1">
+                  Speak naturally...
                 </p>
               )}
               {!isRecording && captureText && (
-                <p className="text-center text-xs text-gray-500 mt-2">
-                  Tap again to add more snippets
+                <p className="text-center text-xs text-gray-500 mt-1">
+                  Tap again to add more
                 </p>
               )}
             </div>
