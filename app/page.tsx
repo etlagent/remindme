@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Mic, Type, Image as ImageIcon, Users, Calendar, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,10 +10,87 @@ import { Badge } from "@/components/ui/badge";
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
 
+// Extend Window interface for browser speech recognition
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>("all");
   const [captureText, setCaptureText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false; // Stop after each phrase (snippet mode)
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          // Append the new transcript to existing text with a space
+          setCaptureText((prev) => {
+            if (prev && !prev.endsWith(" ") && !prev.endsWith("\n")) {
+              return prev + " " + transcript;
+            }
+            return prev + transcript;
+          });
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error("Speech recognition error:", event.error);
+          setIsListening(false);
+          setIsRecording(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const handleMicClick = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.");
+      return;
+    }
+
+    if (isListening) {
+      // Stop recording
+      recognitionRef.current.stop();
+      setIsListening(false);
+      setIsRecording(false);
+    } else {
+      // Start recording
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        setIsRecording(true);
+      } catch (error) {
+        console.error("Error starting speech recognition:", error);
+      }
+    }
+  };
 
   const sections: { value: Section; label: string }[] = [
     { value: "all", label: "All" },
@@ -86,7 +163,7 @@ export default function Home() {
             {/* Voice Recording */}
             <div className="mb-6">
               <Button
-                onClick={() => setIsRecording(!isRecording)}
+                onClick={handleMicClick}
                 className={`w-full h-32 text-lg font-semibold transition-all ${
                   isRecording
                     ? "bg-red-100 hover:bg-red-200 text-red-700 animate-pulse"
@@ -94,11 +171,16 @@ export default function Home() {
                 }`}
               >
                 <Mic className="mr-2 h-8 w-8" />
-                {isRecording ? "Recording... Tap to Stop" : "Hold to Record"}
+                {isRecording ? "Recording... Tap to Stop" : "Tap to Record"}
               </Button>
               {isRecording && (
                 <p className="text-center text-sm text-blue-600 mt-2">
                   Speak naturally about the person or moment...
+                </p>
+              )}
+              {!isRecording && captureText && (
+                <p className="text-center text-xs text-gray-500 mt-2">
+                  Tap again to add more snippets
                 </p>
               )}
             </div>
