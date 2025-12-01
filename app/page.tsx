@@ -168,18 +168,21 @@ export default function Home() {
     }
   };
 
-  const handleApproveAndSave = async () => {
+  const handleApproveAndSave = async (dataToSave?: any) => {
     if (!aiPreview) return;
 
     setIsProcessing(true);
     try {
+      // Use provided data or fall back to aiPreview
+      const finalData = dataToSave || aiPreview;
+      
       // Save to Supabase
       const response = await fetch("/api/save-memory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rawText: captureText,
-          structuredData: aiPreview,
+          structuredData: finalData,
         }),
       });
 
@@ -789,7 +792,7 @@ Add your notes below:
                 </div>
 
                 <Card className="bg-gray-50 border-gray-200 p-4 space-y-2">
-                  {isEditingPreview && editedPreview ? (
+                  {isEditingPreview && editedPreview && (
                     // Edit Mode
                     <>
                       {/* Person Info */}
@@ -1165,7 +1168,7 @@ Add your notes below:
                         <Button
                           onClick={() => {
                             handleSavePreviewEdits();
-                            handleApproveAndSave();
+                            handleApproveAndSave(editedPreview);
                           }}
                           disabled={isProcessing}
                           className="bg-green-600 hover:bg-green-700 text-white"
@@ -1184,103 +1187,13 @@ Add your notes below:
                         </Button>
                       </div>
                     </>
-                  ) : (
-                    // View Mode
-                    <>
-                      {aiPreview.people && aiPreview.people.length > 0 && (
-                        <div className="bg-white p-4 rounded border border-gray-200 space-y-2">
-                          {aiPreview.people.map((person: any, idx: number) => (
-                            <div key={idx} className="space-y-1">
-                              <p className="font-bold text-xl text-gray-800">{person.name || "Unknown"}</p>
-                              {person.location && <p className="text-sm text-gray-600">📍 {person.location}</p>}
-                              {person.company && <p className="text-sm text-gray-700">{person.company}</p>}
-                              {person.role && <p className="text-sm text-gray-700">{person.role}</p>}
-                              {person.follower_count && (
-                                <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
-                              )}
-                              {person.about && (
-                                <div className="mt-2">
-                                  <p className="text-sm font-semibold text-gray-700">About me</p>
-                                  <p className="text-sm text-gray-600">{person.about}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {aiPreview.event && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Event</h4>
-                          <p className="text-sm text-gray-600">{aiPreview.event.name}</p>
-                          {aiPreview.event.date && <p className="text-xs text-gray-500">{aiPreview.event.date}</p>}
-                        </div>
-                      )}
-
-                      {aiPreview.summary && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-                          <p className="text-sm text-gray-600">{aiPreview.summary}</p>
-                    </div>
-                  )}
-
-                  {aiPreview.keywords && aiPreview.keywords.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {aiPreview.keywords.map((keyword: string, idx: number) => (
-                          <Badge key={idx} className="bg-blue-100 text-blue-700 text-xs">
-                            {keyword}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {aiPreview.companies && aiPreview.companies.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700 mb-2">Companies</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {aiPreview.companies.map((company: string, idx: number) => (
-                          <Badge key={idx} className="bg-purple-100 text-purple-700 text-xs">
-                            {company}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {aiPreview.industries && aiPreview.industries.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700 mb-2">Industries</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {aiPreview.industries.map((industry: string, idx: number) => (
-                          <Badge key={idx} className="bg-green-100 text-green-700 text-xs">
-                            {industry}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {aiPreview.follow_ups && aiPreview.follow_ups.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
-                      {aiPreview.follow_ups.map((followUp: any, idx: number) => (
-                        <div key={idx} className="text-sm text-gray-600 mb-1">
-                          • {followUp.description}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                    </>
                   )}
                 </Card>
               </div>
             )}
 
             {/* Action Buttons */}
-            {!aiPreview ? (
+            {!aiPreview && (
               <Button 
                 onClick={handleOrganizeWithAI}
                 disabled={isProcessing || !captureText.trim()}
@@ -1288,26 +1201,6 @@ Add your notes below:
               >
                 {isProcessing ? "Processing..." : "Organize with AI"}
               </Button>
-            ) : (
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleApproveAndSave}
-                  disabled={isProcessing}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
-                >
-                  {isProcessing ? "Saving..." : "Approve & Save"}
-                </Button>
-                <Button
-                  onClick={() => {
-                    setAiPreview(null);
-                    setShowRawNotes(true);
-                  }}
-                  variant="outline"
-                  className="flex-1 border-gray-300"
-                >
-                  Cancel
-                </Button>
-              </div>
             )}
           </Card>
 
