@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Mic, Type, Image as ImageIcon, Users, Calendar, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +21,7 @@ declare global {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [isRecording, setIsRecording] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>("all");
   const [captureText, setCaptureText] = useState("");
@@ -904,7 +906,11 @@ Add your notes below:
               {/* People Tab */}
               <TabsContent value="people" className="space-y-4 mt-4">
                 {mockPeople.map((person) => (
-                  <Card key={person.id} className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer">
+                  <Card 
+                    key={person.id} 
+                    className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer"
+                    onClick={() => router.push(`/person/${person.id}`)}
+                  >
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-semibold text-gray-800">{person.name}</h3>
