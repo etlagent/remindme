@@ -57,17 +57,14 @@ export default function Home() {
         recognition.lang = "en-US";
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          
-          // Use a single state update to avoid race conditions
-          setNoteCount((prevCount) => prevCount + 1);
-          
-          // Update text with the current note count + 1
+          const transcript = event.results[event.results.length - 1][0].transcript;
           setCaptureText((prev) => {
-            const currentCount = prev.match(/Note \d+:/g)?.length || 0;
-            const newCount = currentCount + 1;
-            const separator = prev ? "\n\n" : "";
-            return prev + separator + `Note ${newCount}: ${transcript}`;
+            // If there's parsed profile data, append after the "---" line
+            if (prev.includes('---\nAdd your notes below:')) {
+              return prev + "\n" + transcript;
+            }
+            // Otherwise, just append normally
+            return prev + (prev ? " " : "") + transcript;
           });
         };
 
