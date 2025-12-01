@@ -29,7 +29,7 @@ export default function Home() {
 
   // Initialize speech recognition
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !recognitionRef.current) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       
       if (SpeechRecognition) {
@@ -39,19 +39,17 @@ export default function Home() {
         recognition.lang = "en-US";
 
         recognition.onresult = (event: any) => {
-          // Prevent duplicate processing
-          if (isProcessingRef.current) return;
-          isProcessingRef.current = true;
-          
           const transcript = event.results[0][0].transcript;
-          // Increment note count and add numbered marker
-          setNoteCount((prevCount) => {
-            const newCount = prevCount + 1;
-            setCaptureText((prev) => {
-              const separator = prev ? "\n\n" : "";
-              return prev + separator + `Note ${newCount}: ${transcript}`;
-            });
-            return newCount;
+          
+          // Use a single state update to avoid race conditions
+          setNoteCount((prevCount) => prevCount + 1);
+          
+          // Update text with the current note count + 1
+          setCaptureText((prev) => {
+            const currentCount = prev.match(/Note \d+:/g)?.length || 0;
+            const newCount = currentCount + 1;
+            const separator = prev ? "\n\n" : "";
+            return prev + separator + `Note ${newCount}: ${transcript}`;
           });
         };
 
@@ -64,8 +62,6 @@ export default function Home() {
         recognition.onend = () => {
           setIsListening(false);
           setIsRecording(false);
-          // Reset processing flag for next recording
-          isProcessingRef.current = false;
         };
 
         recognitionRef.current = recognition;
@@ -74,7 +70,11 @@ export default function Home() {
 
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
       }
     };
   }, []);
