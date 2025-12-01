@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Pinecone } from "@pinecone-database/pinecone";
+import OpenAI from "openai";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -144,6 +146,68 @@ export async function POST(request: Request) {
         .insert(followUps);
 
       if (followUpError) throw followUpError;
+    }
+
+    // 6. Create embedding and save to Pinecone
+    if (process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX_NAME) {
+      try {
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+        const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+
+        // Build text to embed: LinkedIn about + experience + user notes
+        let textToEmbed = rawText || "";
+        
+        if (structuredData.people && structuredData.people.length > 0) {
+          const person = structuredData.people[0];
+          if (person.about) textToEmbed += `\n\nAbout: ${person.about}`;
+          if (person.experience) {
+            const expText = person.experience.map((exp: any) => 
+              `${exp.role} at ${exp.company}: ${exp.description || ''}`
+            ).join('\n');
+            textToEmbed += `\n\nExperience:\n${expText}`;
+          }
+        }
+
+        // Create embedding
+        const embeddingResponse = await openai.embeddings.create({
+          model: "text-embedding-3-large",
+          input: textToEmbed,
+          dimensions: 1024,
+        });
+
+        const embedding = embeddingResponse.data[0].embedding;
+
+        // Prepare metadata
+        const metadata: any = {
+          memory_id: memory.id,
+          user_id: userId,
+          summary: structuredData.summary || "",
+          sections: structuredData.sections || [],
+        };
+
+        if (structuredData.people && structuredData.people.length > 0) {
+          const person = structuredData.people[0];
+          metadata.person_name = person.name || "";
+          metadata.company = person.company || "";
+          metadata.role = person.role || "";
+          metadata.skills = person.skills || [];
+          metadata.technologies = person.technologies || [];
+          metadata.interests = person.interests || [];
+        }
+
+        // Upsert to Pinecone
+        await index.upsert([{
+          id: memory.id,
+          values: embedding,
+          metadata: metadata,
+        }]);
+
+        console.log("✅ Saved to Pinecone:", memory.id);
+      } catch (pineconeError) {
+        console.error("❌ Pinecone error (non-fatal):", pineconeError);
+        // Don't throw - Pinecone is optional
+      }
     }
 
     return NextResponse.json({ success: true, memoryId: memory.id });

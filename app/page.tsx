@@ -766,15 +766,24 @@ Add your notes below:
             {aiPreview && (
               <div className="mb-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800">AI Organized Preview</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleEditRawNotes}
-                    className="text-gray-600"
-                  >
-                    Edit Raw Notes
-                  </Button>
+                  <h3 className="text-lg font-semibold text-gray-800">Memory Preview</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleApproveAndSave}
+                      disabled={isProcessing}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isProcessing ? "Saving..." : "Add Memory"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleEditRawNotes}
+                      className="text-gray-600"
+                    >
+                      Edit
+                    </Button>
+                  </div>
                 </div>
 
                 <Card className="bg-gray-50 border-gray-200 p-4 space-y-3">
