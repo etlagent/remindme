@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     const peopleIds: string[] = [];
     if (structuredData.people) {
       for (const personData of structuredData.people) {
+        // Insert person (personal data only)
         const { data: person, error: personError } = await supabase
           .from("people")
           .insert({
@@ -87,6 +88,29 @@ export async function POST(request: Request) {
 
         if (personError) throw personError;
         peopleIds.push(person.id);
+
+        // If we have business profile data (from parsed LinkedIn), save it separately
+        if (personData.about || personData.experience || personData.education || personData.follower_count) {
+          const { error: businessProfileError } = await supabase
+            .from("people_business_profiles")
+            .insert({
+              person_id: person.id,
+              user_id: userId,
+              linkedin_url: personData.linkedin_url || null,
+              company_linkedin_url: personData.company_linkedin_url || null,
+              follower_count: personData.follower_count || null,
+              about: personData.about || null,
+              experience: personData.experience || null,
+              education: personData.education || null,
+              current_company: personData.company || null,
+              role_title: personData.role || null,
+            });
+
+          if (businessProfileError) {
+            console.error("Error saving business profile:", businessProfileError);
+            // Don't throw - business profile is optional
+          }
+        }
       }
     }
 
