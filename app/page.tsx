@@ -28,13 +28,13 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiPreview, setAiPreview] = useState<any>(null);
   const [showRawNotes, setShowRawNotes] = useState(true);
+  const [contextType, setContextType] = useState<string>("event"); // event, personal, business, todo, project, trip
   const [persistentEvent, setPersistentEvent] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showEventInput, setShowEventInput] = useState(false);
-  const [showTagSelector, setShowTagSelector] = useState(false);
   const [sectionName, setSectionName] = useState("");
   const [panelParticipants, setPanelParticipants] = useState("");
   const [linkedInUrls, setLinkedInUrls] = useState("");
+  const [isContextExpanded, setIsContextExpanded] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -129,8 +129,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           rawText: captureText,
+          contextType: contextType,
           persistentEvent: persistentEvent || null,
-          selectedTags: selectedTags,
           sectionName: sectionName || null,
           panelParticipants: panelParticipants || null,
           linkedInUrls: linkedInUrls || null,
@@ -190,20 +190,13 @@ export default function Home() {
     setShowRawNotes(true);
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
-  const availableTags = [
-    "event",
-    "relationship",
-    "personal",
-    "business",
-    "todo",
-    "project",
-    "trip",
+  const contextTypes = [
+    { value: "event", label: "Event/Conference", icon: Calendar },
+    { value: "personal", label: "Personal", icon: Users },
+    { value: "business", label: "Business Meeting", icon: CheckSquare },
+    { value: "todo", label: "ToDo/Task", icon: CheckSquare },
+    { value: "project", label: "Project", icon: Type },
+    { value: "trip", label: "Trip", icon: Calendar },
   ];
 
   const sections: { value: Section; label: string }[] = [
@@ -286,130 +279,228 @@ export default function Home() {
               </Button>
             </div>
 
-            {/* Persistent Event & Tags */}
-            <div className="mb-6 space-y-3 pb-4 border-b border-gray-200">
-              {/* Event Selector */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">Event Context</span>
-                </div>
-                {!showEventInput && !persistentEvent ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEventInput(true)}
-                    className="text-gray-600 border-dashed"
-                  >
-                    + Set Event
-                  </Button>
-                ) : showEventInput ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="e.g., Tech Summit 2025"
-                      value={persistentEvent}
-                      onChange={(e) => setPersistentEvent(e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => setShowEventInput(false)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Set
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-blue-100 text-blue-700 px-3 py-1">
-                      {persistentEvent}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setPersistentEvent("");
-                        setShowEventInput(false);
-                      }}
-                      className="text-gray-500 h-6 px-2"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Tag Selector */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
+            {/* Context Selector & Dynamic Fields - Collapsible */}
+            <div className="mb-6 pb-4 border-b border-gray-200">
+              {/* Collapsible Header */}
+              <button
+                onClick={() => setIsContextExpanded(!isContextExpanded)}
+                className="w-full flex items-center justify-between mb-3 hover:bg-gray-50 p-2 rounded transition-colors"
+              >
+                <div className="flex items-center gap-2">
                   <CheckSquare className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">Tags</span>
+                  <span className="text-sm font-semibold text-gray-700">Context & Metadata</span>
+                  <Badge className="bg-blue-100 text-blue-700 text-xs">
+                    {contextType}
+                  </Badge>
                 </div>
+                <span className="text-gray-400 text-sm">
+                  {isContextExpanded ? "▼" : "▶"}
+                </span>
+              </button>
+
+              {/* Collapsible Content */}
+              {isContextExpanded && (
+                <div className="space-y-3">
+                  {/* Context Type Selector */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckSquare className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Context Type</span>
+                    </div>
                 <div className="flex flex-wrap gap-2">
-                  {availableTags.map((tag) => (
+                  {contextTypes.map((ctx) => (
                     <Badge
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
+                      key={ctx.value}
+                      onClick={() => setContextType(ctx.value)}
                       className={`cursor-pointer transition-colors ${
-                        selectedTags.includes(tag)
+                        contextType === ctx.value
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
-                      {tag}
+                      {ctx.label}
                     </Badge>
                   ))}
                 </div>
               </div>
 
-              {/* Section Name */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Type className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">Section/Session Name</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="e.g., AI in Healthcare Panel"
-                  value={sectionName}
-                  onChange={(e) => setSectionName(e.target.value)}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {/* Dynamic Fields Based on Context */}
+              {/* Event Context Fields */}
+              {contextType === "event" && (
+                <>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Event Name</span>
+                    </div>
+                    {!showEventInput && !persistentEvent ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowEventInput(true)}
+                        className="text-gray-600 border-dashed"
+                      >
+                        + Set Event
+                      </Button>
+                    ) : showEventInput ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="e.g., Tech Summit 2025"
+                          value={persistentEvent}
+                          onChange={(e) => setPersistentEvent(e.target.value)}
+                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => setShowEventInput(false)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Set
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-100 text-blue-700 px-3 py-1">
+                          {persistentEvent}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setPersistentEvent("");
+                            setShowEventInput(false);
+                          }}
+                          className="text-gray-500 h-6 px-2"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
-              {/* Panel Participants */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">Panel Participants</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="e.g., Sarah Chen, Mike Johnson, Lisa Park"
-                  value={panelParticipants}
-                  onChange={(e) => setPanelParticipants(e.target.value)}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
-              </div>
+              {/* Event-specific fields */}
+              {contextType === "event" && (
+                <>
+                  {/* Section Name */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Type className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Section/Session Name</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g., AI in Healthcare Panel"
+                      value={sectionName}
+                      onChange={(e) => setSectionName(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
 
-              {/* LinkedIn URLs */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                  {/* Panel Participants */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Panel Participants</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g., Sarah Chen, Mike Johnson, Lisa Park"
+                      value={panelParticipants}
+                      onChange={(e) => setPanelParticipants(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
+                  </div>
+
+                  {/* LinkedIn URLs */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                    </div>
+                    <textarea
+                      placeholder="Paste LinkedIn profile URLs (one per line)"
+                      value={linkedInUrls}
+                      onChange={(e) => setLinkedInUrls(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">One URL per line</p>
+                  </div>
+                </>
+              )}
+
+              {/* Business Meeting fields */}
+              {contextType === "business" && (
+                <>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">Meeting With</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g., Sarah Chen, Mike Johnson"
+                      value={panelParticipants}
+                      onChange={(e) => setPanelParticipants(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                    </div>
+                    <textarea
+                      placeholder="Paste LinkedIn profile URLs (one per line)"
+                      value={linkedInUrls}
+                      onChange={(e) => setLinkedInUrls(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Project fields */}
+              {contextType === "project" && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Type className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600">Project Name</span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g., Website Redesign"
+                    value={sectionName}
+                    onChange={(e) => setSectionName(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <textarea
-                  placeholder="Paste LinkedIn profile URLs (one per line)"
-                  value={linkedInUrls}
-                  onChange={(e) => setLinkedInUrls(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">One URL per line</p>
-              </div>
+              )}
+
+              {/* Trip fields */}
+              {contextType === "trip" && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600">Trip/Destination</span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g., Tokyo Business Trip"
+                    value={persistentEvent}
+                    onChange={(e) => setPersistentEvent(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+                </div>
+              )}
             </div>
             
             {/* Voice Recording */}

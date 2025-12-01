@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, persistentEvent, selectedTags, sectionName, panelParticipants, linkedInUrls } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -18,11 +18,11 @@ export async function POST(request: Request) {
 
     // Build context for AI
     let contextPrompt = "";
+    if (contextType) {
+      contextPrompt += `\n\nContext type: ${contextType}. Tag this memory appropriately in the sections array.`;
+    }
     if (persistentEvent) {
       contextPrompt += `\n\nIMPORTANT: This note is from the event: "${persistentEvent}". Include this event in your response.`;
-    }
-    if (selectedTags && selectedTags.length > 0) {
-      contextPrompt += `\n\nThe user has pre-selected these tags/categories: ${selectedTags.join(", ")}. Include these in the sections array.`;
     }
     if (sectionName) {
       contextPrompt += `\n\nThis note is from the session/section: "${sectionName}". Include this context in the summary.`;
