@@ -118,8 +118,8 @@ export default function Home() {
   };
 
   const handleOrganizeWithAI = async () => {
-    if (!captureText.trim() && !linkedInProfilePaste.trim()) {
-      alert("Please add some notes or paste a LinkedIn profile!");
+    if (!captureText.trim() && !parsedProfileData) {
+      alert("Please add some notes or parse a LinkedIn profile!");
       return;
     }
 
@@ -127,7 +127,7 @@ export default function Home() {
     setShowRawNotes(false);
 
     try {
-      // Call OpenAI API to structure the notes
+      // Call OpenAI API to structure only the user's notes (not LinkedIn data)
       const response = await fetch("/api/organize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -139,7 +139,7 @@ export default function Home() {
           panelParticipants: panelParticipants || null,
           linkedInUrls: linkedInUrls || null,
           companyLinkedInUrls: companyLinkedInUrls || null,
-          linkedInProfilePaste: linkedInProfilePaste || null,
+          parsedProfileData: parsedProfileData, // Send parsed data to be merged, not processed by AI
         }),
       });
 
@@ -218,18 +218,11 @@ export default function Home() {
       const data = await response.json();
       setParsedProfileData(data);
       
-      // Pre-fill the capture text with parsed data for review
-      const summaryText = `Name: ${data.name || 'Unknown'}
-Company: ${data.company || 'Unknown'}
-Role: ${data.role || 'Unknown'}
-
-About:
-${data.about || 'No about section found'}
-
-Experience:
-${data.experience?.map((exp: any) => `- ${exp.role} at ${exp.company} (${exp.dates})`).join('\n') || 'No experience found'}`;
+      // Show success message
+      alert(`✅ Parsed: ${data.name || 'Profile'}\n${data.role || ''} at ${data.company || ''}\n\nLinkedIn data stored. Add your notes below, then click "Organize with AI" to save.`);
       
-      setCaptureText(summaryText);
+      // Clear the paste field
+      setLinkedInProfilePaste("");
     } catch (error) {
       console.error("Error parsing LinkedIn profile:", error);
       alert("Failed to parse LinkedIn profile. Please try again.");

@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, linkedInProfilePaste } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, parsedProfileData } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -35,9 +35,6 @@ export async function POST(request: Request) {
     }
     if (companyLinkedInUrls) {
       contextPrompt += `\n\nCompany LinkedIn URLs provided:\n${companyLinkedInUrls}\n\nExtract company names from these URLs and associate them with the people mentioned. Store these company URLs for later use with company insights scraping.`;
-    }
-    if (linkedInProfilePaste) {
-      contextPrompt += `\n\nPasted LinkedIn Profile Data:\n${linkedInProfilePaste}\n\nParse this raw LinkedIn profile text and extract: name, current company, current role, follower count, about/summary, all work experience (company, role, dates, descriptions), education, skills, and any other relevant information. Clean up the formatting and structure it properly. Focus on analyzing their actual words in the about section and experience descriptions to understand their background and expertise.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -91,6 +88,29 @@ Return ONLY valid JSON with no additional text.${contextPrompt}`,
     });
 
     const result = JSON.parse(completion.choices[0].message.content || "{}");
+
+    // If parsed LinkedIn data exists, merge it with AI results
+    if (parsedProfileData) {
+      // Merge parsed LinkedIn data into the first person or create new person
+      if (!result.people || result.people.length === 0) {
+        result.people = [parsedProfileData];
+      } else {
+        // Merge parsed data into first person
+        result.people[0] = {
+          ...parsedProfileData,
+          ...result.people[0],
+          // Keep parsed LinkedIn data, but allow AI to add additional fields
+          name: parsedProfileData.name || result.people[0].name,
+          company: parsedProfileData.company || result.people[0].company,
+          role: parsedProfileData.role || result.people[0].role,
+          about: parsedProfileData.about || result.people[0].about,
+          experience: parsedProfileData.experience || result.people[0].experience,
+          education: parsedProfileData.education || result.people[0].education,
+          skills: parsedProfileData.skills || result.people[0].skills,
+          follower_count: parsedProfileData.follower_count || result.people[0].follower_count,
+        };
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error: any) {
