@@ -870,6 +870,14 @@ Add your notes below:
                         )}
                       </div>
 
+                      {/* My Notes */}
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
+                        <div className="bg-white p-3 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap">
+                          {captureText.split('---')[1]?.trim() || captureText.split('Add your notes below:')[1]?.trim() || captureText}
+                        </div>
+                      </div>
+
                       {/* Follow-ups */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
