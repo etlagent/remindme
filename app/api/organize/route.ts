@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, linkedInProfilePaste } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -36,6 +36,9 @@ export async function POST(request: Request) {
     if (companyLinkedInUrls) {
       contextPrompt += `\n\nCompany LinkedIn URLs provided:\n${companyLinkedInUrls}\n\nExtract company names from these URLs and associate them with the people mentioned. Store these company URLs for later use with company insights scraping.`;
     }
+    if (linkedInProfilePaste) {
+      contextPrompt += `\n\nPasted LinkedIn Profile Data:\n${linkedInProfilePaste}\n\nParse this raw LinkedIn profile text and extract: name, current company, current role, follower count, about/summary, all work experience (company, role, dates, descriptions), education, skills, and any other relevant information. Clean up the formatting and structure it properly.`;
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -52,6 +55,10 @@ Extract and structure the following information from the user's notes:
    - role
    - linkedin_url (personal profile URL if provided)
    - company_linkedin_url (company page URL if provided)
+   - follower_count (if available from pasted profile)
+   - about (summary/bio from LinkedIn)
+   - experience (array of work history: {company, role, dates, description})
+   - education (array of schools and degrees)
    - business_needs
    - technologies (array)
    - interests (array)

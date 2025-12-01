@@ -35,6 +35,7 @@ export default function Home() {
   const [panelParticipants, setPanelParticipants] = useState("");
   const [linkedInUrls, setLinkedInUrls] = useState("");
   const [companyLinkedInUrls, setCompanyLinkedInUrls] = useState("");
+  const [linkedInProfilePaste, setLinkedInProfilePaste] = useState("");
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
@@ -136,6 +137,7 @@ export default function Home() {
           panelParticipants: panelParticipants || null,
           linkedInUrls: linkedInUrls || null,
           companyLinkedInUrls: companyLinkedInUrls || null,
+          linkedInProfilePaste: linkedInProfilePaste || null,
         }),
       });
 
@@ -444,6 +446,22 @@ export default function Home() {
                     />
                     <p className="text-xs text-gray-500 mt-1">For running your company insights bookmarklet</p>
                   </div>
+
+                  {/* OR: Paste Entire LinkedIn Profile */}
+                  <div className="border-t border-gray-200 pt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Type className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">OR: Paste Entire LinkedIn Profile</span>
+                    </div>
+                    <textarea
+                      placeholder="Copy entire LinkedIn profile page and paste here. AI will extract: name, company, role, follower count, about, experience, education..."
+                      value={linkedInProfilePaste}
+                      onChange={(e) => setLinkedInProfilePaste(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Ctrl+A on profile page, Ctrl+C, then paste here</p>
+                  </div>
                 </>
               )}
 
@@ -488,6 +506,22 @@ export default function Home() {
                       rows={2}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
+                  </div>
+
+                  {/* OR: Paste Entire LinkedIn Profile */}
+                  <div className="border-t border-gray-200 pt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Type className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-600">OR: Paste Entire LinkedIn Profile</span>
+                    </div>
+                    <textarea
+                      placeholder="Copy entire LinkedIn profile page and paste here. AI will extract all relevant information..."
+                      value={linkedInProfilePaste}
+                      onChange={(e) => setLinkedInProfilePaste(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Ctrl+A on profile page, Ctrl+C, then paste here</p>
                   </div>
                 </>
               )}
