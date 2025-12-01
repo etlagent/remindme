@@ -66,11 +66,11 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen text-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-white/10 bg-slate-900/50 backdrop-blur-lg">
+      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-lg">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-semibold text-gray-800">
             RemindMe
           </h1>
         </div>
@@ -80,8 +80,8 @@ export default function Home() {
       <div className="container mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left: Capture Section */}
-          <Card className="bg-slate-800/50 border-white/10 backdrop-blur-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-300">Quick Capture</h2>
+          <Card className="bg-white border-gray-200 shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-700">Quick Capture</h2>
             
             {/* Voice Recording */}
             <div className="mb-6">
@@ -89,15 +89,15 @@ export default function Home() {
                 onClick={() => setIsRecording(!isRecording)}
                 className={`w-full h-32 text-lg font-semibold transition-all ${
                   isRecording
-                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-red-100 hover:bg-red-200 text-red-700 animate-pulse"
+                    : "bg-blue-50 hover:bg-blue-100 text-blue-700"
                 }`}
               >
                 <Mic className="mr-2 h-8 w-8" />
                 {isRecording ? "Recording... Tap to Stop" : "Hold to Record"}
               </Button>
               {isRecording && (
-                <p className="text-center text-sm text-blue-300 mt-2">
+                <p className="text-center text-sm text-blue-600 mt-2">
                   Speak naturally about the person or moment...
                 </p>
               )}
@@ -106,14 +106,14 @@ export default function Home() {
             {/* Text Input */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <Type className="h-4 w-4 text-slate-400" />
-                <span className="text-sm text-slate-400">Or type/paste your notes</span>
+                <Type className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">Or type/paste your notes</span>
               </div>
               <Textarea
                 value={captureText}
                 onChange={(e) => setCaptureText(e.target.value)}
                 placeholder="Describe how the person or moment felt, what excited you, any thoughts or ideas..."
-                className="min-h-[150px] bg-slate-900/50 border-white/10 text-white placeholder:text-slate-500"
+                className="min-h-[150px] bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
               />
             </div>
 
@@ -121,7 +121,7 @@ export default function Home() {
             <div className="mb-6">
               <Button
                 variant="outline"
-                className="w-full border-white/10 bg-slate-900/30 hover:bg-slate-900/50 text-white"
+                className="w-full border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
               >
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Upload Screenshot from Notes
@@ -129,14 +129,14 @@ export default function Home() {
             </div>
 
             {/* Save Button */}
-            <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold">
+            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold">
               Save & Organize with AI
             </Button>
           </Card>
 
           {/* Right: Library Section */}
-          <Card className="bg-slate-800/50 border-white/10 backdrop-blur-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-purple-300">Library</h2>
+          <Card className="bg-white border-gray-200 shadow-sm p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">Library</h2>
 
             {/* Section Filter */}
             <div className="mb-6 flex flex-wrap gap-2">
@@ -146,8 +146,8 @@ export default function Home() {
                   variant={activeSection === section.value ? "default" : "outline"}
                   className={`cursor-pointer transition-all ${
                     activeSection === section.value
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "border-white/20 bg-slate-900/30 hover:bg-slate-900/50 text-slate-300"
+                      ? "bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200"
+                      : "border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
                   }`}
                   onClick={() => setActiveSection(section.value)}
                 >
@@ -158,16 +158,16 @@ export default function Home() {
 
             {/* Tabs */}
             <Tabs defaultValue="people" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-slate-900/50">
-                <TabsTrigger value="people" className="data-[state=active]:bg-blue-600">
+              <TabsList className="grid w-full grid-cols-3 bg-gray-100">
+                <TabsTrigger value="people" className="data-[state=active]:bg-white data-[state=active]:text-blue-700">
                   <Users className="mr-2 h-4 w-4" />
                   People
                 </TabsTrigger>
-                <TabsTrigger value="events" className="data-[state=active]:bg-blue-600">
+                <TabsTrigger value="events" className="data-[state=active]:bg-white data-[state=active]:text-blue-700">
                   <Calendar className="mr-2 h-4 w-4" />
                   Events
                 </TabsTrigger>
-                <TabsTrigger value="followups" className="data-[state=active]:bg-blue-600">
+                <TabsTrigger value="followups" className="data-[state=active]:bg-white data-[state=active]:text-blue-700">
                   <CheckSquare className="mr-2 h-4 w-4" />
                   Follow-ups
                 </TabsTrigger>
@@ -176,19 +176,19 @@ export default function Home() {
               {/* People Tab */}
               <TabsContent value="people" className="space-y-4 mt-4">
                 {mockPeople.map((person) => (
-                  <Card key={person.id} className="bg-slate-900/50 border-white/10 p-4 hover:bg-slate-900/70 transition-all cursor-pointer">
+                  <Card key={person.id} className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="font-semibold text-white">{person.name}</h3>
-                        <p className="text-sm text-slate-400">{person.role} at {person.company}</p>
+                        <h3 className="font-semibold text-gray-800">{person.name}</h3>
+                        <p className="text-sm text-gray-600">{person.role} at {person.company}</p>
                       </div>
                       <Badge
                         className={
                           person.inspiration === "high"
-                            ? "bg-green-600"
+                            ? "bg-green-100 text-green-700 border-green-200"
                             : person.inspiration === "medium"
-                            ? "bg-yellow-600"
-                            : "bg-slate-600"
+                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                            : "bg-gray-100 text-gray-700 border-gray-200"
                         }
                       >
                         {person.inspiration === "high" ? "⭐ Inspiring" : "Worth nurturing"}
@@ -196,12 +196,12 @@ export default function Home() {
                     </div>
                     <div className="flex gap-2 mb-2">
                       {person.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs border-white/20 text-slate-300">
+                        <Badge key={tag} variant="outline" className="text-xs border-gray-300 text-gray-600">
                           {tag}
                         </Badge>
                       ))}
                     </div>
-                    <p className="text-xs text-slate-500">Last met: {person.lastMet}</p>
+                    <p className="text-xs text-gray-500">Last met: {person.lastMet}</p>
                   </Card>
                 ))}
               </TabsContent>
@@ -209,17 +209,17 @@ export default function Home() {
               {/* Events Tab */}
               <TabsContent value="events" className="space-y-4 mt-4">
                 {mockEvents.map((event) => (
-                  <Card key={event.id} className="bg-slate-900/50 border-white/10 p-4 hover:bg-slate-900/70 transition-all cursor-pointer">
+                  <Card key={event.id} className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="font-semibold text-white">{event.name}</h3>
-                        <p className="text-sm text-slate-400">{event.date}</p>
+                        <h3 className="font-semibold text-gray-800">{event.name}</h3>
+                        <p className="text-sm text-gray-600">{event.date}</p>
                       </div>
-                      <Badge className="bg-purple-600">{event.peopleCount} people</Badge>
+                      <Badge className="bg-purple-100 text-purple-700 border-purple-200">{event.peopleCount} people</Badge>
                     </div>
                     <div className="flex gap-2">
                       {event.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs border-white/20 text-slate-300">
+                        <Badge key={tag} variant="outline" className="text-xs border-gray-300 text-gray-600">
                           {tag}
                         </Badge>
                       ))}
@@ -230,28 +230,28 @@ export default function Home() {
 
               {/* Follow-ups Tab */}
               <TabsContent value="followups" className="space-y-4 mt-4">
-                <Card className="bg-slate-900/50 border-white/10 p-4">
+                <Card className="bg-white border-gray-200 p-4">
                   <div className="flex items-start gap-3">
-                    <CheckSquare className="h-5 w-5 text-blue-400 mt-1" />
+                    <CheckSquare className="h-5 w-5 text-blue-600 mt-1" />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-1">Send intro email to Sarah</h3>
-                      <p className="text-sm text-slate-400 mb-2">About banking automation partnership</p>
+                      <h3 className="font-semibold text-gray-800 mb-1">Send intro email to Sarah</h3>
+                      <p className="text-sm text-gray-600 mb-2">About banking automation partnership</p>
                       <div className="flex gap-2">
-                        <Badge className="bg-orange-600 text-xs">Due: Next week</Badge>
-                        <Badge variant="outline" className="text-xs border-white/20 text-slate-300">High priority</Badge>
+                        <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs">Due: Next week</Badge>
+                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">High priority</Badge>
                       </div>
                     </div>
                   </div>
                 </Card>
-                <Card className="bg-slate-900/50 border-white/10 p-4">
+                <Card className="bg-white border-gray-200 p-4">
                   <div className="flex items-start gap-3">
-                    <CheckSquare className="h-5 w-5 text-blue-400 mt-1" />
+                    <CheckSquare className="h-5 w-5 text-blue-600 mt-1" />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-1">Follow up with Marcus</h3>
-                      <p className="text-sm text-slate-400 mb-2">Share deck about AI infrastructure project</p>
+                      <h3 className="font-semibold text-gray-800 mb-1">Follow up with Marcus</h3>
+                      <p className="text-sm text-gray-600 mb-2">Share deck about AI infrastructure project</p>
                       <div className="flex gap-2">
-                        <Badge className="bg-blue-600 text-xs">Due: This week</Badge>
-                        <Badge variant="outline" className="text-xs border-white/20 text-slate-300">Medium priority</Badge>
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Due: This week</Badge>
+                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">Medium priority</Badge>
                       </div>
                     </div>
                   </div>
