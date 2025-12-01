@@ -7,13 +7,22 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText } = await request.json();
+    const { rawText, persistentEvent, selectedTags } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
         { error: "No text provided" },
         { status: 400 }
       );
+    }
+
+    // Build context for AI
+    let contextPrompt = "";
+    if (persistentEvent) {
+      contextPrompt += `\n\nIMPORTANT: This note is from the event: "${persistentEvent}". Include this event in your response.`;
+    }
+    if (selectedTags && selectedTags.length > 0) {
+      contextPrompt += `\n\nThe user has pre-selected these tags/categories: ${selectedTags.join(", ")}. Include these in the sections array.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -49,7 +58,7 @@ Extract and structure the following information from the user's notes:
 
 5. **Sections**: Array of applicable categories from: ["personal", "business", "projects", "relationships", "todos", "events", "trips"]
 
-Return ONLY valid JSON with no additional text.`,
+Return ONLY valid JSON with no additional text.${contextPrompt}`,
         },
         {
           role: "user",

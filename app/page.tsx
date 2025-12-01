@@ -28,6 +28,10 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiPreview, setAiPreview] = useState<any>(null);
   const [showRawNotes, setShowRawNotes] = useState(true);
+  const [persistentEvent, setPersistentEvent] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showEventInput, setShowEventInput] = useState(false);
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -120,7 +124,11 @@ export default function Home() {
       const response = await fetch("/api/organize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText: captureText }),
+        body: JSON.stringify({ 
+          rawText: captureText,
+          persistentEvent: persistentEvent || null,
+          selectedTags: selectedTags,
+        }),
       });
 
       if (!response.ok) {
@@ -175,6 +183,22 @@ export default function Home() {
     setAiPreview(null);
     setShowRawNotes(true);
   };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const availableTags = [
+    "event",
+    "relationship",
+    "personal",
+    "business",
+    "todo",
+    "project",
+    "trip",
+  ];
 
   const sections: { value: Section; label: string }[] = [
     { value: "all", label: "All" },
@@ -243,7 +267,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left: Capture Section */}
           <Card className="bg-white border-gray-200 shadow-sm p-6">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-700">Quick Capture</h2>
               {/* Screenshot Upload */}
               <Button
@@ -254,6 +278,85 @@ export default function Home() {
                 <ImageIcon className="mr-2 h-3 w-3" />
                 Choose File
               </Button>
+            </div>
+
+            {/* Persistent Event & Tags */}
+            <div className="mb-6 space-y-3 pb-4 border-b border-gray-200">
+              {/* Event Selector */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">Event Context</span>
+                </div>
+                {!showEventInput && !persistentEvent ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEventInput(true)}
+                    className="text-gray-600 border-dashed"
+                  >
+                    + Set Event
+                  </Button>
+                ) : showEventInput ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g., Tech Summit 2025"
+                      value={persistentEvent}
+                      onChange={(e) => setPersistentEvent(e.target.value)}
+                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => setShowEventInput(false)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Set
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-100 text-blue-700 px-3 py-1">
+                      {persistentEvent}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPersistentEvent("");
+                        setShowEventInput(false);
+                      }}
+                      className="text-gray-500 h-6 px-2"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Tag Selector */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckSquare className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">Tags</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`cursor-pointer transition-colors ${
+                        selectedTags.includes(tag)
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             </div>
             
             {/* Voice Recording */}
