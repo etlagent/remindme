@@ -36,6 +36,8 @@ export default function Home() {
   const [linkedInUrls, setLinkedInUrls] = useState("");
   const [companyLinkedInUrls, setCompanyLinkedInUrls] = useState("");
   const [linkedInProfilePaste, setLinkedInProfilePaste] = useState("");
+  const [parsedProfileData, setParsedProfileData] = useState<any>(null);
+  const [isParsing, setIsParsing] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
@@ -192,6 +194,48 @@ export default function Home() {
   const handleEditRawNotes = () => {
     setAiPreview(null);
     setShowRawNotes(true);
+  };
+
+  const handleParseLinkedInProfile = async () => {
+    if (!linkedInProfilePaste.trim()) {
+      alert("Please paste a LinkedIn profile first!");
+      return;
+    }
+
+    setIsParsing(true);
+
+    try {
+      const response = await fetch("/api/parse-linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileText: linkedInProfilePaste }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to parse LinkedIn profile");
+      }
+
+      const data = await response.json();
+      setParsedProfileData(data);
+      
+      // Pre-fill the capture text with parsed data for review
+      const summaryText = `Name: ${data.name || 'Unknown'}
+Company: ${data.company || 'Unknown'}
+Role: ${data.role || 'Unknown'}
+
+About:
+${data.about || 'No about section found'}
+
+Experience:
+${data.experience?.map((exp: any) => `- ${exp.role} at ${exp.company} (${exp.dates})`).join('\n') || 'No experience found'}`;
+      
+      setCaptureText(summaryText);
+    } catch (error) {
+      console.error("Error parsing LinkedIn profile:", error);
+      alert("Failed to parse LinkedIn profile. Please try again.");
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const contextTypes = [
@@ -415,20 +459,20 @@ export default function Home() {
                     <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
                   </div>
 
-                  {/* LinkedIn Profile URLs */}
+                  {/* LinkedIn Profile URL */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URLs</span>
+                      <span className="text-sm font-medium text-gray-600">LinkedIn Profile URL</span>
                     </div>
-                    <textarea
-                      placeholder="Paste personal LinkedIn profile URLs (one per line)&#10;e.g., https://linkedin.com/in/brian-griffin-64065719/"
+                    <input
+                      type="text"
+                      placeholder="https://linkedin.com/in/brian-griffin-64065719/"
                       value={linkedInUrls}
                       onChange={(e) => setLinkedInUrls(e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <p className="text-xs text-gray-500 mt-1">One URL per line</p>
+                    <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
                   </div>
 
                   {/* Company LinkedIn URLs */}
@@ -449,12 +493,22 @@ export default function Home() {
 
                   {/* Paste Entire LinkedIn Profile */}
                   <div className="border-t border-gray-200 pt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Type className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Type className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
+                      </div>
+                      <Button
+                        onClick={handleParseLinkedInProfile}
+                        disabled={isParsing || !linkedInProfilePaste.trim()}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {isParsing ? "Parsing..." : "Parse Profile"}
+                      </Button>
                     </div>
                     <textarea
-                      placeholder="Copy entire LinkedIn profile and paste here. AI will analyze their about section, work experience, and background..."
+                      placeholder="Copy entire LinkedIn profile and paste here, then click 'Parse Profile' to extract information..."
                       value={linkedInProfilePaste}
                       onChange={(e) => setLinkedInProfilePaste(e.target.value)}
                       rows={6}
@@ -510,12 +564,22 @@ export default function Home() {
 
                   {/* Paste Entire LinkedIn Profile */}
                   <div className="border-t border-gray-200 pt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Type className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Type className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
+                      </div>
+                      <Button
+                        onClick={handleParseLinkedInProfile}
+                        disabled={isParsing || !linkedInProfilePaste.trim()}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {isParsing ? "Parsing..." : "Parse Profile"}
+                      </Button>
                     </div>
                     <textarea
-                      placeholder="Copy entire LinkedIn profile and paste here. AI will analyze their about section, work experience, and background..."
+                      placeholder="Copy entire LinkedIn profile and paste here, then click 'Parse Profile' to extract information..."
                       value={linkedInProfilePaste}
                       onChange={(e) => setLinkedInProfilePaste(e.target.value)}
                       rows={6}
