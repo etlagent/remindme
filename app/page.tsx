@@ -817,16 +817,21 @@ Add your notes below:
                     // View Mode
                     <>
                       {aiPreview.people && aiPreview.people.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">People</h4>
+                        <div className="bg-white p-4 rounded border border-gray-200 space-y-2">
                           {aiPreview.people.map((person: any, idx: number) => (
-                            <div key={idx} className="mb-3 p-3 bg-white rounded border border-gray-200">
-                              <p className="font-medium text-gray-800">{person.name || "Unknown"}</p>
-                              {person.company && <p className="text-sm text-gray-600">{person.role} at {person.company}</p>}
-                              {person.inspiration_level && (
-                                <Badge className="mt-2 bg-blue-100 text-blue-700">
-                                  Inspiration: {person.inspiration_level}
-                                </Badge>
+                            <div key={idx} className="space-y-1">
+                              <p className="font-bold text-xl text-gray-800">{person.name || "Unknown"}</p>
+                              {person.location && <p className="text-sm text-gray-600">📍 {person.location}</p>}
+                              {person.company && <p className="text-sm text-gray-700">{person.company}</p>}
+                              {person.role && <p className="text-sm text-gray-700">{person.role}</p>}
+                              {person.follower_count && (
+                                <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
+                              )}
+                              {person.about && (
+                                <div className="mt-2">
+                                  <p className="text-sm font-semibold text-gray-700">About me</p>
+                                  <p className="text-sm text-gray-600">{person.about}</p>
+                                </div>
                               )}
                             </div>
                           ))}
