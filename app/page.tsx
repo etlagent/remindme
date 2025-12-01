@@ -823,9 +823,9 @@ Add your notes below:
                       </div>
 
                       {/* Keywords */}
-                      {editedPreview.keywords && editedPreview.keywords.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
+                        {(editedPreview.keywords && editedPreview.keywords.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.keywords.map((keyword: string, idx: number) => (
                               <Badge key={idx} className="bg-blue-100 text-blue-700 text-xs">
@@ -833,13 +833,15 @@ Add your notes below:
                               </Badge>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No keywords yet</p>
+                        )}
+                      </div>
 
                       {/* Companies */}
-                      {editedPreview.companies && editedPreview.companies.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Companies</h4>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Companies</h4>
+                        {(editedPreview.companies && editedPreview.companies.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.companies.map((company: string, idx: number) => (
                               <Badge key={idx} className="bg-purple-100 text-purple-700 text-xs">
@@ -847,13 +849,15 @@ Add your notes below:
                               </Badge>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No companies yet</p>
+                        )}
+                      </div>
 
                       {/* Industries */}
-                      {editedPreview.industries && editedPreview.industries.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Industries</h4>
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Industries</h4>
+                        {(editedPreview.industries && editedPreview.industries.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.industries.map((industry: string, idx: number) => (
                               <Badge key={idx} className="bg-green-100 text-green-700 text-xs">
@@ -861,20 +865,26 @@ Add your notes below:
                               </Badge>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No industries yet</p>
+                        )}
+                      </div>
 
                       {/* Follow-ups */}
-                      {editedPreview.follow_ups && editedPreview.follow_ups.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
-                          {editedPreview.follow_ups.map((followUp: any, idx: number) => (
-                            <div key={idx} className="text-sm text-gray-600 mb-1">
-                              • {followUp.description}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
+                        {(editedPreview.follow_ups && editedPreview.follow_ups.length > 0) ? (
+                          <div className="space-y-1">
+                            {editedPreview.follow_ups.map((followUp: any, idx: number) => (
+                              <div key={idx} className="text-sm text-gray-600">
+                                • {followUp.description}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No follow-ups yet</p>
+                        )}
+                      </div>
 
                       <div className="flex gap-2 pt-2">
                         <Button
