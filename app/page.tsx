@@ -790,6 +790,29 @@ Add your notes below:
                   {isEditingPreview && editedPreview ? (
                     // Edit Mode
                     <>
+                      {/* Person Info */}
+                      {editedPreview.people && editedPreview.people.length > 0 && (
+                        <div className="bg-white p-4 rounded border border-gray-200 space-y-2">
+                          {editedPreview.people.map((person: any, idx: number) => (
+                            <div key={idx} className="space-y-1">
+                              <p className="font-bold text-xl text-gray-800">{person.name || "Unknown"}</p>
+                              {person.location && <p className="text-sm text-gray-600">📍 {person.location}</p>}
+                              {person.company && <p className="text-sm text-gray-700">{person.company}</p>}
+                              {person.role && <p className="text-sm text-gray-700">{person.role}</p>}
+                              {person.follower_count && (
+                                <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
+                              )}
+                              {person.about && (
+                                <div className="mt-2">
+                                  <p className="text-sm font-semibold text-gray-700">About me</p>
+                                  <p className="text-sm text-gray-600">{person.about}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
                         <Textarea
@@ -798,16 +821,79 @@ Add your notes below:
                           className="min-h-[100px] bg-white"
                         />
                       </div>
+
+                      {/* Keywords */}
+                      {editedPreview.keywords && editedPreview.keywords.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.keywords.map((keyword: string, idx: number) => (
+                              <Badge key={idx} className="bg-blue-100 text-blue-700 text-xs">
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Companies */}
+                      {editedPreview.companies && editedPreview.companies.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-2">Companies</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.companies.map((company: string, idx: number) => (
+                              <Badge key={idx} className="bg-purple-100 text-purple-700 text-xs">
+                                {company}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Industries */}
+                      {editedPreview.industries && editedPreview.industries.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-2">Industries</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {editedPreview.industries.map((industry: string, idx: number) => (
+                              <Badge key={idx} className="bg-green-100 text-green-700 text-xs">
+                                {industry}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Follow-ups */}
+                      {editedPreview.follow_ups && editedPreview.follow_ups.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
+                          {editedPreview.follow_ups.map((followUp: any, idx: number) => (
+                            <div key={idx} className="text-sm text-gray-600 mb-1">
+                              • {followUp.description}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="flex gap-2 pt-2">
                         <Button
-                          onClick={handleSavePreviewEdits}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={() => {
+                            handleSavePreviewEdits();
+                            handleApproveAndSave();
+                          }}
+                          disabled={isProcessing}
+                          className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                          Save Changes
+                          {isProcessing ? "Saving..." : "Add Memory"}
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={handleCancelPreviewEdit}
+                          onClick={() => {
+                            setAiPreview(null);
+                            setIsEditingPreview(false);
+                            setShowRawNotes(true);
+                          }}
                         >
                           Cancel
                         </Button>
