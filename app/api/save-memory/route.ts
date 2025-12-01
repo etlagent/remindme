@@ -73,6 +73,7 @@ export async function POST(request: Request) {
             name: personData.name,
             company: personData.company,
             role: personData.role,
+            linkedin_url: personData.linkedin_url || null,
             business_needs: personData.business_needs,
             technologies: personData.technologies || [],
             interests: personData.interests || [],

@@ -34,6 +34,7 @@ export default function Home() {
   const [showTagSelector, setShowTagSelector] = useState(false);
   const [sectionName, setSectionName] = useState("");
   const [panelParticipants, setPanelParticipants] = useState("");
+  const [linkedInUrls, setLinkedInUrls] = useState("");
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -132,6 +133,7 @@ export default function Home() {
           selectedTags: selectedTags,
           sectionName: sectionName || null,
           panelParticipants: panelParticipants || null,
+          linkedInUrls: linkedInUrls || null,
         }),
       });
 
@@ -391,6 +393,22 @@ export default function Home() {
                   className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
+              </div>
+
+              {/* LinkedIn URLs */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">LinkedIn URLs</span>
+                </div>
+                <textarea
+                  placeholder="Paste LinkedIn profile URLs (one per line)"
+                  value={linkedInUrls}
+                  onChange={(e) => setLinkedInUrls(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">One URL per line</p>
               </div>
             </div>
             
