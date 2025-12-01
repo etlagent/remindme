@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, persistentEvent, selectedTags } = await request.json();
+    const { rawText, persistentEvent, selectedTags, sectionName, panelParticipants } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -23,6 +23,12 @@ export async function POST(request: Request) {
     }
     if (selectedTags && selectedTags.length > 0) {
       contextPrompt += `\n\nThe user has pre-selected these tags/categories: ${selectedTags.join(", ")}. Include these in the sections array.`;
+    }
+    if (sectionName) {
+      contextPrompt += `\n\nThis note is from the session/section: "${sectionName}". Include this context in the summary.`;
+    }
+    if (panelParticipants) {
+      contextPrompt += `\n\nPanel participants: ${panelParticipants}. These are the people on the panel. Extract information about each person mentioned.`;
     }
 
     const completion = await openai.chat.completions.create({

@@ -32,6 +32,8 @@ export default function Home() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showEventInput, setShowEventInput] = useState(false);
   const [showTagSelector, setShowTagSelector] = useState(false);
+  const [sectionName, setSectionName] = useState("");
+  const [panelParticipants, setPanelParticipants] = useState("");
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -128,6 +130,8 @@ export default function Home() {
           rawText: captureText,
           persistentEvent: persistentEvent || null,
           selectedTags: selectedTags,
+          sectionName: sectionName || null,
+          panelParticipants: panelParticipants || null,
         }),
       });
 
@@ -356,6 +360,37 @@ export default function Home() {
                     </Badge>
                   ))}
                 </div>
+              </div>
+
+              {/* Section Name */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Type className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">Section/Session Name</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g., AI in Healthcare Panel"
+                  value={sectionName}
+                  onChange={(e) => setSectionName(e.target.value)}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Panel Participants */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">Panel Participants</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g., Sarah Chen, Mike Johnson, Lisa Park"
+                  value={panelParticipants}
+                  onChange={(e) => setPanelParticipants(e.target.value)}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Comma-separated names</p>
               </div>
             </div>
             
