@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, linkedInProfilePaste, fetchedProfileData } = await request.json();
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, linkedInProfilePaste } = await request.json();
 
     if (!rawText) {
       return NextResponse.json(
@@ -37,10 +37,7 @@ export async function POST(request: Request) {
       contextPrompt += `\n\nCompany LinkedIn URLs provided:\n${companyLinkedInUrls}\n\nExtract company names from these URLs and associate them with the people mentioned. Store these company URLs for later use with company insights scraping.`;
     }
     if (linkedInProfilePaste) {
-      contextPrompt += `\n\nPasted LinkedIn Profile Data:\n${linkedInProfilePaste}\n\nParse this raw LinkedIn profile text and extract: name, current company, current role, follower count, about/summary, all work experience (company, role, dates, descriptions), education, skills, and any other relevant information. Clean up the formatting and structure it properly.`;
-    }
-    if (fetchedProfileData) {
-      contextPrompt += `\n\nFetched LinkedIn Profile Data (from API):\n${JSON.stringify(fetchedProfileData, null, 2)}\n\nUse this structured profile data as the primary source for person information. Combine it with any additional notes provided by the user.`;
+      contextPrompt += `\n\nPasted LinkedIn Profile Data:\n${linkedInProfilePaste}\n\nParse this raw LinkedIn profile text and extract: name, current company, current role, follower count, about/summary, all work experience (company, role, dates, descriptions), education, skills, and any other relevant information. Clean up the formatting and structure it properly. Focus on analyzing their actual words in the about section and experience descriptions to understand their background and expertise.`;
     }
 
     const completion = await openai.chat.completions.create({

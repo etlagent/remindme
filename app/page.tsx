@@ -116,8 +116,8 @@ export default function Home() {
   };
 
   const handleOrganizeWithAI = async () => {
-    if (!captureText.trim() && !linkedInUrls.trim()) {
-      alert("Please add some notes or a LinkedIn URL!");
+    if (!captureText.trim() && !linkedInProfilePaste.trim()) {
+      alert("Please add some notes or paste a LinkedIn profile!");
       return;
     }
 
@@ -125,26 +125,7 @@ export default function Home() {
     setShowRawNotes(false);
 
     try {
-      // Step 1: If LinkedIn URL is provided, fetch profile data
-      let fetchedProfileData = null;
-      if (linkedInUrls.trim()) {
-        try {
-          const fetchResponse = await fetch("/api/fetch-linkedin", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ linkedInUrl: linkedInUrls.trim() }),
-          });
-
-          if (fetchResponse.ok) {
-            fetchedProfileData = await fetchResponse.json();
-            console.log("Fetched LinkedIn profile:", fetchedProfileData);
-          }
-        } catch (error) {
-          console.warn("Could not fetch LinkedIn profile, continuing anyway:", error);
-        }
-      }
-
-      // Step 2: Call OpenAI API to structure the notes
+      // Call OpenAI API to structure the notes
       const response = await fetch("/api/organize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -157,7 +138,6 @@ export default function Home() {
           linkedInUrls: linkedInUrls || null,
           companyLinkedInUrls: companyLinkedInUrls || null,
           linkedInProfilePaste: linkedInProfilePaste || null,
-          fetchedProfileData: fetchedProfileData,
         }),
       });
 
@@ -467,20 +447,20 @@ export default function Home() {
                     <p className="text-xs text-gray-500 mt-1">For running your company insights bookmarklet</p>
                   </div>
 
-                  {/* OR: Paste Entire LinkedIn Profile */}
+                  {/* Paste Entire LinkedIn Profile */}
                   <div className="border-t border-gray-200 pt-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Type className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">OR: Paste Entire LinkedIn Profile</span>
+                      <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
                     </div>
                     <textarea
-                      placeholder="Copy entire LinkedIn profile page and paste here. AI will extract: name, company, role, follower count, about, experience, education..."
+                      placeholder="Copy entire LinkedIn profile and paste here. AI will analyze their about section, work experience, and background..."
                       value={linkedInProfilePaste}
                       onChange={(e) => setLinkedInProfilePaste(e.target.value)}
                       rows={6}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Ctrl+A on profile page, Ctrl+C, then paste here</p>
+                    <p className="text-xs text-gray-500 mt-1">Desktop: Ctrl+A on profile → Ctrl+C → paste. Mobile: Desktop mode → Select All → Copy</p>
                   </div>
                 </>
               )}
@@ -528,20 +508,20 @@ export default function Home() {
                     />
                   </div>
 
-                  {/* OR: Paste Entire LinkedIn Profile */}
+                  {/* Paste Entire LinkedIn Profile */}
                   <div className="border-t border-gray-200 pt-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Type className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">OR: Paste Entire LinkedIn Profile</span>
+                      <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile</span>
                     </div>
                     <textarea
-                      placeholder="Copy entire LinkedIn profile page and paste here. AI will extract all relevant information..."
+                      placeholder="Copy entire LinkedIn profile and paste here. AI will analyze their about section, work experience, and background..."
                       value={linkedInProfilePaste}
                       onChange={(e) => setLinkedInProfilePaste(e.target.value)}
                       rows={6}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Ctrl+A on profile page, Ctrl+C, then paste here</p>
+                    <p className="text-xs text-gray-500 mt-1">Desktop: Ctrl+A on profile → Ctrl+C → paste. Mobile: Desktop mode → Select All → Copy</p>
                   </div>
                 </>
               )}
@@ -608,22 +588,6 @@ export default function Home() {
                   Tap again to add more snippets
                 </p>
               )}
-            </div>
-
-            {/* Quick LinkedIn URL - Always Visible */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">LinkedIn URL (optional)</span>
-              </div>
-              <input
-                type="text"
-                placeholder="https://linkedin.com/in/brian-griffin-64065719/"
-                value={linkedInUrls}
-                onChange={(e) => setLinkedInUrls(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Paste from mobile - AI will extract name</p>
             </div>
 
             {/* Text Input - Collapsible */}
