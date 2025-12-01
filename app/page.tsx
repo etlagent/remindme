@@ -25,6 +25,9 @@ export default function Home() {
   const [captureText, setCaptureText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [noteCount, setNoteCount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [aiPreview, setAiPreview] = useState<any>(null);
+  const [showRawNotes, setShowRawNotes] = useState(true);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -101,6 +104,76 @@ export default function Home() {
         console.error("Error starting speech recognition:", error);
       }
     }
+  };
+
+  const handleOrganizeWithAI = async () => {
+    if (!captureText.trim()) {
+      alert("Please add some notes first!");
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowRawNotes(false);
+
+    try {
+      // Call OpenAI API to structure the notes
+      const response = await fetch("/api/organize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText: captureText }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to organize notes");
+      }
+
+      const data = await response.json();
+      setAiPreview(data);
+    } catch (error) {
+      console.error("Error organizing notes:", error);
+      alert("Failed to organize notes. Please try again.");
+      setShowRawNotes(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleApproveAndSave = async () => {
+    if (!aiPreview) return;
+
+    setIsProcessing(true);
+    try {
+      // Save to Supabase
+      const response = await fetch("/api/save-memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rawText: captureText,
+          structuredData: aiPreview,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save memory");
+      }
+
+      // Clear form and reset
+      setCaptureText("");
+      setNoteCount(0);
+      setAiPreview(null);
+      setShowRawNotes(true);
+      alert("Memory saved successfully!");
+    } catch (error) {
+      console.error("Error saving memory:", error);
+      alert("Failed to save memory. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEditRawNotes = () => {
+    setAiPreview(null);
+    setShowRawNotes(true);
   };
 
   const sections: { value: Section; label: string }[] = [
@@ -208,24 +281,111 @@ export default function Home() {
               )}
             </div>
 
-            {/* Text Input */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Type className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">Or type/paste your notes</span>
+            {/* Text Input - Collapsible */}
+            {showRawNotes && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Type className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">Or type/paste your notes</span>
+                </div>
+                <Textarea
+                  value={captureText}
+                  onChange={(e) => setCaptureText(e.target.value)}
+                  placeholder="Describe how the person or moment felt, what excited you, any thoughts or ideas..."
+                  className="min-h-[150px] bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
+                />
               </div>
-              <Textarea
-                value={captureText}
-                onChange={(e) => setCaptureText(e.target.value)}
-                placeholder="Describe how the person or moment felt, what excited you, any thoughts or ideas..."
-                className="min-h-[150px] bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
-              />
-            </div>
+            )}
 
-            {/* Save Button */}
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold">
-              Save & Organize with AI
-            </Button>
+            {/* AI Preview */}
+            {aiPreview && (
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800">AI Organized Preview</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEditRawNotes}
+                    className="text-gray-600"
+                  >
+                    Edit Raw Notes
+                  </Button>
+                </div>
+
+                <Card className="bg-gray-50 border-gray-200 p-4 space-y-3">
+                  {aiPreview.people && aiPreview.people.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">People</h4>
+                      {aiPreview.people.map((person: any, idx: number) => (
+                        <div key={idx} className="mb-3 p-3 bg-white rounded border border-gray-200">
+                          <p className="font-medium text-gray-800">{person.name || "Unknown"}</p>
+                          {person.company && <p className="text-sm text-gray-600">{person.role} at {person.company}</p>}
+                          {person.inspiration_level && (
+                            <Badge className="mt-2 bg-blue-100 text-blue-700">
+                              Inspiration: {person.inspiration_level}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiPreview.event && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Event</h4>
+                      <p className="text-sm text-gray-600">{aiPreview.event.name}</p>
+                      {aiPreview.event.date && <p className="text-xs text-gray-500">{aiPreview.event.date}</p>}
+                    </div>
+                  )}
+
+                  {aiPreview.summary && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
+                      <p className="text-sm text-gray-600">{aiPreview.summary}</p>
+                    </div>
+                  )}
+
+                  {aiPreview.follow_ups && aiPreview.follow_ups.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
+                      {aiPreview.follow_ups.map((followUp: any, idx: number) => (
+                        <div key={idx} className="text-sm text-gray-600 mb-1">
+                          • {followUp.description}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            {!aiPreview ? (
+              <Button 
+                onClick={handleOrganizeWithAI}
+                disabled={isProcessing || !captureText.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              >
+                {isProcessing ? "Processing..." : "Organize with AI"}
+              </Button>
+            ) : (
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleApproveAndSave}
+                  disabled={isProcessing}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                >
+                  {isProcessing ? "Saving..." : "Approve & Save"}
+                </Button>
+                <Button
+                  onClick={handleEditRawNotes}
+                  variant="outline"
+                  className="flex-1 border-gray-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </Card>
 
           {/* Right: Library Section */}
