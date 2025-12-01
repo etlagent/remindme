@@ -825,11 +825,30 @@ Add your notes below:
                       {/* Keywords */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
+                        <input
+                          type="text"
+                          placeholder="Add keyword (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const newKeywords = [...(editedPreview.keywords || []), e.currentTarget.value.trim()];
+                              setEditedPreview({...editedPreview, keywords: newKeywords});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
                         {(editedPreview.keywords && editedPreview.keywords.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.keywords.map((keyword: string, idx: number) => (
-                              <Badge key={idx} className="bg-blue-100 text-blue-700 text-xs">
-                                {keyword}
+                              <Badge 
+                                key={idx} 
+                                className="bg-blue-100 text-blue-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const newKeywords = editedPreview.keywords.filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview({...editedPreview, keywords: newKeywords});
+                                }}
+                              >
+                                {keyword} ×
                               </Badge>
                             ))}
                           </div>
@@ -841,11 +860,30 @@ Add your notes below:
                       {/* Companies */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Companies</h4>
+                        <input
+                          type="text"
+                          placeholder="Add company (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const newCompanies = [...(editedPreview.companies || []), e.currentTarget.value.trim()];
+                              setEditedPreview({...editedPreview, companies: newCompanies});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
                         {(editedPreview.companies && editedPreview.companies.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.companies.map((company: string, idx: number) => (
-                              <Badge key={idx} className="bg-purple-100 text-purple-700 text-xs">
-                                {company}
+                              <Badge 
+                                key={idx} 
+                                className="bg-purple-100 text-purple-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const newCompanies = editedPreview.companies.filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview({...editedPreview, companies: newCompanies});
+                                }}
+                              >
+                                {company} ×
                               </Badge>
                             ))}
                           </div>
@@ -857,11 +895,30 @@ Add your notes below:
                       {/* Industries */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Industries</h4>
+                        <input
+                          type="text"
+                          placeholder="Add industry (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const newIndustries = [...(editedPreview.industries || []), e.currentTarget.value.trim()];
+                              setEditedPreview({...editedPreview, industries: newIndustries});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
                         {(editedPreview.industries && editedPreview.industries.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
                             {editedPreview.industries.map((industry: string, idx: number) => (
-                              <Badge key={idx} className="bg-green-100 text-green-700 text-xs">
-                                {industry}
+                              <Badge 
+                                key={idx} 
+                                className="bg-green-100 text-green-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
+                                onClick={() => {
+                                  const newIndustries = editedPreview.industries.filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview({...editedPreview, industries: newIndustries});
+                                }}
+                              >
+                                {industry} ×
                               </Badge>
                             ))}
                           </div>
@@ -881,11 +938,34 @@ Add your notes below:
                       {/* Follow-ups */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
-                        {(editedPreview.follow_ups && editedPreview.follow_ups.length > 0) ? (
-                          <div className="space-y-1">
-                            {editedPreview.follow_ups.map((followUp: any, idx: number) => (
-                              <div key={idx} className="text-sm text-gray-600">
-                                • {followUp.description}
+                        <input
+                          type="text"
+                          placeholder="Add follow-up action (press Enter)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              const followUps = editedPreview.follow_ups || editedPreview.followUps || [];
+                              const newFollowUps = [...followUps, { description: e.currentTarget.value.trim(), priority: 'medium' }];
+                              setEditedPreview({...editedPreview, follow_ups: newFollowUps, followUps: undefined});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        {((editedPreview.follow_ups || editedPreview.followUps)?.length > 0) ? (
+                          <div className="space-y-2">
+                            {(editedPreview.follow_ups || editedPreview.followUps).map((followUp: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                                <span className="text-sm text-gray-700 flex-1">• {followUp.description}</span>
+                                <button
+                                  onClick={() => {
+                                    const followUps = editedPreview.follow_ups || editedPreview.followUps || [];
+                                    const newFollowUps = followUps.filter((_: any, i: number) => i !== idx);
+                                    setEditedPreview({...editedPreview, follow_ups: newFollowUps, followUps: undefined});
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-xs font-bold"
+                                >
+                                  ×
+                                </button>
                               </div>
                             ))}
                           </div>
