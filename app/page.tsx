@@ -279,34 +279,14 @@ export default function Home() {
               </Button>
             </div>
 
-            {/* Context Selector & Dynamic Fields - Collapsible */}
-            <div className="mb-6 pb-4 border-b border-gray-200">
-              {/* Collapsible Header */}
-              <button
-                onClick={() => setIsContextExpanded(!isContextExpanded)}
-                className="w-full flex items-center justify-between mb-3 hover:bg-gray-50 p-2 rounded transition-colors"
-              >
-                <div className="flex items-center gap-2">
+            {/* Context Selector & Dynamic Fields */}
+            <div className="mb-6 space-y-3 pb-4 border-b border-gray-200">
+              {/* Context Type Selector - Always Visible */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
                   <CheckSquare className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-700">Context & Metadata</span>
-                  <Badge className="bg-blue-100 text-blue-700 text-xs">
-                    {contextType}
-                  </Badge>
+                  <span className="text-sm font-medium text-gray-600">Context Type</span>
                 </div>
-                <span className="text-gray-400 text-sm">
-                  {isContextExpanded ? "▼" : "▶"}
-                </span>
-              </button>
-
-              {/* Collapsible Content */}
-              {isContextExpanded && (
-                <div className="space-y-3">
-                  {/* Context Type Selector */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckSquare className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Context Type</span>
-                    </div>
                 <div className="flex flex-wrap gap-2">
                   {contextTypes.map((ctx) => (
                     <Badge
@@ -324,9 +304,24 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Dynamic Fields Based on Context */}
-              {/* Event Context Fields */}
-              {contextType === "event" && (
+              {/* Collapsible Details Section */}
+              {(contextType === "event" || contextType === "business" || contextType === "project" || contextType === "trip") && (
+                <div>
+                  <button
+                    onClick={() => setIsContextExpanded(!isContextExpanded)}
+                    className="w-full flex items-center justify-between py-2 hover:bg-gray-50 px-2 rounded transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-600">Additional Details</span>
+                    <span className="text-gray-400 text-xs">
+                      {isContextExpanded ? "▼ Hide" : "▶ Show"}
+                    </span>
+                  </button>
+
+                  {isContextExpanded && (
+                    <div className="space-y-3 mt-3">
+                      {/* Dynamic Fields Based on Context */}
+                      {/* Event Context Fields */}
+                      {contextType === "event" && (
                 <>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -499,6 +494,8 @@ export default function Home() {
                   />
                 </div>
               )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
