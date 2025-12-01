@@ -25,6 +25,7 @@ export default function Home() {
   const [isListening, setIsListening] = useState(false);
   const [noteCount, setNoteCount] = useState(0);
   const recognitionRef = useRef<any>(null);
+  const isProcessingRef = useRef(false);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -38,6 +39,10 @@ export default function Home() {
         recognition.lang = "en-US";
 
         recognition.onresult = (event: any) => {
+          // Prevent duplicate processing
+          if (isProcessingRef.current) return;
+          isProcessingRef.current = true;
+          
           const transcript = event.results[0][0].transcript;
           // Increment note count and add numbered marker
           setNoteCount((prevCount) => {
@@ -59,6 +64,8 @@ export default function Home() {
         recognition.onend = () => {
           setIsListening(false);
           setIsRecording(false);
+          // Reset processing flag for next recording
+          isProcessingRef.current = false;
         };
 
         recognitionRef.current = recognition;
