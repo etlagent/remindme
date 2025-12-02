@@ -201,6 +201,60 @@ export default function Home() {
     }
   };
 
+  const handleDirectSave = async () => {
+    setIsProcessing(true);
+    try {
+      // Build structured data from form fields
+      const structuredData = {
+        people: [{
+          name: personName,
+          company: personCompany,
+          role: personRole,
+          linkedin_url: linkedInUrls,
+          company_linkedin_url: companyLinkedInUrls,
+        }],
+        additional_notes: editedPreview?.additional_notes || [],
+        follow_ups: editedPreview?.follow_ups || [],
+        context_type: contextType,
+      };
+
+      // Save to Supabase
+      const response = await fetch("/api/save-memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rawText: captureText,
+          structuredData: structuredData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save contact");
+      }
+
+      // Clear form and reset
+      setCaptureText("");
+      setEditedMainNotes("");
+      setNoteCount(0);
+      setAiPreview(null);
+      setShowRawNotes(true);
+      setPersonName("");
+      setPersonCompany("");
+      setPersonRole("");
+      setEditedPreview(null);
+      setIsEditingPreview(false);
+      setLinkedInProfilePaste("");
+      setLinkedInUrls("");
+      setCompanyLinkedInUrls("");
+      alert("Contact saved successfully! Check the Library on the right.");
+    } catch (error) {
+      console.error("Error saving contact:", error);
+      alert("Failed to save contact. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleApproveAndSave = async (dataToSave?: any) => {
     if (!aiPreview) return;
 
@@ -1501,7 +1555,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
             {!aiPreview && personName.trim() && (
               <div className="flex justify-end">
                 <Button 
-                  onClick={handleOrganizeWithAI}
+                  onClick={handleDirectSave}
                   disabled={isProcessing}
                   className="bg-green-600 hover:bg-green-700 text-white font-semibold"
                 >
