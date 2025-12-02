@@ -280,11 +280,30 @@ export default function Home() {
       setIsParsing(false); // Done parsing, now organizing
       
       try {
+        // Create a text summary of the LinkedIn profile for AI to process
+        const profileSummary = `LinkedIn Profile Data:
+Name: ${data.name || 'Unknown'}
+Company: ${data.company || 'Unknown'}
+Role: ${data.role || 'Unknown'}
+${data.follower_count ? `Followers: ${data.follower_count}` : ''}
+
+About: ${data.about || 'No about section'}
+
+Experience:
+${data.experience?.map((exp: any) => `- ${exp.role} at ${exp.company} (${exp.dates})`).join('\n') || 'No experience listed'}
+
+Education:
+${data.education?.map((edu: any) => `- ${edu.school}${edu.degree ? ` - ${edu.degree}` : ''}`).join('\n') || 'No education listed'}
+
+Skills: ${data.skills?.join(', ') || 'No skills listed'}
+
+${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
+
         const organizeResponse = await fetch("/api/organize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            rawText: captureText || "LinkedIn profile parsed",
+            rawText: profileSummary,
             contextType: contextType,
             persistentEvent: persistentEvent || null,
             sectionName: sectionName || null,
