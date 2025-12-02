@@ -70,11 +70,21 @@ Extract and structure the following information from the user's notes:
 
 3. **Summary**: A brief summary of the encounter/notes
 
-4. **Keywords**: Array of important keywords, topics, and themes mentioned (e.g., "quantum physics", "trains", "locomotives", "MarTech", "AdTech", "SaaS")
+4. **Keywords**: Array of important keywords, topics, and themes. Extract from:
+   - LinkedIn skills (e.g., "Enterprise Sales", "Marketing Technology", "Sales Mentorship")
+   - Conversation topics (e.g., "trains", "locomotives", "quantum physics")
+   - Technologies mentioned (e.g., "MarTech", "AdTech", "SaaS")
+   - Any other relevant topics
 
-5. **Companies**: Array of all companies mentioned (from LinkedIn experience or conversation)
-
-6. **Industries**: Array of industries mentioned (e.g., "advertising", "healthcare", "biotech", "financial services", "retail", "manufacturing")
+5. **Companies**: Array of ALL companies mentioned. Extract from:
+   - Current company (from LinkedIn)
+   - All previous companies (from LinkedIn experience history)
+   - Companies mentioned in conversation
+   
+6. **Industries**: Array of industries. Infer from:
+   - Person's role and company (e.g., if they work in "Enterprise Sales" at an "AdTech" company, include "advertising", "technology", "sales")
+   - LinkedIn experience (e.g., "healthcare", "biotech", "financial services", "retail", "manufacturing")
+   - Conversation context
 
 7. **Follow-ups**: Array of suggested follow-up actions with:
    - description
@@ -118,6 +128,8 @@ Return ONLY valid JSON with no additional text.${contextPrompt}`,
           education: parsedProfileData.education || result.people[0].education,
           skills: parsedProfileData.skills || result.people[0].skills,
           follower_count: parsedProfileData.follower_count || result.people[0].follower_count,
+          linkedin_url: parsedProfileData.linkedin_url || result.people[0].linkedin_url,
+          company_linkedin_url: parsedProfileData.company_linkedin_url || result.people[0].company_linkedin_url,
         };
       }
     }

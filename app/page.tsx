@@ -48,8 +48,12 @@ export default function Home() {
   const [editedPreview, setEditedPreview] = useState<any>(null);
   const [showLinkedInData, setShowLinkedInData] = useState(false);
   const [showAboutMe, setShowAboutMe] = useState(false);
+  const [editedMainNotes, setEditedMainNotes] = useState("");
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
+
+  // Store the latest transcript
+  const [latestTranscript, setLatestTranscript] = useState("");
 
   // Initialize speech recognition
   useEffect(() => {
@@ -58,24 +62,22 @@ export default function Home() {
       
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false; // Stop after each phrase (snippet mode)
+        recognition.continuous = true; // Keep listening
         recognition.interimResults = false;
         recognition.lang = "en-US";
 
         recognition.onresult = (event: any) => {
           const transcript = event.results[event.results.length - 1][0].transcript;
-          setCaptureText((prev) => {
-            // If there's parsed profile data, append after the "---" line
-            if (prev.includes('---\nAdd your notes below:')) {
-              return prev + "\n" + transcript;
-            }
-            // Otherwise, just append normally
-            return prev + (prev ? " " : "") + transcript;
-          });
+          if (transcript.trim()) {
+            setLatestTranscript(transcript);
+          }
         };
 
         recognition.onerror = (event: any) => {
           console.error("Speech recognition error:", event.error);
+          if (event.error !== 'aborted' && event.error !== 'no-speech') {
+            alert(`Speech recognition error: ${event.error}`);
+          }
           setIsListening(false);
           setIsRecording(false);
         };
@@ -99,6 +101,29 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Handle transcript when it changes
+  useEffect(() => {
+    if (latestTranscript) {
+      // If in preview mode (aiPreview exists), add to My Notes
+      if (aiPreview && editedPreview) {
+        const notes = editedPreview.additional_notes || [];
+        const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+        const newNote = {
+          date: today,
+          text: latestTranscript.trim()
+        };
+        const newNotes = [newNote, ...notes];
+        setEditedPreview({...editedPreview, additional_notes: newNotes});
+      } else {
+        // Otherwise, add to capture text with date
+        const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+        const newText = `${today} - ${latestTranscript.trim()}`;
+        setCaptureText((prev) => prev ? `${newText}\n${prev}` : newText);
+      }
+      setLatestTranscript(""); // Clear after processing
+    }
+  }, [latestTranscript, aiPreview, editedPreview]);
 
   const handleMicClick = () => {
     if (!recognitionRef.current) {
@@ -157,6 +182,11 @@ export default function Home() {
       const data = await response.json();
       setAiPreview(data);
       setEditedPreview(JSON.parse(JSON.stringify(data))); // Set up for editing immediately
+      
+      // Get the notes without date (date will be displayed separately)
+      const rawNotes = captureText.split('---')[1]?.trim() || captureText.split('Add your notes below:')[1]?.trim() || captureText;
+      setEditedMainNotes(rawNotes);
+      
       setIsEditingPreview(true); // Go straight to edit mode
       setShowRawNotes(false);
     } catch (error) {
@@ -181,7 +211,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rawText: captureText,
+          rawText: editedMainNotes || captureText, // Use edited notes if available
           structuredData: finalData,
         }),
       });
@@ -192,6 +222,7 @@ export default function Home() {
 
       // Clear form and reset
       setCaptureText("");
+      setEditedMainNotes("");
       setNoteCount(0);
       setAiPreview(null);
       setShowRawNotes(true);
@@ -241,36 +272,55 @@ export default function Home() {
       const data = await response.json();
       setParsedProfileData(data);
       
-      // Show parsed data in notes field for review
-      const parsedSummary = `✅ Parsed LinkedIn Profile:
-
-Name: ${data.name || 'Unknown'}
-Company: ${data.company || 'Unknown'}
-Role: ${data.role || 'Unknown'}
-${data.follower_count ? `Followers: ${data.follower_count}` : ''}
-
-About:
-${data.about || 'No about section'}
-
-Experience:
-${data.experience?.map((exp: any) => `• ${exp.role} at ${exp.company} (${exp.dates})`).join('\n') || 'No experience listed'}
-
-Education:
-${data.education?.map((edu: any) => `• ${edu.school}${edu.degree ? ` - ${edu.degree}` : ''}`).join('\n') || 'No education listed'}
-
----
-Add your notes below:
-`;
-      
-      setCaptureText(parsedSummary);
-      
       // Clear the paste field
       setLinkedInProfilePaste("");
+      
+      // Auto-organize with AI to populate background fields
+      setIsProcessing(true);
+      setIsParsing(false); // Done parsing, now organizing
+      
+      try {
+        const organizeResponse = await fetch("/api/organize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            rawText: captureText || "LinkedIn profile parsed",
+            contextType: contextType,
+            persistentEvent: persistentEvent || null,
+            sectionName: sectionName || null,
+            panelParticipants: panelParticipants || null,
+            linkedInUrls: linkedInUrls || null,
+            companyLinkedInUrls: companyLinkedInUrls || null,
+            parsedProfileData: data,
+            parsedProfilesArray: null,
+          }),
+        });
+
+        if (!organizeResponse.ok) {
+          throw new Error("Failed to organize");
+        }
+
+        const organizedData = await organizeResponse.json();
+        setAiPreview(organizedData);
+        setEditedPreview(JSON.parse(JSON.stringify(organizedData)));
+        
+        // Initialize empty notes for user to add
+        setEditedMainNotes("");
+        
+        setIsEditingPreview(true);
+        setShowRawNotes(false);
+        
+      } catch (orgError) {
+        console.error("Error auto-organizing:", orgError);
+        alert("Profile parsed but failed to auto-organize. You can still add notes and organize manually.");
+      }
+      
     } catch (error) {
       console.error("Error parsing LinkedIn profile:", error);
       alert("Failed to parse LinkedIn profile. Please try again.");
-    } finally {
       setIsParsing(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -603,6 +653,21 @@ Add your notes below:
                         <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
                       </div>
 
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-600">Company LinkedIn URL</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="https://linkedin.com/company/example-company/"
+                          value={companyLinkedInUrls}
+                          onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
+                      </div>
+
                       {/* Paste Entire LinkedIn Profile */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -743,7 +808,7 @@ Add your notes below:
               )}
             </div>
             
-            {/* Voice Recording */}
+            {/* Voice Recording - Always visible */}
             <div className="mb-4">
               <Button
                 onClick={handleMicClick}
@@ -761,26 +826,94 @@ Add your notes below:
                   Speak naturally...
                 </p>
               )}
-              {!isRecording && captureText && (
-                <p className="text-center text-xs text-gray-500 mt-1">
-                  Tap again to add more
-                </p>
-              )}
             </div>
 
-            {/* Text Input - Collapsible */}
+            {/* My Notes - Same format as preview */}
             {showRawNotes && (
               <div className="mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Type className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">Your notes</span>
-                </div>
-                <Textarea
-                  value={captureText}
-                  onChange={(e) => setCaptureText(e.target.value)}
-                  placeholder="Describe how the person or moment felt, what excited you, any thoughts or ideas..."
-                  className="min-h-[300px] bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
+                <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
+                <textarea
+                  placeholder="Add note (Enter to save, Shift+Enter for new line)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
+                      e.preventDefault();
+                      const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+                      const newText = `${today} - ${e.currentTarget.value.trim()}`;
+                      setCaptureText((prev) => prev ? `${newText}\n\n${prev}` : newText);
+                      e.currentTarget.value = '';
+                    }
+                  }}
                 />
+                {captureText && (
+                  <div className="space-y-2">
+                    {captureText.split('\n').filter(line => line.trim()).map((line, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                        <span className="text-sm text-gray-700 flex-1">{line}</span>
+                        <button
+                          onClick={() => {
+                            const lines = captureText.split('\n').filter(l => l.trim());
+                            lines.splice(idx, 1);
+                            setCaptureText(lines.join('\n'));
+                          }}
+                          className="text-red-600 hover:text-red-700 text-xs font-bold"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!captureText && (
+                  <p className="text-sm text-gray-400 italic">No notes yet</p>
+                )}
+              </div>
+            )}
+
+            {/* Follow-ups - Same in capture mode */}
+            {showRawNotes && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
+                <textarea
+                  placeholder="Add follow-up action (Enter to save, Shift+Enter for new line)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
+                      e.preventDefault();
+                      // Store follow-ups in editedPreview even in capture mode
+                      if (!editedPreview) {
+                        setEditedPreview({ follow_ups: [{ description: e.currentTarget.value.trim(), priority: 'medium' }] });
+                      } else {
+                        const followUps = editedPreview.follow_ups || [];
+                        const newFollowUps = [...followUps, { description: e.currentTarget.value.trim(), priority: 'medium' }];
+                        setEditedPreview({...editedPreview, follow_ups: newFollowUps});
+                      }
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                {editedPreview?.follow_ups && editedPreview.follow_ups.length > 0 ? (
+                  <div className="space-y-2">
+                    {editedPreview.follow_ups.map((followUp: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                        <span className="text-sm text-gray-700 flex-1">• {followUp.description}</span>
+                        <button
+                          onClick={() => {
+                            const newFollowUps = editedPreview.follow_ups.filter((_: any, i: number) => i !== idx);
+                            setEditedPreview({...editedPreview, follow_ups: newFollowUps});
+                          }}
+                          className="text-red-600 hover:text-red-700 text-xs font-bold"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No follow-ups yet</p>
+                )}
               </div>
             )}
 
@@ -806,6 +939,20 @@ Add your notes below:
                               {person.role && <p className="text-sm text-gray-700">{person.role}</p>}
                               {person.follower_count && (
                                 <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
+                              )}
+                              {person.linkedin_url && (
+                                <p className="text-sm text-blue-600">
+                                  <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                    🔗 LinkedIn Profile
+                                  </a>
+                                </p>
+                              )}
+                              {person.company_linkedin_url && (
+                                <p className="text-sm text-purple-600">
+                                  <a href={person.company_linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                    🏢 Company LinkedIn
+                                  </a>
+                                </p>
                               )}
                             </div>
                           ))}
@@ -1087,53 +1234,60 @@ Add your notes below:
                       {/* My Notes */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
-                        <input
-                          type="text"
-                          placeholder="Add additional note (press Enter)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                        <textarea
+                          placeholder="Add note (Enter to save, Shift+Enter for new line)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                          rows={1}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                            if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
+                              e.preventDefault();
                               const notes = editedPreview.additional_notes || [];
-                              const newNotes = [...notes, e.currentTarget.value.trim()];
+                              const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+                              const newNote = {
+                                date: today,
+                                text: e.currentTarget.value.trim()
+                              };
+                              const newNotes = [newNote, ...notes];
                               setEditedPreview({...editedPreview, additional_notes: newNotes});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        <div className="bg-white p-3 rounded border border-gray-200 text-sm text-gray-700 space-y-2">
-                          <div className="whitespace-pre-wrap">
-                            {captureText.split('---')[1]?.trim() || captureText.split('Add your notes below:')[1]?.trim() || captureText}
+                        {editedPreview.additional_notes && editedPreview.additional_notes.length > 0 ? (
+                          <div className="space-y-2">
+                            {editedPreview.additional_notes.map((note: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                                <span className="text-sm text-gray-600 flex-shrink-0">
+                                  {note.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
+                                </span>
+                                <span className="text-sm text-gray-700 flex-1">• {note.text || note}</span>
+                                <button
+                                  onClick={() => {
+                                    const newNotes = editedPreview.additional_notes.filter((_: any, i: number) => i !== idx);
+                                    setEditedPreview({...editedPreview, additional_notes: newNotes});
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-xs font-bold"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                          {editedPreview.additional_notes && editedPreview.additional_notes.length > 0 && (
-                            <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
-                              {editedPreview.additional_notes.map((note: string, idx: number) => (
-                                <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                                  <span className="flex-1">• {note}</span>
-                                  <button
-                                    onClick={() => {
-                                      const newNotes = editedPreview.additional_notes.filter((_: any, i: number) => i !== idx);
-                                      setEditedPreview({...editedPreview, additional_notes: newNotes});
-                                    }}
-                                    className="text-red-600 hover:text-red-700 text-xs font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No notes yet</p>
+                        )}
                       </div>
 
                       {/* Follow-ups */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
-                        <input
-                          type="text"
-                          placeholder="Add follow-up action (press Enter)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
+                        <textarea
+                          placeholder="Add follow-up action (Enter to save, Shift+Enter for new line)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                          rows={1}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                            if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
+                              e.preventDefault();
                               const followUps = editedPreview.follow_ups || editedPreview.followUps || [];
                               const newFollowUps = [...followUps, { description: e.currentTarget.value.trim(), priority: 'medium' }];
                               setEditedPreview({...editedPreview, follow_ups: newFollowUps, followUps: undefined});
