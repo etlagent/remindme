@@ -49,6 +49,9 @@ export default function Home() {
   const [showLinkedInData, setShowLinkedInData] = useState(false);
   const [showAboutMe, setShowAboutMe] = useState(false);
   const [editedMainNotes, setEditedMainNotes] = useState("");
+  const [personName, setPersonName] = useState("");
+  const [personCompany, setPersonCompany] = useState("");
+  const [personRole, setPersonRole] = useState("");
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -226,7 +229,15 @@ export default function Home() {
       setNoteCount(0);
       setAiPreview(null);
       setShowRawNotes(true);
-      alert("Memory saved successfully!");
+      setPersonName("");
+      setPersonCompany("");
+      setPersonRole("");
+      setEditedPreview(null);
+      setIsEditingPreview(false);
+      setLinkedInProfilePaste("");
+      setLinkedInUrls("");
+      setCompanyLinkedInUrls("");
+      alert("Contact saved successfully! Check the Library on the right.");
     } catch (error) {
       console.error("Error saving memory:", error);
       alert("Failed to save memory. Please try again.");
@@ -271,6 +282,11 @@ export default function Home() {
 
       const data = await response.json();
       setParsedProfileData(data);
+      
+      // Auto-fill person info fields
+      setPersonName(data.name || "");
+      setPersonCompany(data.company || "");
+      setPersonRole(data.role || "");
       
       // Clear the paste field
       setLinkedInProfilePaste("");
@@ -387,11 +403,10 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
   const contextTypes = [
     { value: "event", label: "Event/Conference", icon: Calendar },
-    { value: "personal", label: "Personal", icon: Users },
     { value: "business", label: "Business Meeting", icon: CheckSquare },
-    { value: "todo", label: "ToDo/Task", icon: CheckSquare },
-    { value: "project", label: "Project", icon: Type },
-    { value: "trip", label: "Trip", icon: Calendar },
+    { value: "colleague", label: "Colleague", icon: Users },
+    { value: "friends", label: "Friends", icon: Users },
+    { value: "family", label: "Family", icon: Users },
   ];
 
   const sections: { value: Section; label: string }[] = [
@@ -450,7 +465,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-lg">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-800">
-            RemindMe
+            Relationship Builder
           </h1>
           <AuthButton />
         </div>
@@ -461,56 +476,108 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left: Capture Section */}
           <Card className="bg-white border-gray-200 shadow-sm p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-700">Quick Capture</h2>
-              {/* Screenshot Upload */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
-              >
-                <ImageIcon className="mr-2 h-3 w-3" />
-                Choose File
-              </Button>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-semibold text-gray-700">New Entry</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPersonName("");
+                    setPersonCompany("");
+                    setPersonRole("");
+                    setCaptureText("");
+                    setEditedPreview(null);
+                    setAiPreview(null);
+                    setParsedProfileData(null);
+                    setLinkedInProfilePaste("");
+                    setLinkedInUrls("");
+                    setCompanyLinkedInUrls("");
+                    setPersistentEvent("");
+                    setSectionName("");
+                    setPanelParticipants("");
+                  }}
+                  className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+                >
+                  Clear
+                </Button>
+                {/* Screenshot Upload */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+                >
+                  <ImageIcon className="mr-2 h-3 w-3" />
+                  Choose File
+                </Button>
+              </div>
+            </div>
+
+            {/* Person Info - Always Visible */}
+            <div className="mb-3 pb-3 border-b border-gray-200">
+              <div className="bg-white p-4 rounded border border-gray-200 space-y-1">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={personName}
+                  onChange={(e) => setPersonName(e.target.value)}
+                  className="w-full font-bold text-xl text-gray-800 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Company"
+                  value={personCompany}
+                  onChange={(e) => setPersonCompany(e.target.value)}
+                  className="w-full text-sm text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Role / Title"
+                  value={personRole}
+                  onChange={(e) => setPersonRole(e.target.value)}
+                  className="w-full text-sm text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+              </div>
             </div>
 
             {/* Context Selector & Dynamic Fields */}
-            <div className="mb-6 space-y-3 pb-4 border-b border-gray-200">
+            <div className="mb-3 space-y-3 pb-3 border-b border-gray-200">
               {/* Context Type Selector - Always Visible */}
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckSquare className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-600">Context Type</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {contextTypes.map((ctx) => (
-                    <Badge
-                      key={ctx.value}
-                      onClick={() => setContextType(ctx.value)}
-                      className={`cursor-pointer transition-colors ${
-                        contextType === ctx.value
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600">Context</span>
+                    <div className="flex flex-nowrap gap-2 ml-2">
+                      {contextTypes.map((ctx) => (
+                        <Badge
+                          key={ctx.value}
+                          onClick={() => setContextType(ctx.value)}
+                          className={`cursor-pointer transition-colors whitespace-nowrap ${
+                            contextType === ctx.value
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {ctx.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  {(contextType === "event" || contextType === "business" || contextType === "colleague" || contextType === "project" || contextType === "trip") && (
+                    <button
+                      onClick={() => setIsContextExpanded(!isContextExpanded)}
+                      className="text-gray-400 text-xs hover:text-gray-600"
                     >
-                      {ctx.label}
-                    </Badge>
-                  ))}
+                      {isContextExpanded ? "▼ Hide" : "▶ Show"}
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Collapsible Details Section */}
-              {(contextType === "event" || contextType === "business" || contextType === "project" || contextType === "trip") && (
+              {(contextType === "event" || contextType === "business" || contextType === "colleague" || contextType === "project" || contextType === "trip") && (
                 <div>
-                  <button
-                    onClick={() => setIsContextExpanded(!isContextExpanded)}
-                    className="w-full flex items-center justify-between py-2 hover:bg-gray-50 px-2 rounded transition-colors"
-                  >
-                    <span className="text-sm font-medium text-gray-600">Additional Details</span>
-                    <span className="text-gray-400 text-xs">
-                      {isContextExpanded ? "▼ Hide" : "▶ Show"}
-                    </span>
-                  </button>
 
                   {isContextExpanded && (
                     <div className="space-y-3 mt-3">
@@ -656,35 +723,60 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                   {/* 1-on-1 Contact Fields - Only show when session is NOT set */}
                   {!showSessionFields && (
                     <>
-                      {/* LinkedIn URL */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Users className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-600">LinkedIn URL</span>
+                      <div className="space-y-2">
+                        {/* Instagram */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600 w-32">Instagram:</span>
+                          <input
+                            type="text"
+                            placeholder="https://instagram.com/username"
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
                         </div>
-                        <input
-                          type="text"
-                          placeholder="https://linkedin.com/in/brian-griffin-64065719/"
-                          value={linkedInUrls}
-                          onChange={(e) => setLinkedInUrls(e.target.value)}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Users className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm font-medium text-gray-600">Company LinkedIn URL</span>
+                        
+                        {/* Facebook */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600 w-32">Facebook:</span>
+                          <input
+                            type="text"
+                            placeholder="https://facebook.com/username"
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
                         </div>
-                        <input
-                          type="text"
-                          placeholder="https://linkedin.com/company/example-company/"
-                          value={companyLinkedInUrls}
-                          onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Will be saved to database</p>
+                        
+                        {/* TikTok */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600 w-32">TikTok:</span>
+                          <input
+                            type="text"
+                            placeholder="https://tiktok.com/@username"
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        
+                        {/* LinkedIn */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600 w-32">LinkedIn:</span>
+                          <input
+                            type="text"
+                            placeholder="https://linkedin.com/in/brian-griffin-64065719/"
+                            value={linkedInUrls}
+                            onChange={(e) => setLinkedInUrls(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        
+                        {/* LinkedIn Company */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600 w-32">LinkedIn Company:</span>
+                          <input
+                            type="text"
+                            placeholder="https://linkedin.com/company/example-company/"
+                            value={companyLinkedInUrls}
+                            onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
                       </div>
 
                       {/* Paste Entire LinkedIn Profile */}
@@ -788,6 +880,93 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                 </>
               )}
 
+              {/* Colleague fields */}
+              {contextType === "colleague" && (
+                <>
+                  <div className="space-y-2">
+                    {/* Instagram */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600 w-32">Instagram:</span>
+                      <input
+                        type="text"
+                        placeholder="https://instagram.com/username"
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* Facebook */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600 w-32">Facebook:</span>
+                      <input
+                        type="text"
+                        placeholder="https://facebook.com/username"
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* TikTok */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600 w-32">TikTok:</span>
+                      <input
+                        type="text"
+                        placeholder="https://tiktok.com/@username"
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* LinkedIn */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600 w-32">LinkedIn:</span>
+                      <input
+                        type="text"
+                        placeholder="https://linkedin.com/in/brian-griffin-64065719/"
+                        value={linkedInUrls}
+                        onChange={(e) => setLinkedInUrls(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    {/* LinkedIn Company */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600 w-32">LinkedIn Company:</span>
+                      <input
+                        type="text"
+                        placeholder="https://linkedin.com/company/example-company/"
+                        value={companyLinkedInUrls}
+                        onChange={(e) => setCompanyLinkedInUrls(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Paste Entire LinkedIn Profile */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Type className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">Paste LinkedIn Profile (optional)</span>
+                      </div>
+                      <Button
+                        onClick={handleParseLinkedInProfile}
+                        disabled={isParsing || !linkedInProfilePaste.trim()}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {isParsing ? "Parsing..." : "Parse Profile"}
+                      </Button>
+                    </div>
+                    <textarea
+                      placeholder="Copy entire LinkedIn profile and paste here, then click 'Parse Profile' to extract full details..."
+                      value={linkedInProfilePaste}
+                      onChange={(e) => setLinkedInProfilePaste(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-xs"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Desktop: Ctrl+A on profile → Ctrl+C → paste. Mobile: Desktop mode → Select All → Copy</p>
+                  </div>
+                </>
+              )}
+
               {/* Project fields */}
               {contextType === "project" && (
                 <div>
@@ -828,7 +1007,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
             </div>
             
             {/* Voice Recording - Always visible */}
-            <div className="mb-4">
+            <div className="mb-3">
               <Button
                 onClick={handleMicClick}
                 className={`w-full h-16 text-base font-medium transition-all ${
@@ -847,10 +1026,10 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               )}
             </div>
 
-            {/* My Notes - Same format as preview */}
+            {/* Conversations - Same format as preview */}
             {showRawNotes && (
               <div className="mb-6">
-                <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
+                <h4 className="font-semibold text-gray-700 mb-2">Conversations</h4>
                 <textarea
                   placeholder="Add note (Enter to save, Shift+Enter for new line)"
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
@@ -938,74 +1117,26 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
             {/* AI Preview */}
             {aiPreview && (
-              <div className="mb-6 space-y-4">
+              <div className="mb-6 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800">Memory Preview</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Preview</h3>
                 </div>
 
                 <Card className="bg-gray-50 border-gray-200 p-4 space-y-2">
                   {isEditingPreview && editedPreview && (
                     // Edit Mode
                     <>
-                      {/* Person Info */}
+                      {/* LinkedIn Data (Collapsible) */}
                       {editedPreview.people && editedPreview.people.length > 0 && (
-                        <div className="bg-white p-4 rounded border border-gray-200 space-y-2">
-                          {editedPreview.people.map((person: any, idx: number) => (
-                            <div key={idx} className="space-y-1">
-                              <p className="font-bold text-xl text-gray-800">{person.name || "Unknown"}</p>
-                              {person.location && <p className="text-sm text-gray-600">📍 {person.location}</p>}
-                              {person.company && <p className="text-sm text-gray-700">{person.company}</p>}
-                              {person.role && <p className="text-sm text-gray-700">{person.role}</p>}
-                              {person.follower_count && (
-                                <p className="text-sm text-gray-600">Followers: {person.follower_count.toLocaleString()}</p>
-                              )}
-                              {person.linkedin_url && (
-                                <p className="text-sm text-blue-600">
-                                  <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                    🔗 LinkedIn Profile
-                                  </a>
-                                </p>
-                              )}
-                              {person.company_linkedin_url && (
-                                <p className="text-sm text-purple-600">
-                                  <a href={person.company_linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                    🏢 Company LinkedIn
-                                  </a>
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* About me (Collapsible) */}
-                      {editedPreview.people && editedPreview.people.length > 0 && editedPreview.people[0].about && (
                         <div className="bg-white rounded border border-gray-200">
                           <button
-                            onClick={() => setShowAboutMe(!showAboutMe)}
+                            onClick={() => setShowLinkedInData(!showLinkedInData)}
                             className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
                           >
-                            <h4 className="font-semibold text-gray-700">About me</h4>
-                            <span className="text-gray-500">{showAboutMe ? '▼' : '▶'}</span>
+                            <h4 className="font-semibold text-gray-700">LinkedIn</h4>
+                            <span className="text-gray-500">{showLinkedInData ? '▼' : '▶'}</span>
                           </button>
-                          {showAboutMe && (
-                            <div className="px-4 pb-4">
-                              <p className="text-sm text-gray-600">{editedPreview.people[0].about}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Background (Collapsible) */}
-                      <div className="bg-white rounded border border-gray-200">
-                        <button
-                          onClick={() => setShowLinkedInData(!showLinkedInData)}
-                          className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
-                        >
-                          <h4 className="font-semibold text-gray-700">Background</h4>
-                          <span className="text-gray-500">{showLinkedInData ? '▼' : '▶'}</span>
-                        </button>
-                        {showLinkedInData && (
+                          {showLinkedInData && (
                           <div className="px-4 pb-4 space-y-3">
                             {/* Keywords */}
                       <div>
@@ -1247,12 +1378,13 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                         )}
                       </div>
                           </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
 
-                      {/* My Notes */}
+                      {/* Conversations */}
                       <div>
-                        <h4 className="font-semibold text-gray-700 mb-2">My Notes</h4>
+                        <h4 className="font-semibold text-gray-700 mb-2">Conversations</h4>
                         <textarea
                           placeholder="Add note (Enter to save, Shift+Enter for new line)"
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
@@ -1346,7 +1478,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           disabled={isProcessing}
                           className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                          {isProcessing ? "Saving..." : "Add Memory"}
+                          {isProcessing ? "Saving..." : "Save to Rolodex"}
                         </Button>
                         <Button
                           variant="outline"
@@ -1366,14 +1498,16 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
             )}
 
             {/* Action Buttons */}
-            {!aiPreview && (
-              <Button 
-                onClick={handleOrganizeWithAI}
-                disabled={isProcessing || !captureText.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-              >
-                {isProcessing ? "Processing..." : "Organize with AI"}
-              </Button>
+            {!aiPreview && personName.trim() && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleOrganizeWithAI}
+                  disabled={isProcessing}
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold"
+                >
+                  {isProcessing ? "Saving..." : "Save to Relationship Builder"}
+                </Button>
+              </div>
             )}
           </Card>
 
