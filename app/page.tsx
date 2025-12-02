@@ -229,7 +229,9 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save contact");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Save failed:", errorData);
+        throw new Error(errorData.error || "Failed to save contact");
       }
 
       // Clear form and reset
