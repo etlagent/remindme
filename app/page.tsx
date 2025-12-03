@@ -55,13 +55,30 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
+  const [people, setPeople] = useState<any[]>([]);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
   // Store the latest transcript
   const [latestTranscript, setLatestTranscript] = useState("");
 
-  // Check auth status on mount
+  // Fetch people from database
+  const fetchPeople = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('people')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      console.log("📚 Loaded people:", data?.length);
+      setPeople(data || []);
+    } catch (error) {
+      console.error("Error fetching people:", error);
+    }
+  };
+
+  // Check auth status on mount and load people
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -72,6 +89,11 @@ export default function Home() {
       });
       setAuthUser(session?.user || null);
       setAuthChecked(true);
+      
+      // Load people if authenticated
+      if (session) {
+        fetchPeople();
+      }
     };
     checkAuth();
   }, []);
@@ -288,6 +310,10 @@ export default function Home() {
       setLinkedInProfilePaste("");
       setLinkedInUrls("");
       setCompanyLinkedInUrls("");
+      
+      // Refresh people list
+      await fetchPeople();
+      
       alert("Contact saved successfully! Check the Library on the right.");
     } catch (error) {
       console.error("Error saving contact:", error);
@@ -1648,7 +1674,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
               {/* People Tab */}
               <TabsContent value="people" className="space-y-4 mt-4">
-                {mockPeople.map((person) => (
+                {people.map((person) => (
                   <Card 
                     key={person.id} 
                     className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer"
@@ -1657,28 +1683,36 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-semibold text-gray-800">{person.name}</h3>
-                        <p className="text-sm text-gray-600">{person.role} at {person.company}</p>
+                        <p className="text-sm text-gray-600">
+                          {person.role && person.company ? `${person.role} at ${person.company}` : person.role || person.company || 'No details'}
+                        </p>
                       </div>
-                      <Badge
-                        className={
-                          person.inspiration === "high"
-                            ? "bg-green-100 text-green-700 border-green-200"
-                            : person.inspiration === "medium"
-                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                            : "bg-gray-100 text-gray-700 border-gray-200"
-                        }
-                      >
-                        {person.inspiration === "high" ? "⭐ Inspiring" : "Worth nurturing"}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-2 mb-2">
-                      {person.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs border-gray-300 text-gray-600">
-                          {tag}
+                      {person.inspiration_level && (
+                        <Badge
+                          className={
+                            person.inspiration_level === "high"
+                              ? "bg-green-100 text-green-700 border-green-200"
+                              : person.inspiration_level === "medium"
+                              ? "bg-amber-100 text-amber-700 border-amber-200"
+                              : "bg-gray-100 text-gray-700 border-gray-200"
+                          }
+                        >
+                          {person.inspiration_level === "high" ? "⭐ Inspiring" : "Worth nurturing"}
                         </Badge>
-                      ))}
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500">Last met: {person.lastMet}</p>
+                    {person.interests && person.interests.length > 0 && (
+                      <div className="flex gap-2 mb-2">
+                        {person.interests.slice(0, 3).map((interest: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="text-xs border-gray-300 text-gray-600">
+                            {interest}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Added: {new Date(person.created_at).toLocaleDateString()}
+                    </p>
                   </Card>
                 ))}
               </TabsContent>
