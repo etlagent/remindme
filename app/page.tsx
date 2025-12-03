@@ -16,6 +16,84 @@ import { CSS } from '@dnd-kit/utilities';
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
 
+// Sortable Event Card Component
+function SortableEventCard({ event }: { event: any }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: event.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <Card className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-move">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h3 className="font-semibold text-gray-800">{event.name}</h3>
+            <p className="text-sm text-gray-600">{event.date ? new Date(event.date).toLocaleDateString() : 'No date'}</p>
+          </div>
+        </div>
+        {event.location && (
+          <p className="text-xs text-gray-500">📍 {event.location}</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Sortable Follow-up Card Component
+function SortableFollowUpCard({ followUp }: { followUp: any }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: followUp.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <Card className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-move">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1">
+            <p className="text-sm text-gray-800">{followUp.description}</p>
+          </div>
+          <Badge
+            className={
+              followUp.priority === "high"
+                ? "bg-red-100 text-red-700 border-red-200"
+                : followUp.priority === "medium"
+                ? "bg-amber-100 text-amber-700 border-amber-200"
+                : "bg-gray-100 text-gray-700 border-gray-200"
+            }
+          >
+            {followUp.priority || 'medium'}
+          </Badge>
+        </div>
+        <p className="text-xs text-gray-500">
+          Status: {followUp.status || 'pending'}
+        </p>
+      </Card>
+    </div>
+  );
+}
+
 // Sortable Person Card Component
 function SortablePersonCard({ person, router }: { person: any; router: any }) {
   const {
@@ -124,6 +202,8 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
   const [people, setPeople] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [followUps, setFollowUps] = useState<any[]>([]);
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -147,8 +227,42 @@ export default function Home() {
     }
   };
 
-  // Handle drag end for reordering
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // Fetch events from database
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      console.log("📅 Loaded events:", data?.length);
+      setEvents(data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    }
+  };
+
+  // Fetch follow-ups from database
+  const fetchFollowUps = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('follow_ups')
+        .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      console.log("✅ Loaded follow-ups:", data?.length);
+      setFollowUps(data || []);
+    } catch (error) {
+      console.error("Error fetching follow-ups:", error);
+    }
+  };
+
+  // Handle drag end for people
+  const handlePeopleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -168,6 +282,64 @@ export default function Home() {
         for (const update of updates) {
           await supabase
             .from('people')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id);
+        }
+      } catch (error) {
+        console.error("Error updating order:", error);
+      }
+    }
+  };
+
+  // Handle drag end for events
+  const handleEventsDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = events.findIndex((e) => e.id === active.id);
+      const newIndex = events.findIndex((e) => e.id === over.id);
+
+      const newEvents = arrayMove(events, oldIndex, newIndex);
+      setEvents(newEvents);
+
+      try {
+        const updates = newEvents.map((event, index) => ({
+          id: event.id,
+          display_order: index
+        }));
+
+        for (const update of updates) {
+          await supabase
+            .from('events')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id);
+        }
+      } catch (error) {
+        console.error("Error updating order:", error);
+      }
+    }
+  };
+
+  // Handle drag end for follow-ups
+  const handleFollowUpsDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = followUps.findIndex((f) => f.id === active.id);
+      const newIndex = followUps.findIndex((f) => f.id === over.id);
+
+      const newFollowUps = arrayMove(followUps, oldIndex, newIndex);
+      setFollowUps(newFollowUps);
+
+      try {
+        const updates = newFollowUps.map((followUp, index) => ({
+          id: followUp.id,
+          display_order: index
+        }));
+
+        for (const update of updates) {
+          await supabase
+            .from('follow_ups')
             .update({ display_order: update.display_order })
             .eq('id', update.id);
         }
@@ -199,9 +371,11 @@ export default function Home() {
       setAuthUser(session?.user || null);
       setAuthChecked(true);
       
-      // Load people if authenticated
+      // Load data if authenticated
       if (session) {
         fetchPeople();
+        fetchEvents();
+        fetchFollowUps();
       }
     };
     checkAuth();
@@ -1786,7 +1960,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+                  onDragEnd={handlePeopleDragEnd}
                 >
                   <SortableContext
                     items={people.map(p => p.id)}
@@ -1801,54 +1975,38 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
               {/* Events Tab */}
               <TabsContent value="events" className="space-y-4 mt-4">
-                {mockEvents.map((event) => (
-                  <Card key={event.id} className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{event.name}</h3>
-                        <p className="text-sm text-gray-600">{event.date}</p>
-                      </div>
-                      <Badge className="bg-purple-100 text-purple-700 border-purple-200">{event.peopleCount} people</Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      {event.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs border-gray-300 text-gray-600">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </Card>
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleEventsDragEnd}
+                >
+                  <SortableContext
+                    items={events.map(e => e.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {events.map((event) => (
+                      <SortableEventCard key={event.id} event={event} />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TabsContent>
 
               {/* Follow-ups Tab */}
               <TabsContent value="followups" className="space-y-4 mt-4">
-                <Card className="bg-white border-gray-200 p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckSquare className="h-5 w-5 text-blue-600 mt-1" />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 mb-1">Send intro email to Sarah</h3>
-                      <p className="text-sm text-gray-600 mb-2">About banking automation partnership</p>
-                      <div className="flex gap-2">
-                        <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs">Due: Next week</Badge>
-                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">High priority</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="bg-white border-gray-200 p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckSquare className="h-5 w-5 text-blue-600 mt-1" />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 mb-1">Follow up with Marcus</h3>
-                      <p className="text-sm text-gray-600 mb-2">Share deck about AI infrastructure project</p>
-                      <div className="flex gap-2">
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Due: This week</Badge>
-                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">Medium priority</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleFollowUpsDragEnd}
+                >
+                  <SortableContext
+                    items={followUps.map(f => f.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {followUps.map((followUp) => (
+                      <SortableFollowUpCard key={followUp.id} followUp={followUp} />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TabsContent>
             </Tabs>
           </Card>
