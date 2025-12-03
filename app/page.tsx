@@ -201,6 +201,12 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
+  const [personLocation, setPersonLocation] = useState("");
+  const [additionalFields, setAdditionalFields] = useState<Array<{id: string, value: string}>>([]);
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [showConversations, setShowConversations] = useState(true);
+  const [showFollowUps, setShowFollowUps] = useState(true);
+  const [showMemories, setShowMemories] = useState(true);
   const [people, setPeople] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [followUps, setFollowUps] = useState<any[]>([]);
@@ -960,46 +966,46 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
           {/* Left: Capture Section */}
           <Card className="bg-white border-gray-200 shadow-sm p-6">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-xl font-semibold text-gray-700">New Entry</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPersonName("");
-                    setPersonCompany("");
-                    setPersonRole("");
-                    setCaptureText("");
-                    setEditedPreview(null);
-                    setAiPreview(null);
-                    setParsedProfileData(null);
-                    setLinkedInProfilePaste("");
-                    setLinkedInUrls("");
-                    setCompanyLinkedInUrls("");
-                    setPersistentEvent("");
-                    setSectionName("");
-                    setPanelParticipants("");
-                  }}
-                  className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
-                >
-                  Clear
-                </Button>
-                {/* Screenshot Upload */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
-                >
-                  <ImageIcon className="mr-2 h-3 w-3" />
-                  Choose File
-                </Button>
-              </div>
-            </div>
-
-            {/* Person Info - Always Visible */}
+            {/* Person Info with Buttons - Always Visible */}
             <div className="mb-3 pb-3 border-b border-gray-200">
-              <div className="bg-white p-4 rounded border border-gray-200 space-y-1">
+              <div className="bg-white p-4 rounded border border-gray-200 space-y-2 relative">
+                {/* Buttons in top right */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCaptureText("");
+                      setAiPreview(null);
+                      setEditedPreview(null);
+                      setIsEditingPreview(false);
+                      setPersonName("");
+                      setPersonCompany("");
+                      setPersonRole("");
+                      setPersonLocation("");
+                      setAdditionalFields([]);
+                      setShowAdditionalDetails(false);
+                      setLinkedInProfilePaste("");
+                      setLinkedInUrls("");
+                      setCompanyLinkedInUrls("");
+                      setPersistentEvent("");
+                      setSectionName("");
+                      setPanelParticipants("");
+                    }}
+                    className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-300 bg-white hover:bg-gray-50 text-gray-600"
+                  >
+                    <ImageIcon className="mr-2 h-3 w-3" />
+                    Choose File
+                  </Button>
+                </div>
+                {/* Name */}
                 <input
                   type="text"
                   placeholder="Name"
@@ -1007,20 +1013,79 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                   onChange={(e) => setPersonName(e.target.value)}
                   className="w-full font-bold text-xl text-gray-800 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
                 />
+                
+                {/* Company */}
                 <input
                   type="text"
                   placeholder="Company"
                   value={personCompany}
                   onChange={(e) => setPersonCompany(e.target.value)}
-                  className="w-full text-sm text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                  className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
                 />
+                
+                {/* Role */}
                 <input
                   type="text"
                   placeholder="Role / Title"
                   value={personRole}
                   onChange={(e) => setPersonRole(e.target.value)}
-                  className="w-full text-sm text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                  className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
                 />
+                
+                {/* Location */}
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={personLocation}
+                  onChange={(e) => setPersonLocation(e.target.value)}
+                  className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                />
+                
+                {/* Additional Details Section */}
+                {showAdditionalDetails && (
+                  <>
+                    {/* Additional Fields */}
+                    {additionalFields.map((field) => (
+                      <div key={field.id} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Add detail..."
+                          value={field.value}
+                          onChange={(e) => {
+                            setAdditionalFields(additionalFields.map(f => 
+                              f.id === field.id ? { ...f, value: e.target.value } : f
+                            ));
+                          }}
+                          className="flex-1 text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+                        />
+                        <button
+                          onClick={() => setAdditionalFields(additionalFields.filter(f => f.id !== field.id))}
+                          className="text-gray-400 hover:text-red-600 text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* Add Field Button */}
+                    <button
+                      onClick={() => {
+                        setAdditionalFields([...additionalFields, { id: Date.now().toString(), value: '' }]);
+                      }}
+                      className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-lg mt-1"
+                    >
+                      +
+                    </button>
+                  </>
+                )}
+                
+                {/* Additional Details Toggle */}
+                <button
+                  onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mt-2"
+                >
+                  additional details {showAdditionalDetails ? '▼' : '▶'}
+                </button>
               </div>
             </div>
 
@@ -1868,7 +1933,15 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
                       {/* Conversations */}
                       <div>
-                        <h4 className="font-semibold text-gray-700 mb-2">Conversations</h4>
+                        <button
+                          onClick={() => setShowConversations(!showConversations)}
+                          className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
+                        >
+                          <span>Conversations</span>
+                          <span>{showConversations ? '▼' : '▶'}</span>
+                        </button>
+                        {showConversations && (
+                        <>
                         <textarea
                           placeholder="Add note (Enter to save, Shift+Enter for new line)"
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
@@ -1911,11 +1984,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                         ) : (
                           <p className="text-sm text-gray-400 italic">No notes yet</p>
                         )}
+                        </>
+                        )}
                       </div>
 
                       {/* Follow-ups */}
                       <div>
-                        <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
+                        <button
+                          onClick={() => setShowFollowUps(!showFollowUps)}
+                          className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
+                        >
+                          <span>Follow-ups</span>
+                          <span>{showFollowUps ? '▼' : '▶'}</span>
+                        </button>
+                        {showFollowUps && (
+                        <>
                         <textarea
                           placeholder="Add follow-up action (Enter to save, Shift+Enter for new line)"
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
@@ -1950,6 +2033,65 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           </div>
                         ) : (
                           <p className="text-sm text-gray-400 italic">No follow-ups yet</p>
+                        )}
+                        </>
+                        )}
+                      </div>
+
+                      {/* Memories */}
+                      <div>
+                        <button
+                          onClick={() => setShowMemories(!showMemories)}
+                          className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
+                        >
+                          <span>Memories</span>
+                          <span>{showMemories ? '▼' : '▶'}</span>
+                        </button>
+                        {showMemories && (
+                        <>
+                        <textarea
+                          placeholder="Add a memory or something to remember"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                          rows={1}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
+                              e.preventDefault();
+                              const memories = editedPreview.memories || [];
+                              const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+                              const newMemory = {
+                                date: today,
+                                text: e.currentTarget.value.trim()
+                              };
+                              const newMemories = [newMemory, ...memories];
+                              setEditedPreview({...editedPreview, memories: newMemories});
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        {editedPreview.memories && editedPreview.memories.length > 0 ? (
+                          <div className="space-y-2">
+                            {editedPreview.memories.map((memory: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                                <span className="text-sm text-gray-600 flex-shrink-0">
+                                  {memory.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
+                                </span>
+                                <span className="text-sm text-gray-700 flex-1">• {memory.text || memory}</span>
+                                <button
+                                  onClick={() => {
+                                    const newMemories = editedPreview.memories.filter((_: any, i: number) => i !== idx);
+                                    setEditedPreview({...editedPreview, memories: newMemories});
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-xs font-bold"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No memories yet</p>
+                        )}
+                        </>
                         )}
                       </div>
 
