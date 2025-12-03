@@ -10,8 +10,76 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AuthButton } from "@/components/AuthButton";
 import { supabase } from "@/lib/supabase";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
+
+// Sortable Person Card Component
+function SortablePersonCard({ person, router }: { person: any; router: any }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: person.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <Card 
+        className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-move"
+        onClick={(e) => {
+          if (!isDragging) {
+            router.push(`/person/${person.id}`);
+          }
+        }}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h3 className="font-semibold text-gray-800">{person.name}</h3>
+            <p className="text-sm text-gray-600">
+              {person.role && person.company ? `${person.role} at ${person.company}` : person.role || person.company || 'No details'}
+            </p>
+          </div>
+          {person.inspiration_level && (
+            <Badge
+              className={
+                person.inspiration_level === "high"
+                  ? "bg-green-100 text-green-700 border-green-200"
+                  : person.inspiration_level === "medium"
+                  ? "bg-amber-100 text-amber-700 border-amber-200"
+                  : "bg-gray-100 text-gray-700 border-gray-200"
+              }
+            >
+              {person.inspiration_level === "high" ? "⭐ Inspiring" : "Worth nurturing"}
+            </Badge>
+          )}
+        </div>
+        {person.interests && person.interests.length > 0 && (
+          <div className="flex gap-2 mb-2">
+            {person.interests.slice(0, 3).map((interest: string, idx: number) => (
+              <Badge key={idx} variant="outline" className="text-xs border-gray-300 text-gray-600">
+                {interest}
+              </Badge>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-gray-500">
+          Added: {new Date(person.created_at).toLocaleDateString()}
+        </p>
+      </Card>
+    </div>
+  );
+}
 
 // Extend Window interface for browser speech recognition
 declare global {
@@ -68,6 +136,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from('people')
         .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -77,6 +146,46 @@ export default function Home() {
       console.error("Error fetching people:", error);
     }
   };
+
+  // Handle drag end for reordering
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = people.findIndex((p) => p.id === active.id);
+      const newIndex = people.findIndex((p) => p.id === over.id);
+
+      const newPeople = arrayMove(people, oldIndex, newIndex);
+      setPeople(newPeople);
+
+      // Update display_order in database
+      try {
+        const updates = newPeople.map((person, index) => ({
+          id: person.id,
+          display_order: index
+        }));
+
+        for (const update of updates) {
+          await supabase
+            .from('people')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id);
+        }
+      } catch (error) {
+        console.error("Error updating order:", error);
+      }
+    }
+  };
+
+  // Setup sensors for drag (requires long press on touch devices)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
 
   // Check auth status on mount and load people
   useEffect(() => {
@@ -1674,47 +1783,20 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
               {/* People Tab */}
               <TabsContent value="people" className="space-y-4 mt-4">
-                {people.map((person) => (
-                  <Card 
-                    key={person.id} 
-                    className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-pointer"
-                    onClick={() => router.push(`/person/${person.id}`)}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={people.map(p => p.id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{person.name}</h3>
-                        <p className="text-sm text-gray-600">
-                          {person.role && person.company ? `${person.role} at ${person.company}` : person.role || person.company || 'No details'}
-                        </p>
-                      </div>
-                      {person.inspiration_level && (
-                        <Badge
-                          className={
-                            person.inspiration_level === "high"
-                              ? "bg-green-100 text-green-700 border-green-200"
-                              : person.inspiration_level === "medium"
-                              ? "bg-amber-100 text-amber-700 border-amber-200"
-                              : "bg-gray-100 text-gray-700 border-gray-200"
-                          }
-                        >
-                          {person.inspiration_level === "high" ? "⭐ Inspiring" : "Worth nurturing"}
-                        </Badge>
-                      )}
-                    </div>
-                    {person.interests && person.interests.length > 0 && (
-                      <div className="flex gap-2 mb-2">
-                        {person.interests.slice(0, 3).map((interest: string, idx: number) => (
-                          <Badge key={idx} variant="outline" className="text-xs border-gray-300 text-gray-600">
-                            {interest}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      Added: {new Date(person.created_at).toLocaleDateString()}
-                    </p>
-                  </Card>
-                ))}
+                    {people.map((person) => (
+                      <SortablePersonCard key={person.id} person={person} router={router} />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </TabsContent>
 
               {/* Events Tab */}
