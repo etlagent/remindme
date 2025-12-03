@@ -52,12 +52,29 @@ export default function Home() {
   const [editedMainNotes, setEditedMainNotes] = useState("");
   const [personName, setPersonName] = useState("");
   const [personCompany, setPersonCompany] = useState("");
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
   // Store the latest transcript
   const [latestTranscript, setLatestTranscript] = useState("");
+
+  // Check auth status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log("🔐 Auth Check:", {
+        hasSession: !!session,
+        user: session?.user?.email,
+        error: error?.message
+      });
+      setAuthUser(session?.user || null);
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
 
   // Initialize speech recognition
   useEffect(() => {
