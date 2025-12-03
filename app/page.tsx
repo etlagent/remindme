@@ -239,7 +239,11 @@ export default function Home() {
       // Get auth token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      console.log("Session check:", { hasSession: !!session, sessionError });
+      console.log("💾 Save attempt - Session check:", { 
+        hasSession: !!session, 
+        hasToken: !!session?.access_token,
+        sessionError 
+      });
       
       if (!session) {
         alert("Please sign in to save contacts. You may need to refresh the page after signing in.");
@@ -247,7 +251,7 @@ export default function Home() {
         return;
       }
 
-      console.log("Sending save request with token");
+      console.log("💾 Sending save request with token (first 20 chars):", session.access_token.substring(0, 20) + "...");
 
       // Save to Supabase
       const response = await fetch("/api/save-memory", {
@@ -261,6 +265,8 @@ export default function Home() {
           structuredData: structuredData,
         }),
       });
+      
+      console.log("💾 Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
