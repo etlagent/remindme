@@ -12,9 +12,26 @@ export async function POST(request: Request) {
   try {
     const { rawText, structuredData } = await request.json();
 
-    // Get current user from auth header (you'll need to implement proper auth)
-    // For now, we'll use a placeholder
-    const userId = "00000000-0000-0000-0000-000000000000"; // TODO: Get from auth
+    // Get authenticated user from Supabase
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Invalid authentication" },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
 
     // 1. Create or get event if mentioned
     let eventId = null;

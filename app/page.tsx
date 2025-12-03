@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AuthButton } from "@/components/AuthButton";
+import { supabase } from "@/lib/supabase";
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
 
@@ -218,10 +219,20 @@ export default function Home() {
         context_type: contextType,
       };
 
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("Please sign in to save contacts");
+        return;
+      }
+
       // Save to Supabase
       const response = await fetch("/api/save-memory", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           rawText: captureText,
           structuredData: structuredData,
