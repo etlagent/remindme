@@ -1041,6 +1041,14 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                   className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
                 />
                 
+                {/* Additional Details Toggle */}
+                <button
+                  onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mt-2"
+                >
+                  additional details {showAdditionalDetails ? '▼' : '▶'}
+                </button>
+                
                 {/* Additional Details Section */}
                 {showAdditionalDetails && (
                   <>
@@ -1078,14 +1086,6 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                     </button>
                   </>
                 )}
-                
-                {/* Additional Details Toggle */}
-                <button
-                  onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
-                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mt-2"
-                >
-                  additional details {showAdditionalDetails ? '▼' : '▶'}
-                </button>
               </div>
             </div>
 
@@ -1667,26 +1667,22 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
             {/* AI Preview */}
             {aiPreview && (
               <div className="mb-6 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800">Preview</h3>
-                </div>
-
-                <Card className="bg-gray-50 border-gray-200 p-4 space-y-2">
+                <Card className="bg-white border-gray-200 p-4 space-y-2">
                   {isEditingPreview && editedPreview && (
                     // Edit Mode
                     <>
                       {/* LinkedIn Data (Collapsible) */}
                       {editedPreview.people && editedPreview.people.length > 0 && (
-                        <div className="bg-white rounded border border-gray-200">
+                        <div className="pb-4 border-b border-gray-200">
                           <button
                             onClick={() => setShowLinkedInData(!showLinkedInData)}
-                            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50"
+                            className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
                           >
-                            <h4 className="font-semibold text-gray-700">LinkedIn</h4>
-                            <span className="text-gray-500">{showLinkedInData ? '▼' : '▶'}</span>
+                            <span>LinkedIn</span>
+                            <span>{showLinkedInData ? '▼' : '▶'}</span>
                           </button>
                           {showLinkedInData && (
-                          <div className="px-4 pb-4 space-y-3">
+                          <div className="space-y-3">
                             {/* Keywords */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
@@ -1932,7 +1928,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                       )}
 
                       {/* Conversations */}
-                      <div>
+                      <div className="pb-4 border-b border-gray-200">
                         <button
                           onClick={() => setShowConversations(!showConversations)}
                           className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
@@ -1989,7 +1985,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                       </div>
 
                       {/* Follow-ups */}
-                      <div>
+                      <div className="pb-4 border-b border-gray-200">
                         <button
                           onClick={() => setShowFollowUps(!showFollowUps)}
                           className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
@@ -2039,7 +2035,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                       </div>
 
                       {/* Memories */}
-                      <div>
+                      <div className="pb-4">
                         <button
                           onClick={() => setShowMemories(!showMemories)}
                           className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
