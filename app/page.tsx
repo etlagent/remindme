@@ -236,11 +236,16 @@ export default function Home() {
         .order('display_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching events:", error);
+        setEvents([]);
+        return;
+      }
       console.log("📅 Loaded events:", data?.length);
       setEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
+      setEvents([]);
     }
   };
 
@@ -253,11 +258,16 @@ export default function Home() {
         .order('display_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching follow-ups:", error);
+        setFollowUps([]);
+        return;
+      }
       console.log("✅ Loaded follow-ups:", data?.length);
       setFollowUps(data || []);
     } catch (error) {
       console.error("Error fetching follow-ups:", error);
+      setFollowUps([]);
     }
   };
 
@@ -392,15 +402,18 @@ export default function Home() {
       // Create preview with person data
       const previewData = {
         people: [person],
-        additional_notes: memories?.map((m: any) => ({
-          text: m.memories?.raw_text || '',
-          date: new Date(m.memories?.created_at).toLocaleDateString()
-        })) || [],
+        additional_notes: memories?.map((m: any) => {
+          const memory = m.memories;
+          return {
+            text: memory?.raw_text || '',
+            date: memory?.created_at ? new Date(memory.created_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : ''
+          };
+        }).filter((note: any) => note.text) || [],
         follow_ups: followUps?.map((f: any) => ({
-          description: f.description,
-          priority: f.priority,
-          status: f.status
-        })) || []
+          description: f.description || '',
+          priority: f.priority || 'medium',
+          status: f.status || 'pending'
+        })).filter((fu: any) => fu.description) || []
       };
 
       setAiPreview(previewData);
