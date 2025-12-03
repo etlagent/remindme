@@ -190,7 +190,7 @@ export default function Home() {
   const [parsedProfilesArray, setParsedProfilesArray] = useState<any[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [isParsingUrls, setIsParsingUrls] = useState(false);
-  const [isContextExpanded, setIsContextExpanded] = useState(true);
+  const [isContextExpanded, setIsContextExpanded] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [editedPreview, setEditedPreview] = useState<any>(null);
   const [showLinkedInData, setShowLinkedInData] = useState(false);
@@ -204,9 +204,9 @@ export default function Home() {
   const [personLocation, setPersonLocation] = useState("");
   const [additionalFields, setAdditionalFields] = useState<Array<{id: string, value: string}>>([]);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
-  const [showConversations, setShowConversations] = useState(true);
-  const [showFollowUps, setShowFollowUps] = useState(true);
-  const [showMemories, setShowMemories] = useState(true);
+  const [showConversations, setShowConversations] = useState(false);
+  const [showFollowUps, setShowFollowUps] = useState(false);
+  const [showMemories, setShowMemories] = useState(false);
   const [people, setPeople] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [followUps, setFollowUps] = useState<any[]>([]);
@@ -1041,51 +1041,6 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                   className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
                 />
                 
-                {/* Additional Details Toggle */}
-                <button
-                  onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
-                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mt-2"
-                >
-                  additional details {showAdditionalDetails ? '▼' : '▶'}
-                </button>
-                
-                {/* Additional Details Section */}
-                {showAdditionalDetails && (
-                  <>
-                    {/* Additional Fields */}
-                    {additionalFields.map((field) => (
-                      <div key={field.id} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add detail..."
-                          value={field.value}
-                          onChange={(e) => {
-                            setAdditionalFields(additionalFields.map(f => 
-                              f.id === field.id ? { ...f, value: e.target.value } : f
-                            ));
-                          }}
-                          className="flex-1 text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
-                        />
-                        <button
-                          onClick={() => setAdditionalFields(additionalFields.filter(f => f.id !== field.id))}
-                          className="text-gray-400 hover:text-red-600 text-sm"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    
-                    {/* Add Field Button */}
-                    <button
-                      onClick={() => {
-                        setAdditionalFields([...additionalFields, { id: Date.now().toString(), value: '' }]);
-                      }}
-                      className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-lg mt-1"
-                    >
-                      +
-                    </button>
-                  </>
-                )}
               </div>
             </div>
 
@@ -1575,114 +1530,20 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               )}
             </div>
 
-            {/* Conversations - Same format as preview */}
-            {showRawNotes && (
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-700 mb-2">Conversations</h4>
-                <textarea
-                  placeholder="Add note (Enter to save, Shift+Enter for new line)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
-                  rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
-                      e.preventDefault();
-                      const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
-                      const newText = `${today} - ${e.currentTarget.value.trim()}`;
-                      setCaptureText((prev) => prev ? `${newText}\n\n${prev}` : newText);
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                {captureText && (
-                  <div className="space-y-2">
-                    {captureText.split('\n').filter(line => line.trim()).map((line, idx) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
-                        <span className="text-sm text-gray-700 flex-1">{line}</span>
+            {/* Preview Sections - Always Visible */}
+            <div className="mb-6 space-y-2">
+              <Card className="bg-white border-gray-200 p-4 space-y-2">
+                      {/* LinkedIn Data (Collapsible) - Always Visible */}
+                      <div className="pb-4 border-b border-gray-200">
                         <button
-                          onClick={() => {
-                            const lines = captureText.split('\n').filter(l => l.trim());
-                            lines.splice(idx, 1);
-                            setCaptureText(lines.join('\n'));
-                          }}
-                          className="text-red-600 hover:text-red-700 text-xs font-bold"
+                          onClick={() => setShowLinkedInData(!showLinkedInData)}
+                          className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
                         >
-                          ×
+                          <span>LinkedIn</span>
+                          <span>{showLinkedInData ? '▼' : '▶'}</span>
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!captureText && (
-                  <p className="text-sm text-gray-400 italic">No notes yet</p>
-                )}
-              </div>
-            )}
-
-            {/* Follow-ups - Same in capture mode */}
-            {showRawNotes && (
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-700 mb-2">Follow-ups</h4>
-                <textarea
-                  placeholder="Add follow-up action (Enter to save, Shift+Enter for new line)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
-                  rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
-                      e.preventDefault();
-                      // Store follow-ups in editedPreview even in capture mode
-                      if (!editedPreview) {
-                        setEditedPreview({ follow_ups: [{ description: e.currentTarget.value.trim(), priority: 'medium' }] });
-                      } else {
-                        const followUps = editedPreview.follow_ups || [];
-                        const newFollowUps = [...followUps, { description: e.currentTarget.value.trim(), priority: 'medium' }];
-                        setEditedPreview({...editedPreview, follow_ups: newFollowUps});
-                      }
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                {editedPreview?.follow_ups && editedPreview.follow_ups.length > 0 ? (
-                  <div className="space-y-2">
-                    {editedPreview.follow_ups.map((followUp: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
-                        <span className="text-sm text-gray-700 flex-1">• {followUp.description}</span>
-                        <button
-                          onClick={() => {
-                            const newFollowUps = editedPreview.follow_ups.filter((_: any, i: number) => i !== idx);
-                            setEditedPreview({...editedPreview, follow_ups: newFollowUps});
-                          }}
-                          className="text-red-600 hover:text-red-700 text-xs font-bold"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400 italic">No follow-ups yet</p>
-                )}
-              </div>
-            )}
-
-            {/* AI Preview */}
-            {aiPreview && (
-              <div className="mb-6 space-y-2">
-                <Card className="bg-white border-gray-200 p-4 space-y-2">
-                  {isEditingPreview && editedPreview && (
-                    // Edit Mode
-                    <>
-                      {/* LinkedIn Data (Collapsible) */}
-                      {editedPreview.people && editedPreview.people.length > 0 && (
-                        <div className="pb-4 border-b border-gray-200">
-                          <button
-                            onClick={() => setShowLinkedInData(!showLinkedInData)}
-                            className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
-                          >
-                            <span>LinkedIn</span>
-                            <span>{showLinkedInData ? '▼' : '▶'}</span>
-                          </button>
-                          {showLinkedInData && (
-                          <div className="space-y-3">
+                        {showLinkedInData && (
+                        <div className="space-y-3">
                             {/* Keywords */}
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">Keywords</h4>
@@ -1692,21 +1553,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                              const newKeywords = [...(editedPreview.keywords || []), e.currentTarget.value.trim()];
-                              setEditedPreview({...editedPreview, keywords: newKeywords});
+                              const newKeywords = [...(editedPreview?.keywords || []), e.currentTarget.value.trim()];
+                              setEditedPreview(editedPreview ? {...editedPreview, keywords: newKeywords} : {keywords: newKeywords});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {(editedPreview.keywords && editedPreview.keywords.length > 0) ? (
+                        {(editedPreview?.keywords && editedPreview.keywords.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.keywords.map((keyword: string, idx: number) => (
+                            {(editedPreview?.keywords || []).map((keyword: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-blue-100 text-blue-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const newKeywords = editedPreview.keywords.filter((_: any, i: number) => i !== idx);
-                                  setEditedPreview({...editedPreview, keywords: newKeywords});
+                                  const newKeywords = (editedPreview?.keywords || []).filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview(editedPreview ? {...editedPreview, keywords: newKeywords} : {keywords: newKeywords});
                                 }}
                               >
                                 {keyword} ×
@@ -1727,21 +1588,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                              const newCompanies = [...(editedPreview.companies || []), e.currentTarget.value.trim()];
-                              setEditedPreview({...editedPreview, companies: newCompanies});
+                              const newCompanies = [...(editedPreview?.companies || []), e.currentTarget.value.trim()];
+                              setEditedPreview(editedPreview ? {...editedPreview, companies: newCompanies} : {companies: newCompanies});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {(editedPreview.companies && editedPreview.companies.length > 0) ? (
+                        {(editedPreview?.companies && editedPreview.companies.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.companies.map((company: string, idx: number) => (
+                            {(editedPreview?.companies || []).map((company: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-purple-100 text-purple-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const newCompanies = editedPreview.companies.filter((_: any, i: number) => i !== idx);
-                                  setEditedPreview({...editedPreview, companies: newCompanies});
+                                  const newCompanies = (editedPreview?.companies || []).filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview(editedPreview ? {...editedPreview, companies: newCompanies} : {companies: newCompanies});
                                 }}
                               >
                                 {company} ×
@@ -1762,21 +1623,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                              const newIndustries = [...(editedPreview.industries || []), e.currentTarget.value.trim()];
-                              setEditedPreview({...editedPreview, industries: newIndustries});
+                              const newIndustries = [...(editedPreview?.industries || []), e.currentTarget.value.trim()];
+                              setEditedPreview(editedPreview ? {...editedPreview, industries: newIndustries} : {industries: newIndustries});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {(editedPreview.industries && editedPreview.industries.length > 0) ? (
+                        {(editedPreview?.industries && editedPreview.industries.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.industries.map((industry: string, idx: number) => (
+                            {(editedPreview?.industries || []).map((industry: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-green-100 text-green-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const newIndustries = editedPreview.industries.filter((_: any, i: number) => i !== idx);
-                                  setEditedPreview({...editedPreview, industries: newIndustries});
+                                  const newIndustries = (editedPreview?.industries || []).filter((_: any, i: number) => i !== idx);
+                                  setEditedPreview(editedPreview ? {...editedPreview, industries: newIndustries} : {industries: newIndustries});
                                 }}
                               >
                                 {industry} ×
@@ -1809,19 +1670,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                             }
                           }}
                         />
-                        {(editedPreview.people?.[0]?.skills && editedPreview.people[0].skills.length > 0) ? (
+                        {(editedPreview?.people?.[0]?.skills && editedPreview.people[0].skills.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.people[0].skills.map((skill: string, idx: number) => (
+                            {(editedPreview?.people?.[0]?.skills || []).map((skill: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const person = editedPreview.people[0];
-                                  const newSkills = person.skills.filter((_: any, i: number) => i !== idx);
-                                  const updatedPerson = {...person, skills: newSkills};
-                                  const updatedPeople = [...editedPreview.people];
-                                  updatedPeople[0] = updatedPerson;
-                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                  const person = editedPreview?.people?.[0];
+                                  if (person) {
+                                    const newSkills = (person.skills || []).filter((_: any, i: number) => i !== idx);
+                                    const updatedPerson = {...person, skills: newSkills};
+                                    const updatedPeople = [...(editedPreview?.people || [])];
+                                    updatedPeople[0] = updatedPerson;
+                                    setEditedPreview(editedPreview ? {...editedPreview, people: updatedPeople} : {people: updatedPeople});
+                                  }
                                 }}
                               >
                                 {skill} ×
@@ -1854,19 +1717,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                             }
                           }}
                         />
-                        {(editedPreview.people?.[0]?.technologies && editedPreview.people[0].technologies.length > 0) ? (
+                        {(editedPreview?.people?.[0]?.technologies && editedPreview.people[0].technologies.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.people[0].technologies.map((tech: string, idx: number) => (
+                            {(editedPreview?.people?.[0]?.technologies || []).map((tech: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-cyan-100 text-cyan-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const person = editedPreview.people[0];
-                                  const newTechnologies = person.technologies.filter((_: any, i: number) => i !== idx);
-                                  const updatedPerson = {...person, technologies: newTechnologies};
-                                  const updatedPeople = [...editedPreview.people];
-                                  updatedPeople[0] = updatedPerson;
-                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                  const person = editedPreview?.people?.[0];
+                                  if (person) {
+                                    const newTechnologies = (person.technologies || []).filter((_: any, i: number) => i !== idx);
+                                    const updatedPerson = {...person, technologies: newTechnologies};
+                                    const updatedPeople = [...(editedPreview?.people || [])];
+                                    updatedPeople[0] = updatedPerson;
+                                    setEditedPreview(editedPreview ? {...editedPreview, people: updatedPeople} : {people: updatedPeople});
+                                  }
                                 }}
                               >
                                 {tech} ×
@@ -1899,19 +1764,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                             }
                           }}
                         />
-                        {(editedPreview.people?.[0]?.interests && editedPreview.people[0].interests.length > 0) ? (
+                        {(editedPreview?.people?.[0]?.interests && editedPreview.people[0].interests.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {editedPreview.people[0].interests.map((interest: string, idx: number) => (
+                            {(editedPreview?.people?.[0]?.interests || []).map((interest: string, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className="bg-pink-100 text-pink-700 text-xs cursor-pointer hover:bg-red-100 hover:text-red-700"
                                 onClick={() => {
-                                  const person = editedPreview.people[0];
-                                  const newInterests = person.interests.filter((_: any, i: number) => i !== idx);
-                                  const updatedPerson = {...person, interests: newInterests};
-                                  const updatedPeople = [...editedPreview.people];
-                                  updatedPeople[0] = updatedPerson;
-                                  setEditedPreview({...editedPreview, people: updatedPeople});
+                                  const person = editedPreview?.people?.[0];
+                                  if (person) {
+                                    const newInterests = (person.interests || []).filter((_: any, i: number) => i !== idx);
+                                    const updatedPerson = {...person, interests: newInterests};
+                                    const updatedPeople = [...(editedPreview?.people || [])];
+                                    updatedPeople[0] = updatedPerson;
+                                    setEditedPreview(editedPreview ? {...editedPreview, people: updatedPeople} : {people: updatedPeople});
+                                  }
                                 }}
                               >
                                 {interest} ×
@@ -1925,7 +1792,6 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           </div>
                           )}
                         </div>
-                      )}
 
                       {/* Conversations */}
                       <div className="pb-4 border-b border-gray-200">
@@ -1945,19 +1811,19 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
                               e.preventDefault();
-                              const notes = editedPreview.additional_notes || [];
+                              const notes = editedPreview?.additional_notes || [];
                               const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
                               const newNote = {
                                 date: today,
                                 text: e.currentTarget.value.trim()
                               };
                               const newNotes = [newNote, ...notes];
-                              setEditedPreview({...editedPreview, additional_notes: newNotes});
+                              setEditedPreview(editedPreview ? {...editedPreview, additional_notes: newNotes} : {additional_notes: newNotes});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {editedPreview.additional_notes && editedPreview.additional_notes.length > 0 ? (
+                        {editedPreview?.additional_notes && editedPreview.additional_notes.length > 0 ? (
                           <div className="space-y-2">
                             {editedPreview.additional_notes.map((note: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
@@ -1967,8 +1833,8 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                                 <span className="text-sm text-gray-700 flex-1">• {note.text || note}</span>
                                 <button
                                   onClick={() => {
-                                    const newNotes = editedPreview.additional_notes.filter((_: any, i: number) => i !== idx);
-                                    setEditedPreview({...editedPreview, additional_notes: newNotes});
+                                    const newNotes = (editedPreview?.additional_notes || []).filter((_: any, i: number) => i !== idx);
+                                    setEditedPreview(editedPreview ? {...editedPreview, additional_notes: newNotes} : {additional_notes: newNotes});
                                   }}
                                   className="text-red-600 hover:text-red-700 text-xs font-bold"
                                 >
@@ -2002,23 +1868,23 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
                               e.preventDefault();
-                              const followUps = editedPreview.follow_ups || editedPreview.followUps || [];
+                              const followUps = editedPreview?.follow_ups || editedPreview?.followUps || [];
                               const newFollowUps = [...followUps, { description: e.currentTarget.value.trim(), priority: 'medium' }];
-                              setEditedPreview({...editedPreview, follow_ups: newFollowUps, followUps: undefined});
+                              setEditedPreview(editedPreview ? {...editedPreview, follow_ups: newFollowUps, followUps: undefined} : {follow_ups: newFollowUps});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {((editedPreview.follow_ups || editedPreview.followUps)?.length > 0) ? (
+                        {((editedPreview?.follow_ups || editedPreview?.followUps)?.length > 0) ? (
                           <div className="space-y-2">
-                            {(editedPreview.follow_ups || editedPreview.followUps).map((followUp: any, idx: number) => (
+                            {(editedPreview?.follow_ups || editedPreview?.followUps || []).map((followUp: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
                                 <span className="text-sm text-gray-700 flex-1">• {followUp.description}</span>
                                 <button
                                   onClick={() => {
-                                    const followUps = editedPreview.follow_ups || editedPreview.followUps || [];
+                                    const followUps = editedPreview?.follow_ups || editedPreview?.followUps || [];
                                     const newFollowUps = followUps.filter((_: any, i: number) => i !== idx);
-                                    setEditedPreview({...editedPreview, follow_ups: newFollowUps, followUps: undefined});
+                                    setEditedPreview(editedPreview ? {...editedPreview, follow_ups: newFollowUps, followUps: undefined} : {follow_ups: newFollowUps});
                                   }}
                                   className="text-red-600 hover:text-red-700 text-xs font-bold"
                                 >
@@ -2052,21 +1918,21 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.value.trim()) {
                               e.preventDefault();
-                              const memories = editedPreview.memories || [];
+                              const memories = editedPreview?.memories || [];
                               const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
                               const newMemory = {
                                 date: today,
                                 text: e.currentTarget.value.trim()
                               };
                               const newMemories = [newMemory, ...memories];
-                              setEditedPreview({...editedPreview, memories: newMemories});
+                              setEditedPreview(editedPreview ? {...editedPreview, memories: newMemories} : {memories: newMemories});
                               e.currentTarget.value = '';
                             }
                           }}
                         />
-                        {editedPreview.memories && editedPreview.memories.length > 0 ? (
+                        {editedPreview?.memories && editedPreview.memories.length > 0 ? (
                           <div className="space-y-2">
-                            {editedPreview.memories.map((memory: any, idx: number) => (
+                            {(editedPreview?.memories || []).map((memory: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
                                 <span className="text-sm text-gray-600 flex-shrink-0">
                                   {memory.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
@@ -2074,8 +1940,8 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                                 <span className="text-sm text-gray-700 flex-1">• {memory.text || memory}</span>
                                 <button
                                   onClick={() => {
-                                    const newMemories = editedPreview.memories.filter((_: any, i: number) => i !== idx);
-                                    setEditedPreview({...editedPreview, memories: newMemories});
+                                    const newMemories = (editedPreview?.memories || []).filter((_: any, i: number) => i !== idx);
+                                    setEditedPreview(editedPreview ? {...editedPreview, memories: newMemories} : {memories: newMemories});
                                   }}
                                   className="text-red-600 hover:text-red-700 text-xs font-bold"
                                 >
@@ -2113,11 +1979,8 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                           Cancel
                         </Button>
                       </div>
-                    </>
-                  )}
                 </Card>
               </div>
-            )}
 
             {/* Action Buttons */}
             {!aiPreview && personName.trim() && (
