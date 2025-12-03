@@ -95,7 +95,7 @@ function SortableFollowUpCard({ followUp }: { followUp: any }) {
 }
 
 // Sortable Person Card Component
-function SortablePersonCard({ person, router }: { person: any; router: any }) {
+function SortablePersonCard({ person, onLoad }: { person: any; onLoad: (id: string) => void }) {
   const {
     attributes,
     listeners,
@@ -117,7 +117,7 @@ function SortablePersonCard({ person, router }: { person: any; router: any }) {
         className="bg-white border-gray-200 p-4 hover:bg-gray-50 transition-all cursor-move"
         onClick={(e) => {
           if (!isDragging) {
-            router.push(`/person/${person.id}`);
+            onLoad(person.id);
           }
         }}
       >
@@ -346,6 +346,72 @@ export default function Home() {
       } catch (error) {
         console.error("Error updating order:", error);
       }
+    }
+  };
+
+  // Load person data into form
+  const loadPersonIntoForm = async (personId: string) => {
+    try {
+      // Fetch person with their memories and follow-ups
+      const { data: person, error: personError } = await supabase
+        .from('people')
+        .select('*')
+        .eq('id', personId)
+        .single();
+
+      if (personError) throw personError;
+
+      // Fetch memories linked to this person
+      const { data: memories, error: memoriesError } = await supabase
+        .from('memory_people')
+        .select('memory_id, memories(*)')
+        .eq('person_id', personId);
+
+      // Fetch follow-ups for this person
+      const { data: followUps, error: followUpsError } = await supabase
+        .from('follow_ups')
+        .select('*')
+        .eq('person_id', personId);
+
+      // Populate form fields
+      setPersonName(person.name || '');
+      setPersonCompany(person.company || '');
+      setPersonRole(person.role || '');
+      setLinkedInUrls(person.linkedin_url || '');
+      setCompanyLinkedInUrls(person.company_linkedin_url || '');
+
+      // Load notes from memories
+      if (memories && memories.length > 0) {
+        const notes = memories
+          .map((m: any) => m.memories?.raw_text)
+          .filter(Boolean)
+          .join('\n\n');
+        setCaptureText(notes);
+      }
+
+      // Create preview with person data
+      const previewData = {
+        people: [person],
+        additional_notes: memories?.map((m: any) => ({
+          text: m.memories?.raw_text || '',
+          date: new Date(m.memories?.created_at).toLocaleDateString()
+        })) || [],
+        follow_ups: followUps?.map((f: any) => ({
+          description: f.description,
+          priority: f.priority,
+          status: f.status
+        })) || []
+      };
+
+      setAiPreview(previewData);
+      setEditedPreview(JSON.parse(JSON.stringify(previewData)));
+      setIsEditingPreview(true);
+      setShowRawNotes(false);
+
+      console.log('✅ Loaded person into form:', person.name);
+    } catch (error) {
+      console.error('Error loading person:', error);
+      alert('Failed to load person data');
     }
   };
 
@@ -1967,7 +2033,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                     strategy={verticalListSortingStrategy}
                   >
                     {people.map((person) => (
-                      <SortablePersonCard key={person.id} person={person} router={router} />
+                      <SortablePersonCard key={person.id} person={person} onLoad={loadPersonIntoForm} />
                     ))}
                   </SortableContext>
                 </DndContext>
