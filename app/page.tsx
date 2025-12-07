@@ -259,20 +259,20 @@ export default function Home() {
     { id: 'research', title: 'Research', component: null as any, visible: true, order: 5 },
   ];
   
-  const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>(() => {
-    // Load from localStorage if available
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('sectionConfig');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error('Failed to parse saved section config:', e);
-        }
+  const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>(defaultSectionConfig);
+  
+  // Load from localStorage after mount (client-side only) to avoid hydration mismatch
+  useEffect(() => {
+    const saved = localStorage.getItem('sectionConfig');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSectionConfig(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved section config:', e);
       }
     }
-    return defaultSectionConfig;
-  });
+  }, []);
   
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
