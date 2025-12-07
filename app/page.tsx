@@ -250,14 +250,29 @@ export default function Home() {
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
   
   // Section configuration - user can modify visibility and order
-  const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>([
+  const defaultSectionConfig: SectionConfig[] = [
     { id: 'context', title: 'Context & Social Media', component: null as any, visible: true, order: 0 },
     { id: 'linkedin', title: 'LinkedIn Profile', component: null as any, visible: true, order: 1 },
     { id: 'conversations', title: 'Conversations', component: null as any, visible: true, order: 2 },
     { id: 'followups', title: 'Follow-ups', component: null as any, visible: true, order: 3 },
     { id: 'memories', title: 'Memories', component: null as any, visible: true, order: 4 },
     { id: 'research', title: 'Research', component: null as any, visible: true, order: 5 },
-  ]);
+  ];
+  
+  const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>(() => {
+    // Load from localStorage if available
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sectionConfig');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse saved section config:', e);
+        }
+      }
+    }
+    return defaultSectionConfig;
+  });
   
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -558,14 +573,14 @@ export default function Home() {
       setIsEditingPreview(true);
       setShowRawNotes(false);
       
-      // Expand all sections to show the data
+      // Keep all sections collapsed - let user choose what to open
       setExpandedSections({
-        context: true,
-        linkedin: true,
-        conversations: true,
-        followups: true,
-        memories: true,
-        research: true,
+        context: false,
+        linkedin: false,
+        conversations: false,
+        followups: false,
+        memories: false,
+        research: false,
       });
 
       // Store the person ID so we know to UPDATE instead of INSERT
@@ -1264,6 +1279,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
             {/* Preview Sections - Always Visible */}
             <SectionManager
               sections={sectionConfig}
+              setSections={setSectionConfig}
               expandedSections={expandedSections}
               onToggleSection={toggleSection}
               editedPreview={editedPreview}

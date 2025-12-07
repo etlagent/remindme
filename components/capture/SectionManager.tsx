@@ -21,6 +21,10 @@ import { MemoriesSection } from "./sections/MemoriesSection";
 import { ResearchSection } from "./sections/ResearchSection";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 import { Badge } from "@/components/ui/badge";
+import { Eye, X } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export interface SectionConfig {
   id: string;
@@ -32,6 +36,7 @@ export interface SectionConfig {
 
 interface SectionManagerProps {
   sections: SectionConfig[];
+  setSections: (sections: SectionConfig[]) => void;
   expandedSections: Record<string, boolean>;
   onToggleSection: (sectionId: string) => void;
   editedPreview: any;
@@ -82,8 +87,56 @@ const SECTION_COMPONENTS = {
   research: ResearchSection,
 };
 
+// Sortable Section Wrapper Component
+function SortableSection({ 
+  section, 
+  isExpanded, 
+  onToggle, 
+  badge, 
+  children 
+}: { 
+  section: SectionConfig; 
+  isExpanded: boolean; 
+  onToggle: () => void; 
+  badge?: React.ReactNode; 
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  // Don't render if not visible
+  if (!section.visible) return null;
+
+  return (
+    <div ref={setNodeRef} style={style} className="cursor-move">
+      <CollapsibleSection
+        title={section.title}
+        isExpanded={isExpanded}
+        onToggle={onToggle}
+        badge={badge}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        isDragging={isDragging}
+      >
+        {children}
+      </CollapsibleSection>
+    </div>
+  );
+}
+
 export function SectionManager({
   sections,
+  setSections,
   expandedSections,
   onToggleSection,
   editedPreview,
@@ -123,10 +176,52 @@ export function SectionManager({
   isRecording,
   onToggleRecording,
 }: SectionManagerProps) {
-  // Sort by order, filter visible sections
-  const visibleSections = sections
-    .filter((s) => s.visible)
-    .sort((a, b) => a.order - b.order);
+  // Setup drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
+
+  // Handle drag end - reorder sections
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = sections.findIndex((s) => s.id === active.id);
+      const newIndex = sections.findIndex((s) => s.id === over.id);
+
+      const reorderedSections = arrayMove(sections, oldIndex, newIndex).map((section, index) => ({
+        ...section,
+        order: index,
+      }));
+
+      setSections(reorderedSections);
+      
+      // Save to localStorage
+      localStorage.setItem('sectionConfig', JSON.stringify(reorderedSections));
+    }
+  };
+
+  // Toggle section visibility
+  const handleToggleVisibility = (sectionId: string) => {
+    const updatedSections = sections.map((s) =>
+      s.id === sectionId ? { ...s, visible: !s.visible } : s
+    );
+    setSections(updatedSections);
+    
+    // Save to localStorage
+    localStorage.setItem('sectionConfig', JSON.stringify(updatedSections));
+  };
+
+  // Sort by order and filter visible sections
+  const visibleSections = sections.filter(s => s.visible).sort((a, b) => a.order - b.order);
+  
+  // State for visibility settings panel
+  const [showVisibilityPanel, setShowVisibilityPanel] = React.useState(false);
 
   // Get badge counts for sections
   const getBadge = (sectionId: string) => {
@@ -158,101 +253,148 @@ export function SectionManager({
   };
 
   return (
-    <div className="mb-6 space-y-4">
+    <div>
+      {/* Section Controls - Very tight spacing */}
+      <div className="flex justify-end -mt-4 mb-1">
+        <button
+          onClick={() => setShowVisibilityPanel(!showVisibilityPanel)}
+          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          title="Manage section visibility"
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+      </div>
+
       {/* Collapsible Sections */}
       <Card className="bg-white border-gray-200 p-4 space-y-2">
-        {visibleSections.map((section) => {
-          // Special handling for Context section with different props
-          if (section.id === 'context') {
-            return (
-              <CollapsibleSection
-                key={section.id}
-                title={section.title}
-                isExpanded={expandedSections[section.id] || false}
-                onToggle={() => onToggleSection(section.id)}
-                badge={getBadge(section.id)}
+        {/* Visibility Settings Panel */}
+        {showVisibilityPanel && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 space-y-3">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">Show/Hide Sections</h4>
+              <button
+                onClick={() => setShowVisibilityPanel(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
               >
-                <ContextSection
-                  contextType={contextType!}
-                  setContextType={setContextType!}
-                  persistentEvent={persistentEvent!}
-                  setPersistentEvent={setPersistentEvent!}
-                  showEventInput={showEventInput!}
-                  setShowEventInput={setShowEventInput!}
-                  showSessionFields={showSessionFields!}
-                  setShowSessionFields={setShowSessionFields!}
-                  sectionName={sectionName!}
-                  setSectionName={setSectionName!}
-                  panelParticipants={panelParticipants!}
-                  setPanelParticipants={setPanelParticipants!}
-                  linkedInUrls={linkedInUrls!}
-                  setLinkedInUrls={setLinkedInUrls!}
-                  companyLinkedInUrls={companyLinkedInUrls!}
-                  setCompanyLinkedInUrls={setCompanyLinkedInUrls!}
-                  linkedInProfilePaste={linkedInProfilePaste!}
-                  setLinkedInProfilePaste={setLinkedInProfilePaste!}
-                  handleParseLinkedInProfile={handleParseLinkedInProfile!}
-                  isParsing={isParsing!}
-                />
-              </CollapsibleSection>
-            );
-          }
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {sections.sort((a, b) => a.order - b.order).map((section) => (
+                <label
+                  key={section.id}
+                  className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={section.visible}
+                    onChange={() => handleToggleVisibility(section.id)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">{section.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
-          // Get component for non-context sections
-          const SectionComponent = SECTION_COMPONENTS[section.id as keyof typeof SECTION_COMPONENTS];
-          
-          if (!SectionComponent || section.id === 'context') {
-            console.warn(`Section component not found for: ${section.id}`);
-            return null;
-          }
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={visibleSections.map((s: SectionConfig) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+              {visibleSections.map((section: SectionConfig) => {
+                // Special handling for Context section with different props
+                if (section.id === 'context') {
+                  return (
+                    <SortableSection
+                      key={section.id}
+                      section={section}
+                      isExpanded={expandedSections[section.id] || false}
+                      onToggle={() => onToggleSection(section.id)}
+                      badge={getBadge(section.id)}
+                    >
+                      <ContextSection
+                        contextType={contextType!}
+                        setContextType={setContextType!}
+                        persistentEvent={persistentEvent!}
+                        setPersistentEvent={setPersistentEvent!}
+                        showEventInput={showEventInput!}
+                        setShowEventInput={setShowEventInput!}
+                        showSessionFields={showSessionFields!}
+                        setShowSessionFields={setShowSessionFields!}
+                        sectionName={sectionName!}
+                        setSectionName={setSectionName!}
+                        panelParticipants={panelParticipants!}
+                        setPanelParticipants={setPanelParticipants!}
+                        linkedInUrls={linkedInUrls!}
+                        setLinkedInUrls={setLinkedInUrls!}
+                        companyLinkedInUrls={companyLinkedInUrls!}
+                        setCompanyLinkedInUrls={setCompanyLinkedInUrls!}
+                        linkedInProfilePaste={linkedInProfilePaste!}
+                        setLinkedInProfilePaste={setLinkedInProfilePaste!}
+                        handleParseLinkedInProfile={handleParseLinkedInProfile!}
+                        isParsing={isParsing!}
+                      />
+                    </SortableSection>
+                  );
+                }
 
-          // Render standard sections with standard props
-          const Component = SectionComponent as React.ComponentType<{
-            editedPreview: any;
-            setEditedPreview: (preview: any) => void;
-            personName: string;
-            personCompany: string;
-            personRole: string;
-            personLocation: string;
-          }>;
+                // Get component for non-context sections
+                const SectionComponent = SECTION_COMPONENTS[section.id as keyof typeof SECTION_COMPONENTS];
+                
+                if (!SectionComponent || section.id === 'context') {
+                  console.warn(`Section component not found for: ${section.id}`);
+                  return null;
+                }
 
-          return (
-            <CollapsibleSection
-              key={section.id}
-              title={section.title}
-              isExpanded={expandedSections[section.id] || false}
-              onToggle={() => onToggleSection(section.id)}
-              badge={getBadge(section.id)}
-            >
-              <Component
-                editedPreview={editedPreview}
-                setEditedPreview={setEditedPreview}
-                personName={personName}
-                personCompany={personCompany}
-                personRole={personRole}
-                personLocation={personLocation}
-              />
-            </CollapsibleSection>
-          );
-        })}
+                // Render standard sections with standard props
+                const Component = SectionComponent as React.ComponentType<{
+                  editedPreview: any;
+                  setEditedPreview: (preview: any) => void;
+                  personName: string;
+                  personCompany: string;
+                  personRole: string;
+                  personLocation: string;
+                }>;
+
+                return (
+                  <SortableSection
+                    key={section.id}
+                    section={section}
+                    isExpanded={expandedSections[section.id] || false}
+                    onToggle={() => onToggleSection(section.id)}
+                    badge={getBadge(section.id)}
+                  >
+                    <Component
+                      editedPreview={editedPreview}
+                      setEditedPreview={setEditedPreview}
+                      personName={personName}
+                      personCompany={personCompany}
+                      personRole={personRole}
+                      personLocation={personLocation}
+                    />
+                  </SortableSection>
+                );
+              })}
+          </SortableContext>
+        </DndContext>
       </Card>
 
-      {/* Save Button - Always visible at bottom */}
-      {(personName?.trim() ||
-        (editedPreview &&
-          (editedPreview.people?.length > 0 ||
-            editedPreview.conversations?.length > 0 ||
-            editedPreview.follow_ups?.length > 0 ||
-            editedPreview.memories?.length > 0 ||
-            editedPreview.research?.length > 0))) && (
-        <div className="flex gap-2 justify-between items-center">
-          {/* Voice Recording Button - Left side */}
-          <VoiceRecorderButton
-            isRecording={isRecording || false}
-            onToggle={onToggleRecording || (() => {})}
-          />
-          
-          {/* Action Buttons - Right side */}
+      {/* Action Buttons - Always visible at bottom */}
+      <div className="flex gap-2 justify-between items-center mt-4">
+        {/* Voice Recording Button - Left side */}
+        <VoiceRecorderButton
+          isRecording={isRecording || false}
+          onToggle={onToggleRecording || (() => {})}
+        />
+        
+        {/* Save/Cancel Buttons - Right side - show when there's any content */}
+        {(personName || personCompany || personRole || personLocation || editedPreview) && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -284,14 +426,14 @@ export function SectionManager({
                 handleSavePreviewEdits();
                 handleApproveAndSave(dataToSave);
               }}
-              disabled={isProcessing}
+              disabled={isProcessing || !personName}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               {isProcessing ? "Saving..." : "Save to Rolodex"}
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

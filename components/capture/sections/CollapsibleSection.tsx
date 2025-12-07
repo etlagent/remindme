@@ -3,6 +3,7 @@
  * 
  * Reusable component for expandable/collapsible sections.
  * Handles expand/collapse state and provides consistent UI.
+ * Supports drag-and-drop reordering.
  */
 
 import React from "react";
@@ -13,6 +14,8 @@ interface CollapsibleSectionProps {
   onToggle: () => void;
   children: React.ReactNode;
   badge?: React.ReactNode;
+  dragHandleProps?: any;
+  isDragging?: boolean;
 }
 
 export function CollapsibleSection({
@@ -21,9 +24,14 @@ export function CollapsibleSection({
   onToggle,
   children,
   badge,
+  dragHandleProps,
+  isDragging,
 }: CollapsibleSectionProps) {
   return (
-    <div className="pb-4 border-b border-gray-200">
+    <div 
+      className={`pb-4 border-b border-gray-200 transition-opacity ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+      {...(dragHandleProps || {})}
+    >
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between font-semibold text-gray-700 mb-2 hover:text-gray-900"
