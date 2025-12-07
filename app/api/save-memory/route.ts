@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Pinecone } from "@pinecone-database/pinecone";
 import OpenAI from "openai";
+import { tagConversationOrMemory } from "@/lib/ai-tagger";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(request: Request) {
   try {
-    const { rawText, structuredData } = await request.json();
+    const { rawText, structuredData, personId } = await request.json();
+    console.log("📝 Received personId for update:", personId);
 
     // Get authenticated user from request
     const authHeader = request.headers.get('authorization');
@@ -21,7 +23,8 @@ export async function POST(request: Request) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create Supabase client with user's token so RLS works
+    // Create Supabase client with the user's access token
+    // This ensures RLS policies work correctly
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
@@ -29,9 +32,9 @@ export async function POST(request: Request) {
         }
       }
     });
-
+    
     // Verify user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json(
@@ -71,97 +74,199 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Create memory
-    const { data: memory, error: memoryError } = await supabase
-      .from("memories")
-      .insert({
-        user_id: userId,
-        raw_text: rawText,
-        source_type: "typed", // or detect from context
-        ai_type: structuredData.people?.length > 0 ? "person" : "other",
-        event_id: eventId,
-        who: structuredData.people?.map((p: any) => p.name).join(", ") || null,
-        what: structuredData.summary || null,
-        energy_summary: structuredData.summary || null,
-        sections: structuredData.sections || [],
-        keywords: structuredData.keywords || [],
-        companies: structuredData.companies || [],
-        industries: structuredData.industries || [],
-      })
-      .select()
-      .single();
+    // Filter out empty entries
+    const validConversations = (structuredData.additional_notes || []).filter((note: any) => {
+      const text = typeof note === 'string' ? note : note.text;
+      return text && text.trim();
+    });
+    
+    const validMemories = (structuredData.memories || []).filter((mem: any) => {
+      const text = typeof mem === 'string' ? mem : mem.text;
+      return text && text.trim();
+    });
+    
+    console.log("📋 Conversations to save:", validConversations.length, validConversations);
+    console.log("🎭 Memories to save:", validMemories.length, validMemories);
+    
+    // Note: We only create NEW memories/conversations. Existing ones are preserved.
+    // The frontend filters out existing items before sending.
 
-    if (memoryError) {
-      console.error("❌ Memory insert error:", memoryError);
-      throw memoryError;
-    }
-    console.log("✅ Memory created:", memory.id);
-
-    // 3. Create or update people
+    // 2. Create or update people
     const peopleIds: string[] = [];
     if (structuredData.people) {
       for (const personData of structuredData.people) {
-        // Insert person (personal data only)
-        const { data: person, error: personError } = await supabase
-          .from("people")
-          .insert({
-            user_id: userId,
-            name: personData.name,
-            company: personData.company,
-            role: personData.role,
-            location: personData.location || null,
-            linkedin_url: personData.linkedin_url || null,
-            company_linkedin_url: personData.company_linkedin_url || null,
-            business_needs: personData.business_needs || null,
-            opportunities: personData.opportunities || null,
-            technologies: personData.technologies || [],
-            interests: personData.interests || [],
-            skills: personData.skills || [],
-            inspiration_level: personData.inspiration_level || null,
-            relationship_potential: personData.relationship_potential || null,
-            relationship_notes: personData.relationship_notes || null,
-          })
-          .select()
-          .single();
-
-        if (personError) {
-          console.error("❌ Person insert error:", personError);
-          throw personError;
-        }
-        console.log("✅ Person created:", person.id, "-", personData.name);
-        peopleIds.push(person.id);
-
-        // If we have business profile data (from parsed LinkedIn), save it separately
-        if (personData.about || personData.experience || personData.education || personData.follower_count) {
-          const { error: businessProfileError } = await supabase
-            .from("people_business_profiles")
-            .insert({
-              person_id: person.id,
-              user_id: userId,
+        let person;
+        
+        // If personId is provided, UPDATE existing person
+        if (personId) {
+          console.log("🔄 Updating existing person:", personId);
+          const { data: updatedPerson, error: updateError } = await supabase
+            .from("people")
+            .update({
+              name: personData.name,
+              company: personData.company,
+              role: personData.role,
+              location: personData.location || null,
               linkedin_url: personData.linkedin_url || null,
               company_linkedin_url: personData.company_linkedin_url || null,
-              follower_count: personData.follower_count || null,
+              inspiration_level: personData.inspiration_level || null,
+              relationship_potential: personData.relationship_potential || null,
+              relationship_notes: personData.relationship_notes || null,
+            })
+            .eq("id", personId)
+            .eq("user_id", userId)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error("❌ Person update error:", updateError);
+            throw updateError;
+          }
+          person = updatedPerson;
+          console.log("✅ Person updated:", person.id);
+        } else {
+          // Insert new person
+          console.log("➕ Creating new person");
+          const { data: newPerson, error: personError } = await supabase
+            .from("people")
+            .insert({
+              user_id: userId,
+              name: personData.name,
+              company: personData.company,
+              role: personData.role,
+              location: personData.location || null,
+              linkedin_url: personData.linkedin_url || null,
+              company_linkedin_url: personData.company_linkedin_url || null,
+              inspiration_level: personData.inspiration_level || null,
+              relationship_potential: personData.relationship_potential || null,
+              relationship_notes: personData.relationship_notes || null,
+            })
+            .select()
+            .single();
+
+          if (personError) {
+            console.error("❌ Person insert error:", personError);
+            throw personError;
+          }
+          person = newPerson;
+          console.log("✅ Person created:", person.id, "-", personData.name);
+        }
+        
+        peopleIds.push(person.id);
+
+        // If we have background data (from parsed LinkedIn), save to people_background
+        if (personData.about || personData.experience || personData.education || personData.follower_count || 
+            personData.skills || personData.technologies || personData.interests) {
+          const { error: backgroundError } = await supabase
+            .from("people_background")
+            .upsert({
+              person_id: person.id,
+              user_id: userId,
               about: personData.about || null,
               experience: personData.experience || null,
               education: personData.education || null,
-              current_company: personData.company || null,
-              role_title: personData.role || null,
+              follower_count: personData.follower_count || null,
+              skills: personData.skills || [],
+              technologies: personData.technologies || [],
+              interests: personData.interests || [],
+              business_needs: personData.business_needs || null,
+              opportunities: personData.opportunities || null,
+            }, {
+              onConflict: 'person_id'
             });
 
-          if (businessProfileError) {
-            console.error("Error saving business profile:", businessProfileError);
-            // Don't throw - business profile is optional
+          if (backgroundError) {
+            console.error("Error saving people_background:", backgroundError);
+            // Don't throw - background data is optional
+          } else {
+            console.log("✅ Background data saved for person:", person.id);
           }
         }
       }
     }
 
-    // 4. Link memory to people
-    if (peopleIds.length > 0) {
-      const memoryPeopleLinks = peopleIds.map((personId) => ({
-        memory_id: memory.id,
-        person_id: personId,
-      }));
+    // 3. Create conversations with AI tagging (after people exist)
+    console.log("💬 Starting conversation creation. Valid conversations:", validConversations.length, "People IDs:", peopleIds.length);
+    if (validConversations.length > 0 && peopleIds.length > 0) {
+      const personName = structuredData.people?.[0]?.name;
+      
+      for (const note of validConversations) {
+        const text = typeof note === 'string' ? note : note.text;
+        const dateStr = note.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+        
+        // AI tag the conversation
+        console.log("🤖 AI tagging conversation...");
+        const tags = await tagConversationOrMemory(text, personName);
+        
+        const { data: conversation, error: convError } = await supabase
+          .from("conversations")
+          .insert({
+            user_id: userId,
+            person_id: peopleIds[0], // Direct link to person
+            text: text.trim(),
+            date: dateStr,
+            keywords: tags.keywords,
+            entities: tags.entities,
+            industries: tags.industries,
+          })
+          .select()
+          .single();
+
+        if (convError) {
+          console.error("❌ Conversation insert error:", convError);
+          throw convError;
+        }
+        console.log("✅ Conversation created:", conversation.id, "| Keywords:", tags.keywords);
+      }
+    }
+
+    // 4. Create memories with AI tagging (after people exist)
+    const memoryIds: string[] = [];
+    if (validMemories.length > 0) {
+      const personName = structuredData.people?.[0]?.name;
+      
+      for (const mem of validMemories) {
+        const text = typeof mem === 'string' ? mem : mem.text;
+        const dateStr = mem.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+        
+        // AI tag the memory
+        console.log("🤖 AI tagging memory...");
+        const tags = await tagConversationOrMemory(text, personName);
+        
+        const { data: memory, error: memError } = await supabase
+          .from("memories")
+          .insert({
+            user_id: userId,
+            text: text.trim(),
+            date: dateStr,
+            event_id: eventId,
+            keywords: tags.keywords,
+            entities: tags.entities,
+            industries: tags.industries,
+          })
+          .select()
+          .single();
+
+        if (memError) {
+          console.error("❌ Memory insert error:", memError);
+          throw memError;
+        }
+        memoryIds.push(memory.id);
+        console.log("✅ Memory created:", memory.id, "| Keywords:", tags.keywords);
+      }
+    }
+
+    // 5. Link all memories to all people
+    if (peopleIds.length > 0 && memoryIds.length > 0) {
+      const memoryPeopleLinks = [];
+      for (const memoryId of memoryIds) {
+        for (const personId of peopleIds) {
+          memoryPeopleLinks.push({
+            memory_id: memoryId,
+            person_id: personId,
+          });
+        }
+      }
 
       const { error: linkError } = await supabase
         .from("memory_people")
@@ -171,18 +276,40 @@ export async function POST(request: Request) {
         console.error("❌ Memory-People link error:", linkError);
         throw linkError;
       }
-      console.log("✅ Linked memory to", peopleIds.length, "people");
+      console.log(`✅ Linked ${memoryIds.length} memories to ${peopleIds.length} people`);
     }
 
-    // 5. Create follow-ups
-    if (structuredData.follow_ups) {
+    // 5. Handle follow-ups
+    if (structuredData.follow_ups && peopleIds.length > 0) {
+      const targetPersonId = peopleIds[0];
+      
+      // If updating existing person, delete old follow-ups first to avoid duplicates
+      if (personId) {
+        const { error: deleteError } = await supabase
+          .from("follow_ups")
+          .delete()
+          .eq("person_id", personId)
+          .eq("user_id", userId);
+        
+        if (deleteError) {
+          console.error("❌ Error deleting old follow-ups:", deleteError);
+        } else {
+          console.log("🗑️ Deleted old follow-ups for person");
+        }
+      }
+      
+      // Create follow-ups (strip out isExisting and id fields)
       const followUps = structuredData.follow_ups.map((fu: any) => ({
         user_id: userId,
-        person_id: peopleIds[0] || null, // Link to first person if available
-        memory_id: memory.id,
+        person_id: targetPersonId,
+        memory_id: memoryIds[0] || null, // Link to first memory if available
         description: fu.description,
         priority: fu.priority || "medium",
-        status: "pending",
+        urgency: fu.urgency || "not-urgent-not-important",
+        status: fu.status || "not-started",
+        date: fu.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
+        due_date: fu.due_date || null,
+        // Note: Don't include 'id' or 'isExisting' - those are UI-only fields
       }));
 
       const { error: followUpError } = await supabase
@@ -196,62 +323,87 @@ export async function POST(request: Request) {
       console.log("✅ Created", followUps.length, "follow-ups");
     }
 
-    // 6. Create embedding and save to Pinecone
-    if (process.env.PINECONE_API_KEY && process.env.PINECONE_INDEX_NAME) {
+    // 6. Store conversations and memories in Pinecone with AI-tagged metadata
+    if (process.env.PINECONE_API_KEY) {
       try {
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
-        const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+        const index = pinecone.index(process.env.PINECONE_INDEX_NAME || "remind-me");
 
-        // Build text to embed: LinkedIn about + experience + user notes
-        let textToEmbed = rawText || "";
-        
-        if (structuredData.people && structuredData.people.length > 0) {
-          const person = structuredData.people[0];
-          if (person.about) textToEmbed += `\n\nAbout: ${person.about}`;
-          if (person.experience) {
-            const expText = person.experience.map((exp: any) => 
-              `${exp.role} at ${exp.company}: ${exp.description || ''}`
-            ).join('\n');
-            textToEmbed += `\n\nExperience:\n${expText}`;
+        const personName = structuredData.people?.[0]?.name || "";
+        const personCompany = structuredData.people?.[0]?.company || "";
+        const personId = peopleIds[0] || null;
+
+        // 6a. Save conversations to Pinecone
+        if (validConversations.length > 0 && personId) {
+          const { data: savedConversations } = await supabase
+            .from("conversations")
+            .select("id, text, keywords, entities, industries")
+            .eq("person_id", personId)
+            .in("text", validConversations.map((c: any) => (typeof c === 'string' ? c : c.text).trim()));
+
+          for (const conv of savedConversations || []) {
+            if (!conv.text?.trim()) continue;
+
+            const embeddingResponse = await openai.embeddings.create({
+              model: "text-embedding-3-large",
+              input: conv.text,
+              dimensions: 1024,
+            });
+
+            await index.upsert([{
+              id: conv.id,
+              values: embeddingResponse.data[0].embedding,
+              metadata: {
+                type: "conversation",
+                user_id: userId,
+                ...(personId && { person_id: personId }),
+                person_name: personName,
+                company: personCompany,
+                keywords: conv.keywords || [],
+                entities: conv.entities || [],
+                industries: conv.industries || [],
+              },
+            }]);
+
+            console.log("✅ Saved conversation to Pinecone:", conv.id, "| Keywords:", conv.keywords);
           }
         }
 
-        // Create embedding
-        const embeddingResponse = await openai.embeddings.create({
-          model: "text-embedding-3-large",
-          input: textToEmbed,
-          dimensions: 1024,
-        });
+        // 6b. Save memories to Pinecone
+        if (memoryIds.length > 0) {
+          const { data: savedMemories } = await supabase
+            .from("memories")
+            .select("id, text, keywords, entities, industries")
+            .in("id", memoryIds);
 
-        const embedding = embeddingResponse.data[0].embedding;
+          for (const mem of savedMemories || []) {
+            if (!mem.text?.trim()) continue;
 
-        // Prepare metadata
-        const metadata: any = {
-          memory_id: memory.id,
-          user_id: userId,
-          summary: structuredData.summary || "",
-          sections: structuredData.sections || [],
-        };
+            const embeddingResponse = await openai.embeddings.create({
+              model: "text-embedding-3-large",
+              input: mem.text,
+              dimensions: 1024,
+            });
 
-        if (structuredData.people && structuredData.people.length > 0) {
-          const person = structuredData.people[0];
-          metadata.person_name = person.name || "";
-          metadata.company = person.company || "";
-          metadata.role = person.role || "";
-          metadata.skills = person.skills || [];
-          metadata.technologies = person.technologies || [];
-          metadata.interests = person.interests || [];
+            await index.upsert([{
+              id: mem.id,
+              values: embeddingResponse.data[0].embedding,
+              metadata: {
+                type: "memory",
+                user_id: userId,
+                ...(personId && { person_id: personId }),
+                person_name: personName,
+                company: personCompany,
+                keywords: mem.keywords || [],
+                entities: mem.entities || [],
+                industries: mem.industries || [],
+              },
+            }]);
+
+            console.log("✅ Saved memory to Pinecone:", mem.id, "| Keywords:", mem.keywords);
+          }
         }
-
-        // Upsert to Pinecone
-        await index.upsert([{
-          id: memory.id,
-          values: embedding,
-          metadata: metadata,
-        }]);
-
-        console.log("✅ Saved to Pinecone:", memory.id);
       } catch (pineconeError) {
         console.error("❌ Pinecone error (non-fatal):", pineconeError);
         // Don't throw - Pinecone is optional
@@ -260,12 +412,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      memoryId: memory.id,
+      memoryIds: memoryIds,
       peopleCount: peopleIds.length,
       followUpsCount: structuredData.follow_ups?.length || 0,
       eventId: eventId,
       message: "Memory saved successfully!"
     });
+
   } catch (error: any) {
     console.error("Error saving memory:", error);
     return NextResponse.json(

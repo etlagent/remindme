@@ -247,6 +247,8 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
   const [personLocation, setPersonLocation] = useState("");
+  const [loadedPersonId, setLoadedPersonId] = useState<string | null>(null); // Track if editing existing person
+  const [loadedMemoryIds, setLoadedMemoryIds] = useState<string[]>([]); // Track existing memory IDs to avoid re-saving
   const [additionalFields, setAdditionalFields] = useState<Array<{id: string, value: string}>>([]);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
   const [showConversations, setShowConversations] = useState(false);
@@ -422,8 +424,15 @@ export default function Home() {
 
       if (personError) throw personError;
 
-      // Fetch memories linked to this person
-      const { data: memories, error: memoriesError } = await supabase
+      // Fetch conversations for this person (from conversations table)
+      const { data: conversations, error: conversationsError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('person_id', personId)
+        .order('date', { ascending: false });
+
+      // Fetch memories linked to this person (from memories table)
+      const { data: memoryLinks, error: memoriesError } = await supabase
         .from('memory_people')
         .select('memory_id, memories(*)')
         .eq('person_id', personId);
@@ -441,52 +450,86 @@ export default function Home() {
       setLinkedInUrls(person.linkedin_url || '');
       setCompanyLinkedInUrls(person.company_linkedin_url || '');
 
-      // Load notes from memories
-      if (memories && memories.length > 0) {
-        const notes = memories
-          .map((m: any) => m.memories?.raw_text)
-          .filter(Boolean)
-          .join('\n\n');
-        setCaptureText(notes);
-      }
+      // Format conversations
+      const formattedConversations = (conversations || []).map((conv: any) => ({
+        id: conv.id,
+        text: conv.text,
+        date: conv.date ? new Date(conv.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '',
+        isExisting: true
+      }));
 
-      // Aggregate keywords, companies, industries from all memories
+      // Format memories
+      const experientialMemories: any[] = [];
+      const existingMemoryIds: string[] = [];
+      
+      memoryLinks?.forEach((m: any) => {
+        const memory = m.memories;
+        if (!memory || !memory.text || !memory.text.trim()) return; // Skip empty memories
+        
+        existingMemoryIds.push(memory.id); // Track existing memory IDs
+        
+        experientialMemories.push({
+          id: memory.id,
+          text: memory.text.trim(),
+          date: memory.date ? new Date(memory.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '',
+          isExisting: true
+        });
+      });
+      
+      // Store the existing memory IDs
+      setLoadedMemoryIds(existingMemoryIds);
+
+      // Fetch person background data (LinkedIn/career info)
+      const { data: background } = await supabase
+        .from('people_background')
+        .select('*')
+        .eq('person_id', personId)
+        .single();
+      
+      // Aggregate keywords, entities, industries from conversations and memories
       const allKeywords = new Set<string>();
-      const allCompanies = new Set<string>();
+      const allEntities = new Set<string>();
       const allIndustries = new Set<string>();
       
-      memories?.forEach((m: any) => {
+      conversations?.forEach((conv: any) => {
+        conv.keywords?.forEach((k: string) => allKeywords.add(k));
+        conv.entities?.forEach((e: string) => allEntities.add(e));
+        conv.industries?.forEach((i: string) => allIndustries.add(i));
+      });
+      
+      memoryLinks?.forEach((m: any) => {
         const memory = m.memories;
-        if (memory?.keywords) {
-          memory.keywords.forEach((k: string) => allKeywords.add(k));
-        }
-        if (memory?.companies) {
-          memory.companies.forEach((c: string) => allCompanies.add(c));
-        }
-        if (memory?.industries) {
-          memory.industries.forEach((i: string) => allIndustries.add(i));
-        }
+        memory?.keywords?.forEach((k: string) => allKeywords.add(k));
+        memory?.entities?.forEach((e: string) => allEntities.add(e));
+        memory?.industries?.forEach((i: string) => allIndustries.add(i));
       });
 
-      // Create preview with person data
+      // Create preview with person data and background
       const previewData = {
-        people: [person],
+        people: [{
+          ...person,
+          skills: background?.skills || [],
+          technologies: background?.technologies || [],
+          interests: background?.interests || [],
+          about: background?.about || null,
+          experience: background?.experience || null,
+          education: background?.education || null,
+        }],
         keywords: Array.from(allKeywords),
-        companies: Array.from(allCompanies),
+        entities: Array.from(allEntities), // Companies and people mentioned
         industries: Array.from(allIndustries),
-        additional_notes: memories?.map((m: any) => {
-          const memory = m.memories;
-          return {
-            text: memory?.raw_text || '',
-            date: memory?.created_at ? new Date(memory.created_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : ''
-          };
-        }).filter((note: any) => note.text) || [],
+        additional_notes: formattedConversations, // Conversations from conversations table
+        memories: experientialMemories, // Memories from memories table
         follow_ups: followUps?.map((f: any) => ({
+          id: f.id,
           description: f.description || '',
           priority: f.priority || 'medium',
-          status: f.status || 'pending'
+          urgency: f.urgency || 'not-urgent-not-important',
+          status: f.status === 'pending' ? 'not-started' : (f.status || 'not-started'),
+          date: f.date ? new Date(f.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '',
+          due_date: f.due_date || '',
+          isExisting: true
         })).filter((fu: any) => fu.description) || [],
-        memories: [] // Initialize empty memories array
       };
 
       setAiPreview(previewData);
@@ -500,7 +543,10 @@ export default function Home() {
       setShowFollowUps(true);
       setShowMemories(true);
 
-      console.log('✅ Loaded person into form:', person.name);
+      // Store the person ID so we know to UPDATE instead of INSERT
+      setLoadedPersonId(personId);
+
+      console.log('✅ Loaded person into form:', person.name, 'ID:', personId);
       console.log('📊 Preview data:', previewData);
     } catch (error) {
       console.error('Error loading person:', error);
@@ -766,14 +812,40 @@ export default function Home() {
   };
 
   const handleApproveAndSave = async (dataToSave?: any) => {
-    if (!aiPreview) return;
-
     setIsProcessing(true);
     try {
       // Use provided data or fall back to editedPreview (if available) or aiPreview
-      const finalData = dataToSave || editedPreview || aiPreview;
+      // If none exist, create basic structure from manual fields
+      let finalData = dataToSave || editedPreview || aiPreview;
+      
+      console.log("🔍 Raw finalData:", finalData);
+      
+      // If no structured data exists, create it from manual fields
+      if (!finalData && personName.trim()) {
+        finalData = {
+          people: [{
+            name: personName,
+            company: personCompany,
+            role: personRole,
+            location: personLocation,
+          }],
+          conversations: [],
+          follow_ups: [],
+          memories: []
+        };
+      }
+      
+      if (!finalData) {
+        alert("Please enter at least a person's name.");
+        setIsProcessing(false);
+        return;
+      }
       
       console.log("💾 Saving data:", finalData);
+      console.log("📝 Person ID for update:", loadedPersonId);
+      console.log("🔗 LinkedIn URLs:", { linkedInUrls, companyLinkedInUrls });
+      console.log("📋 Conversations count:", finalData.additional_notes?.length || 0);
+      console.log("🎭 Memories count:", finalData.memories?.length || 0);
       
       // Get the session token
       const { data: { session } } = await supabase.auth.getSession();
@@ -783,7 +855,33 @@ export default function Home() {
         return;
       }
       
-      // Save to Supabase
+      // Ensure LinkedIn URLs are in the person data
+      if (finalData.people && finalData.people.length > 0) {
+        finalData.people[0].linkedin_url = linkedInUrls;
+        finalData.people[0].company_linkedin_url = companyLinkedInUrls;
+      }
+      
+      // Filter out existing items - only send NEW ones to avoid duplicates
+      // EXCEPT for follow-ups - send ALL follow-ups since backend deletes and replaces them
+      const newConversations = (finalData.additional_notes || []).filter((note: any) => !note.isExisting);
+      const newMemories = (finalData.memories || []).filter((mem: any) => !mem.isExisting);
+      const allFollowUps = (finalData.follow_ups || []); // Send ALL follow-ups (new and existing)
+      
+      console.log("📊 All conversations:", finalData.additional_notes);
+      console.log("🆕 NEW Conversations to save:", newConversations.length, newConversations);
+      console.log("🆕 NEW Memories to save:", newMemories.length, newMemories);
+      console.log("📋 ALL Follow-ups to save:", allFollowUps.length, allFollowUps);
+      console.log("📦 Existing memory IDs (will keep):", loadedMemoryIds.length);
+      
+      // Create payload with NEW conversations/memories, but ALL follow-ups
+      const savePayload = {
+        ...finalData,
+        additional_notes: newConversations,
+        memories: newMemories,
+        follow_ups: allFollowUps
+      };
+      
+      // Save to Supabase (only NEW memories/conversations, not existing ones)
       const response = await fetch("/api/save-memory", {
         method: "POST",
         headers: { 
@@ -791,8 +889,9 @@ export default function Home() {
           "Authorization": `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          rawText: editedMainNotes || captureText, // Use edited notes if available
-          structuredData: finalData,
+          rawText: editedMainNotes || captureText, // General notes
+          structuredData: savePayload, // Only NEW conversations and memories
+          personId: loadedPersonId, // Pass the ID if updating existing person
         }),
       });
 
@@ -802,20 +901,29 @@ export default function Home() {
         throw new Error(errorData.error || "Failed to save memory");
       }
 
-      // Clear form and reset
+      // Clear form and reset ALL state
       setCaptureText("");
       setEditedMainNotes("");
       setNoteCount(0);
       setAiPreview(null);
+      setEditedPreview(null);
+      setIsEditingPreview(false);
       setShowRawNotes(true);
       setPersonName("");
       setPersonCompany("");
       setPersonRole("");
-      setEditedPreview(null);
-      setIsEditingPreview(false);
+      setPersonLocation("");
       setLinkedInProfilePaste("");
       setLinkedInUrls("");
       setCompanyLinkedInUrls("");
+      setLoadedPersonId(null); // Clear the loaded person ID
+      setLoadedMemoryIds([]); // Clear the loaded memory IDs
+      
+      // Collapse all sections
+      setShowLinkedInData(false);
+      setShowConversations(false);
+      setShowFollowUps(false);
+      setShowMemories(false);
       
       // Refresh people list
       await fetchPeople();
@@ -1180,13 +1288,13 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               setShowRawNotes={setShowRawNotes}
             />
 
-            {/* Action Buttons */}
-            <DirectSaveButton
+            {/* Action Buttons - Disabled, using Save to Rolodex instead */}
+            {/* <DirectSaveButton
               aiPreview={aiPreview}
               personName={personName}
               onSave={handleDirectSave}
               isProcessing={isProcessing}
-            />
+            /> */}
           </Card>
 
           {/* Right: Library Section */}
