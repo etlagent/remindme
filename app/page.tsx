@@ -10,10 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AuthButton } from "@/components/AuthButton";
 import { PersonInfoCard } from "@/components/capture/PersonInfoCard";
-import { VoiceRecorderButton } from "@/components/capture/VoiceRecorderButton";
 import { DirectSaveButton } from "@/components/capture/DirectSaveButton";
-import { FourCollapsedSections } from "@/components/capture/FourCollapsedSections";
-import { ContextSelectorWithDynamicFields } from "@/components/capture/ContextSelectorWithDynamicFields";
+import { SectionManager, SectionConfig } from "@/components/capture/SectionManager";
 import { supabase } from "@/lib/supabase";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -238,7 +236,6 @@ export default function Home() {
   const [isContextExpanded, setIsContextExpanded] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [editedPreview, setEditedPreview] = useState<any>(null);
-  const [showLinkedInData, setShowLinkedInData] = useState(false);
   const [showAboutMe, setShowAboutMe] = useState(false);
   const [editedMainNotes, setEditedMainNotes] = useState("");
   const [personName, setPersonName] = useState("");
@@ -251,9 +248,33 @@ export default function Home() {
   const [loadedMemoryIds, setLoadedMemoryIds] = useState<string[]>([]); // Track existing memory IDs to avoid re-saving
   const [additionalFields, setAdditionalFields] = useState<Array<{id: string, value: string}>>([]);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
-  const [showConversations, setShowConversations] = useState(false);
-  const [showFollowUps, setShowFollowUps] = useState(false);
-  const [showMemories, setShowMemories] = useState(false);
+  
+  // Section configuration - user can modify visibility and order
+  const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>([
+    { id: 'context', title: 'Context & Social Media', component: null as any, visible: true, order: 0 },
+    { id: 'linkedin', title: 'LinkedIn Profile', component: null as any, visible: true, order: 1 },
+    { id: 'conversations', title: 'Conversations', component: null as any, visible: true, order: 2 },
+    { id: 'followups', title: 'Follow-ups', component: null as any, visible: true, order: 3 },
+    { id: 'memories', title: 'Memories', component: null as any, visible: true, order: 4 },
+    { id: 'research', title: 'Research', component: null as any, visible: true, order: 5 },
+  ]);
+  
+  // Track which sections are expanded
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    context: false,
+    linkedin: false,
+    conversations: false,
+    followups: false,
+    memories: false,
+    research: false,
+  });
+  
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
   const [people, setPeople] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [followUps, setFollowUps] = useState<any[]>([]);
@@ -538,10 +559,14 @@ export default function Home() {
       setShowRawNotes(false);
       
       // Expand all sections to show the data
-      setShowLinkedInData(true);
-      setShowConversations(true);
-      setShowFollowUps(true);
-      setShowMemories(true);
+      setExpandedSections({
+        context: true,
+        linkedin: true,
+        conversations: true,
+        followups: true,
+        memories: true,
+        research: true,
+      });
 
       // Store the person ID so we know to UPDATE instead of INSERT
       setLoadedPersonId(personId);
@@ -920,10 +945,14 @@ export default function Home() {
       setLoadedMemoryIds([]); // Clear the loaded memory IDs
       
       // Collapse all sections
-      setShowLinkedInData(false);
-      setShowConversations(false);
-      setShowFollowUps(false);
-      setShowMemories(false);
+      setExpandedSections({
+        context: false,
+        linkedin: false,
+        conversations: false,
+        followups: false,
+        memories: false,
+        research: false,
+      });
       
       // Refresh people list
       await fetchPeople();
@@ -1232,12 +1261,26 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               }}
             />
 
-            {/* Context Selector & Dynamic Fields */}
-            <ContextSelectorWithDynamicFields
+            {/* Preview Sections - Always Visible */}
+            <SectionManager
+              sections={sectionConfig}
+              expandedSections={expandedSections}
+              onToggleSection={toggleSection}
+              editedPreview={editedPreview}
+              setEditedPreview={setEditedPreview}
+              personName={personName}
+              personCompany={personCompany}
+              personRole={personRole}
+              personLocation={personLocation}
+              isProcessing={isProcessing}
+              handleSavePreviewEdits={handleSavePreviewEdits}
+              handleApproveAndSave={handleApproveAndSave}
+              setAiPreview={setAiPreview}
+              setIsEditingPreview={setIsEditingPreview}
+              setShowRawNotes={setShowRawNotes}
+              // Context section props
               contextType={contextType}
               setContextType={setContextType}
-              isContextExpanded={isContextExpanded}
-              setIsContextExpanded={setIsContextExpanded}
               persistentEvent={persistentEvent}
               setPersistentEvent={setPersistentEvent}
               showEventInput={showEventInput}
@@ -1256,36 +1299,8 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               setLinkedInProfilePaste={setLinkedInProfilePaste}
               handleParseLinkedInProfile={handleParseLinkedInProfile}
               isParsing={isParsing}
-            />
-            
-            {/* Voice Recording - Always visible */}
-            <VoiceRecorderButton
               isRecording={isRecording}
-              onToggle={handleMicClick}
-            />
-
-            {/* Preview Sections - Always Visible */}
-            <FourCollapsedSections
-              editedPreview={editedPreview}
-              setEditedPreview={setEditedPreview}
-              personName={personName}
-              personCompany={personCompany}
-              personRole={personRole}
-              personLocation={personLocation}
-              showLinkedInData={showLinkedInData}
-              setShowLinkedInData={setShowLinkedInData}
-              showConversations={showConversations}
-              setShowConversations={setShowConversations}
-              showFollowUps={showFollowUps}
-              setShowFollowUps={setShowFollowUps}
-              showMemories={showMemories}
-              setShowMemories={setShowMemories}
-              isProcessing={isProcessing}
-              handleSavePreviewEdits={handleSavePreviewEdits}
-              handleApproveAndSave={handleApproveAndSave}
-              setAiPreview={setAiPreview}
-              setIsEditingPreview={setIsEditingPreview}
-              setShowRawNotes={setShowRawNotes}
+              onToggleRecording={handleMicClick}
             />
 
             {/* Action Buttons - Disabled, using Save to Rolodex instead */}
