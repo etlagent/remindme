@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@supabase/supabase-js";
 import { Loader2, ExternalLink, RefreshCw, Trash2, Plus, X } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +29,7 @@ interface ResearchSectionProps {
   personCompany?: string;
   personRole?: string;
   personId?: string; // For loading saved research
+  onCountChange?: (count: number) => void; // Callback to update badge count
 }
 
 interface ResearchResult {
@@ -51,6 +53,7 @@ export function ResearchSectionV2({
   personCompany,
   personRole,
   personId,
+  onCountChange,
 }: ResearchSectionProps) {
   // Saved research results
   const [savedResults, setSavedResults] = useState<ResearchResult[]>([]);
@@ -59,6 +62,13 @@ export function ResearchSectionV2({
   // UI state
   const [activeTab, setActiveTab] = useState<'interests' | 'company' | 'tech'>('interests');
   const [newInterest, setNewInterest] = useState('');
+  const [companyInput, setCompanyInput] = useState('');
+  const [companyInstructions, setCompanyInstructions] = useState('');
+  const [techStackInput, setTechStackInput] = useState('');
+  const [useProfile, setUseProfile] = useState(true);
+  const [useLinkedIn, setUseLinkedIn] = useState(false);
+  const [useConversations, setUseConversations] = useState(false);
+  const [useNotes, setUseNotes] = useState(false);
   const [isResearching, setIsResearching] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
@@ -66,8 +76,17 @@ export function ResearchSectionV2({
   useEffect(() => {
     if (personId) {
       loadResearchResults();
+    } else {
+      setSavedResults([]);
     }
   }, [personId]);
+
+  // Update count badge whenever results change
+  useEffect(() => {
+    if (onCountChange) {
+      onCountChange(savedResults.length);
+    }
+  }, [savedResults, onCountChange]);
 
   const loadResearchResults = async () => {
     if (!personId) return;
@@ -93,10 +112,49 @@ export function ResearchSectionV2({
   };
 
   const handleAddInterest = async () => {
-    if (!newInterest.trim() || !personId) return;
+    console.log('🔍 handleAddInterest called', { newInterest, personId });
+    
+    if (!newInterest.trim()) {
+      console.warn('❌ No interest text provided');
+      alert('Please enter an interest');
+      return;
+    }
+    
+    if (!personId) {
+      console.warn('❌ No personId - need to load a person first');
+      alert('Please load a person first before adding interests');
+      return;
+    }
+
+    // Gather context based on checkboxes
+    let contextData: any = {};
+    
+    if (useProfile) {
+      contextData.profile = {
+        name: personName,
+        company: personCompany,
+        role: personRole,
+      };
+    }
+    
+    if (useLinkedIn) {
+      contextData.linkedin = editedPreview?.linkedin_profile || editedPreview?.people?.[0]?.linkedin_profile;
+    }
+    
+    if (useConversations) {
+      contextData.conversations = editedPreview?.additional_notes || [];
+    }
+    
+    if (useNotes) {
+      contextData.notes = editedPreview?.research || [];
+    }
+    
+    console.log('📦 Context data for interest:', { useProfile, useLinkedIn, useConversations, useNotes, contextData });
 
     setIsResearching(true);
     try {
+      console.log('📡 Calling /api/research/analyze...');
+      
       // Analyze the interest
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
@@ -104,13 +162,101 @@ export function ResearchSectionV2({
         body: JSON.stringify({
           type: 'interest',
           topic: newInterest,
+          contextData, // Pass context
+        }),
+      });
+
+      const analyzeData = await analyzeResponse.json();
+      console.log('📊 Analyze response:', analyzeData);
+      
+      if (!analyzeData.success) throw new Error(analyzeData.error);
+
+      // Save to database
+      console.log('💾 Saving to database...');
+      const { data: { session } } = await supabase.auth.getSession();
+      const saveResponse = await fetch('/api/research/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          person_id: personId,
+          ...analyzeData.result,
+        }),
+      });
+
+      const saveData = await saveResponse.json();
+      console.log('💾 Save response:', saveData);
+      
+      if (saveData.success) {
+        setSavedResults(prev => [saveData.result, ...prev]);
+        setNewInterest('');
+        console.log('✅ Interest added successfully!');
+      } else {
+        throw new Error(saveData.error || 'Failed to save');
+      }
+    } catch (error) {
+      console.error('❌ Error adding interest:', error);
+      alert(`Failed to add interest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsResearching(false);
+    }
+  };
+
+  const handleResearchCompany = async () => {
+    const companyToResearch = companyInput.trim() || personCompany;
+    console.log('🏢 handleResearchCompany called', { companyToResearch, personId, companyInput });
+    
+    if (!companyToResearch || !personId) {
+      console.warn('❌ Missing required data:', { companyToResearch, personId });
+      if (!personId) alert('Please load a person first');
+      return;
+    }
+
+    // Gather context based on checkboxes
+    let contextData: any = {};
+    
+    if (useProfile) {
+      contextData.profile = {
+        name: personName,
+        company: personCompany,
+        role: personRole,
+      };
+    }
+    
+    if (useLinkedIn) {
+      contextData.linkedin = editedPreview?.linkedin_profile || editedPreview?.people?.[0]?.linkedin_profile;
+    }
+    
+    if (useConversations) {
+      contextData.conversations = editedPreview?.additional_notes || [];
+    }
+    
+    if (useNotes) {
+      contextData.notes = editedPreview?.research || [];
+    }
+    
+    console.log('📦 Context data:', { useProfile, useLinkedIn, useConversations, useNotes, contextData });
+
+    setIsResearching(true);
+    try {
+      console.log('📡 Calling /api/research/analyze for company...');
+      const analyzeResponse = await fetch('/api/research/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'company',
+          companyName: companyToResearch,
+          companyLinkedInUrl: companyInput.trim() ? undefined : editedPreview?.people?.[0]?.company_linkedin_url,
+          customInstructions: companyInput.trim(),
+          contextData, // Pass the context
         }),
       });
 
       const analyzeData = await analyzeResponse.json();
       if (!analyzeData.success) throw new Error(analyzeData.error);
 
-      // Save to database
       const { data: { session } } = await supabase.auth.getSession();
       const saveResponse = await fetch('/api/research/save', {
         method: 'POST',
@@ -127,50 +273,8 @@ export function ResearchSectionV2({
       const saveData = await saveResponse.json();
       if (saveData.success) {
         setSavedResults(prev => [saveData.result, ...prev]);
-        setNewInterest('');
-      }
-    } catch (error) {
-      console.error('Error adding interest:', error);
-      alert('Failed to add interest');
-    } finally {
-      setIsResearching(false);
-    }
-  };
-
-  const handleResearchCompany = async () => {
-    if (!personCompany || !personId) return;
-
-    setIsResearching(true);
-    try {
-      const analyzeResponse = await fetch('/api/research/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'company',
-          companyName: personCompany,
-          companyLinkedInUrl: editedPreview?.people?.[0]?.company_linkedin_url,
-        }),
-      });
-
-      const analyzeData = await analyzeResponse.json();
-      if (!analyzeData.success) throw new Error(analyzeData.error);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const saveResponse = await fetch('/api/research/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          person_id: personId,
-          ...analyzeData.result,
-        }),
-      });
-
-      const saveData = await saveResponse.json();
-      if (saveData.success) {
-        setSavedResults(prev => [saveData.result, ...prev.filter(r => r.type !== 'company')]);
+        setCompanyInput(''); // Clear input after successful research
+        console.log('✅ Company research saved successfully');
       }
     } catch (error) {
       console.error('Error researching company:', error);
@@ -181,7 +285,31 @@ export function ResearchSectionV2({
   };
 
   const handleResearchTechStack = async () => {
-    if (!personCompany || !personId) return;
+    const companyToResearch = techStackInput.trim() || personCompany;
+    if (!companyToResearch || !personId) return;
+
+    // Gather context based on checkboxes
+    let contextData: any = {};
+    
+    if (useProfile) {
+      contextData.profile = {
+        name: personName,
+        company: personCompany,
+        role: personRole,
+      };
+    }
+    
+    if (useLinkedIn) {
+      contextData.linkedin = editedPreview?.linkedin_profile || editedPreview?.people?.[0]?.linkedin_profile;
+    }
+    
+    if (useConversations) {
+      contextData.conversations = editedPreview?.additional_notes || [];
+    }
+    
+    if (useNotes) {
+      contextData.notes = editedPreview?.research || [];
+    }
 
     setIsResearching(true);
     try {
@@ -190,7 +318,8 @@ export function ResearchSectionV2({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'tech_stack',
-          companyName: personCompany,
+          companyName: companyToResearch,
+          contextData, // Pass context
           personContext: {
             name: personName,
             role: personRole,
@@ -217,7 +346,9 @@ export function ResearchSectionV2({
 
       const saveData = await saveResponse.json();
       if (saveData.success) {
-        setSavedResults(prev => [saveData.result, ...prev.filter(r => r.type !== 'tech_stack')]);
+        setSavedResults(prev => [saveData.result, ...prev]);
+        setTechStackInput(''); // Clear input after successful research
+        console.log('✅ Tech stack research saved successfully');
       }
     } catch (error) {
       console.error('Error researching tech stack:', error);
@@ -318,8 +449,8 @@ export function ResearchSectionV2({
 
   // Filter results by type
   const interestResults = savedResults.filter(r => r.type === 'interest');
-  const companyResult = savedResults.find(r => r.type === 'company');
-  const techStackResult = savedResults.find(r => r.type === 'tech_stack');
+  const companyResults = savedResults.filter(r => r.type === 'company');
+  const techStackResults = savedResults.filter(r => r.type === 'tech_stack');
 
   return (
     <div className="space-y-6">
@@ -359,116 +490,403 @@ export function ResearchSectionV2({
 
       {/* Personal Interests Tab */}
       {activeTab === 'interests' && (
-        <div className="space-y-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newInterest}
-              onChange={(e) => setNewInterest(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddInterest()}
-              placeholder="Add interest (e.g., 'Michigan football', 'F1 Hamilton')"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
-            />
-            <Button
-              onClick={handleAddInterest}
-              disabled={isResearching || !newInterest.trim()}
-              size="sm"
-            >
-              {isResearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            </Button>
-          </div>
-
-          {interestResults.length === 0 ? (
-            <p className="text-sm text-gray-400 italic">No interests tracked yet</p>
+        <div className="space-y-3">
+          {!personId ? (
+            <p className="text-sm text-gray-500 italic text-center py-4 bg-yellow-50 border border-yellow-200 rounded p-3">
+              💡 Load a person from your library first to track their interests
+            </p>
           ) : (
-            <div className="space-y-3">
+            <>
+              {/* Context source checkboxes */}
+              <div className="flex gap-4 text-xs">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useProfile}
+                    onChange={(e) => setUseProfile(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Profile</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useLinkedIn}
+                    onChange={(e) => setUseLinkedIn(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>LinkedIn</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useConversations}
+                    onChange={(e) => setUseConversations(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Conversations</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useNotes}
+                    onChange={(e) => setUseNotes(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Notes</span>
+                </label>
+              </div>
+
+              {/* Add Interest Input - Like Follow-ups */}
+              <textarea
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                placeholder="Add interest (Enter to save, Shift+Enter for new line)"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm mb-2 resize-none overflow-hidden"
+                rows={1}
+                onInput={(e) => {
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && newInterest.trim()) {
+                    e.preventDefault();
+                    handleAddInterest();
+                    e.currentTarget.style.height = 'auto';
+                  }
+                }}
+              />
+
+              {/* Interest Cards - Like Follow-ups */}
               {interestResults.map((result) => (
-                <ResearchCard
-                  key={result.id}
-                  result={result}
-                  onRefresh={() => handleRefresh(result)}
-                  onDelete={() => handleDelete(result)}
-                  onAddToNotes={() => addResultToNotes(result)}
-                  isRefreshing={refreshingId === result.id}
-                />
+                <div key={result.id} className="p-4 bg-white rounded border border-gray-200">
+                  {/* Header with topic and delete */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h5 className="text-sm font-semibold text-gray-800 mb-1">{result.topic}</h5>
+                      {result.summary && (
+                        <p className="text-xs text-gray-600 mb-2">{result.summary}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(result)}
+                      className="text-red-600 hover:text-red-700 text-lg font-bold ml-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Links */}
+                  {result.links && result.links.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex flex-wrap gap-2">
+                        {result.links.map((link, idx) => (
+                          <a
+                            key={idx}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            {link.source}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">
+                      {result.last_updated ? `Updated: ${new Date(result.last_updated).toLocaleDateString()}` : 'Not researched yet'}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleRefresh(result)}
+                        disabled={refreshingId === result.id}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                      >
+                        {refreshingId === result.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          'Refresh'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => addResultToNotes(result)}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                      >
+                        Add to Notes
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </div>
+
+              {/* Add Interest Button */}
+              <button
+                onClick={() => {
+                  // Focus on the textarea
+                  const textarea = document.querySelector('textarea[placeholder*="Add interest"]') as HTMLTextAreaElement;
+                  textarea?.focus();
+                }}
+                className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+              >
+                + Add Interest
+              </button>
+            </>
           )}
         </div>
       )}
 
       {/* Company Tab */}
       {activeTab === 'company' && (
-        <div className="space-y-4">
-          {!companyResult ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-gray-600 mb-4">
-                Research {personCompany || 'the company'} to get overview, news, and insights
-              </p>
-              <Button
-                onClick={handleResearchCompany}
-                disabled={isResearching || !personCompany}
-              >
-                {isResearching ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Researching...
-                  </>
-                ) : (
-                  'Research Company'
-                )}
-              </Button>
-            </div>
-          ) : (
-            <ResearchCard
-              result={companyResult}
-              onRefresh={() => handleRefresh(companyResult)}
-              onDelete={() => handleDelete(companyResult)}
-              onAddToNotes={() => addResultToNotes(companyResult)}
-              isRefreshing={refreshingId === companyResult.id}
+        <div className="space-y-3">
+          {/* Context source checkboxes at top */}
+          <div className="flex gap-4 text-xs">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useProfile}
+                onChange={(e) => setUseProfile(e.target.checked)}
+                className="rounded"
+              />
+              <span>Profile</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLinkedIn}
+                onChange={(e) => setUseLinkedIn(e.target.checked)}
+                className="rounded"
+              />
+              <span>LinkedIn</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useConversations}
+                onChange={(e) => setUseConversations(e.target.checked)}
+                className="rounded"
+              />
+              <span>Conversations</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useNotes}
+                onChange={(e) => setUseNotes(e.target.checked)}
+                className="rounded"
+              />
+              <span>Notes</span>
+            </label>
+          </div>
+          
+          {/* Textarea - research on Enter */}
+          <div className="relative">
+            <textarea
+              value={companyInput}
+              onChange={(e) => setCompanyInput(e.target.value)}
+              onInput={(e) => {
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  if (companyInput.trim() && personId) {
+                    e.preventDefault();
+                    console.log('🔑 Enter pressed, calling handleResearchCompany');
+                    handleResearchCompany();
+                  } else {
+                    e.preventDefault();
+                    console.warn('⚠️ Enter pressed but missing data:', { hasInput: !!companyInput.trim(), hasPersonId: !!personId });
+                  }
+                }
+              }}
+              placeholder="Company name, URL, or instructions (Enter to research)"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none overflow-hidden"
+              rows={1}
+              disabled={isResearching}
             />
-          )}
+            {isResearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              </div>
+            )}
+          </div>
+
+          {/* Show all company results */}
+          {companyResults.map((result) => (
+            <div key={result.id} className="p-4 bg-white rounded border border-gray-200 relative">
+              {/* Delete X button in top right */}
+              <button
+                onClick={() => handleDelete(result)}
+                className="absolute top-3 right-3 text-red-600 hover:text-red-700 text-xl font-bold"
+              >
+                ×
+              </button>
+              
+              <div className="pr-8">
+                <h5 className="text-sm font-semibold text-gray-800 mb-1">{result.topic}</h5>
+                {result.summary && (
+                  <div className="text-xs text-gray-600 mb-3 prose prose-sm max-w-none">
+                    <ReactMarkdown>{result.summary}</ReactMarkdown>
+                  </div>
+                )}
+                
+                {/* Links */}
+                {result.links && result.links.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {result.links.map((link: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          {link.source}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Action buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-xs text-gray-500">
+                    Updated: {new Date(result.last_updated).toLocaleDateString()}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleRefresh(result)}
+                      disabled={refreshingId === result.id}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      {refreshingId === result.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        'Refresh'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => addResultToNotes(result)}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      Add to Notes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Tech Stack Tab */}
       {activeTab === 'tech' && (
-        <div className="space-y-4">
-          {!techStackResult ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-gray-600 mb-4">
-                Discover the technologies and tools used at {personCompany || 'the company'}
-              </p>
-              <Button
-                onClick={handleResearchTechStack}
-                disabled={isResearching || !personCompany}
-              >
-                {isResearching ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Researching...
-                  </>
-                ) : (
-                  'Find Tech Stack'
-                )}
-              </Button>
-            </div>
-          ) : (
-            <div>
+        <div className="space-y-3">
+          {/* Context source checkboxes at top */}
+          <div className="flex gap-4 text-xs">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useProfile}
+                onChange={(e) => setUseProfile(e.target.checked)}
+                className="rounded"
+              />
+              <span>Profile</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLinkedIn}
+                onChange={(e) => setUseLinkedIn(e.target.checked)}
+                className="rounded"
+              />
+              <span>LinkedIn</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useConversations}
+                onChange={(e) => setUseConversations(e.target.checked)}
+                className="rounded"
+              />
+              <span>Conversations</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useNotes}
+                onChange={(e) => setUseNotes(e.target.checked)}
+                className="rounded"
+              />
+              <span>Notes</span>
+            </label>
+          </div>
+          
+          {/* Textarea - research on Enter */}
+          <div className="relative">
+            <textarea
+              value={techStackInput}
+              onChange={(e) => setTechStackInput(e.target.value)}
+              onInput={(e) => {
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (techStackInput.trim() && personId) {
+                    console.log('🔑 Enter pressed on tech stack, calling handleResearchTechStack');
+                    handleResearchTechStack();
+                  } else {
+                    console.warn('⚠️ Enter pressed but missing data:', { hasInput: !!techStackInput.trim(), hasPersonId: !!personId });
+                    if (!personId) alert('Please load a person first');
+                  }
+                }
+              }}
+              placeholder="Company name, URL, or instructions (Enter to research)"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none overflow-hidden"
+              rows={1}
+              disabled={isResearching}
+            />
+            {isResearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              </div>
+            )}
+          </div>
+
+          {/* Show all tech stack results */}
+          {techStackResults.map((result) => (
+            <div key={result.id}>
               <ResearchCard
-                result={techStackResult}
-                onRefresh={() => handleRefresh(techStackResult)}
-                onDelete={() => handleDelete(techStackResult)}
-                onAddToNotes={() => addResultToNotes(techStackResult)}
-                isRefreshing={refreshingId === techStackResult.id}
+                result={result}
+                onRefresh={() => handleRefresh(result)}
+                onDelete={() => handleDelete(result)}
+                onAddToNotes={() => addResultToNotes(result)}
+                isRefreshing={refreshingId === result.id}
               />
               
               {/* Display structured tech data */}
-              {techStackResult.data?.technologies && (
+              {result.data?.technologies && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <h5 className="text-sm font-semibold text-gray-700 mb-3">Technologies Found:</h5>
                   <div className="grid grid-cols-2 gap-4">
-                    {Object.entries(techStackResult.data.technologies).map(([category, techs]: [string, any]) => (
+                    {Object.entries(result.data.technologies).map(([category, techs]: [string, any]) => (
                       techs && techs.length > 0 && (
                         <div key={category}>
                           <p className="text-xs font-medium text-gray-600 mb-1 capitalize">{category}:</p>
@@ -486,7 +904,7 @@ export function ResearchSectionV2({
                 </div>
               )}
             </div>
-          )}
+          ))}
         </div>
       )}
 

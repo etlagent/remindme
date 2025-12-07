@@ -8,13 +8,31 @@ const openai = new OpenAI({
 const perplexity = new OpenAI({
   apiKey: process.env.PERPLEXITY_API_KEY,
   baseURL: 'https://api.perplexity.ai',
+  defaultHeaders: {
+    'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+  },
 });
+
+// Check API keys on startup
+if (!process.env.OPENAI_API_KEY) {
+  console.error('⚠️ OPENAI_API_KEY is not set in environment variables');
+}
+if (!process.env.PERPLEXITY_API_KEY) {
+  console.error('⚠️ PERPLEXITY_API_KEY is not set in environment variables');
+}
 
 interface AnalyzeRequest {
   type: 'interest' | 'company' | 'tech_stack';
   topic?: string; // For interests
   companyName?: string;
   companyLinkedInUrl?: string;
+  customInstructions?: string; // Custom research instructions
+  contextData?: {
+    profile?: any;
+    linkedin?: any;
+    conversations?: any[];
+    notes?: any[];
+  };
   personContext?: {
     name?: string;
     role?: string;
@@ -24,19 +42,33 @@ interface AnalyzeRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check API keys first
+    if (!process.env.PERPLEXITY_API_KEY) {
+      throw new Error('Perplexity API key is not configured. Please add PERPLEXITY_API_KEY to your .env.local file.');
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env.local file.');
+    }
+
     const body: AnalyzeRequest = await request.json();
-    const { type, topic, companyName, companyLinkedInUrl, personContext } = body;
+    const { type, topic, companyName, companyLinkedInUrl, customInstructions, contextData, personContext } = body;
 
     console.log(`🔍 Analyzing ${type}:`, topic || companyName);
+    if (customInstructions) {
+      console.log(`📝 Custom instructions: ${customInstructions}`);
+    }
+    if (contextData) {
+      console.log(`📦 Context provided:`, Object.keys(contextData));
+    }
 
     let result: any = {};
 
     switch (type) {
       case 'interest':
-        result = await analyzeInterest(topic!);
+        result = await analyzeInterest(topic!, contextData);
         break;
       case 'company':
-        result = await analyzeCompany(companyName!, companyLinkedInUrl);
+        result = await analyzeCompany(companyName!, companyLinkedInUrl, customInstructions, contextData);
         break;
       case 'tech_stack':
         result = await analyzeTechStack(companyName!, personContext);
@@ -51,61 +83,168 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in research analyze API:', error);
+    console.error('❌ Error in research analyze API:', error);
+    
+    // Better error messages
+    let errorMessage = 'Failed to analyze research topic';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Check for specific API errors
+      if (error.message.includes('401') || error.message.includes('Authorization')) {
+        errorMessage = 'API authentication failed. Please check your Perplexity API key in .env.local';
+      } else if (error.message.includes('429')) {
+        errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      }
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to analyze research topic' 
+        error: errorMessage
       },
       { status: 500 }
     );
   }
 }
 
-async function analyzeInterest(topic: string) {
+async function analyzeInterest(topic: string, contextData?: any) {
   console.log(`📰 Researching interest: ${topic}`);
   
-  const prompt = `Research "${topic}" and provide:
-1. Latest news, updates, or highlights (2-3 sentences)
-2. 4-5 relevant links to learn more (news articles, videos, official sources, social media)
-
-Focus on current, recent information that would be useful for conversation.`;
-
-  const response = await perplexity.chat.completions.create({
-    model: 'sonar-pro',
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a research assistant providing current news and updates on topics of interest.'
+  // Build context-aware query
+  let query = `Latest news and updates about ${topic}`;
+  
+  if (contextData) {
+    if (contextData.profile) {
+      query += ` (relevant to ${contextData.profile.name}, ${contextData.profile.role})`;
+    }
+    // Note: Perplexity Search API doesn't take context in the query, but we can use it for filtering
+  }
+  
+  // Try Perplexity Search API first, fallback to OpenAI if it fails
+  try {
+    console.log('🔮 Attempting to use Perplexity Search API...');
+    
+    const response = await fetch('https://api.perplexity.ai/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-      {
-        role: 'user',
-        content: prompt
-      }
-    ],
-  });
+      body: JSON.stringify({
+        query,
+        max_results: 5,
+        search_recency_filter: 'week',
+      }),
+    });
 
-  const content = response.choices[0].message.content || '';
-  const links = extractLinks(content);
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Perplexity API error: ${response.status} - ${errorData}`);
+    }
 
-  return {
-    type: 'interest',
-    topic,
-    summary: content.split('\n\n')[0] || content.substring(0, 300),
-    links,
-    last_updated: new Date().toISOString(),
-  };
+    const data = await response.json();
+    console.log('✅ Perplexity Search succeeded!');
+    
+    // Extract results
+    const results = data.results || [];
+    const links = results.map((result: any) => ({
+      source: new URL(result.url).hostname.replace('www.', ''),
+      url: result.url,
+      label: result.title,
+    }));
+
+    // Create summary from snippets
+    const summary = results
+      .slice(0, 3)
+      .map((r: any) => r.snippet)
+      .join(' ')
+      .substring(0, 300);
+
+    return {
+      type: 'interest',
+      topic,
+      summary: summary || `Latest updates about ${topic}`,
+      links,
+      last_updated: new Date().toISOString(),
+    };
+  } catch (perplexityError: any) {
+    console.error('❌ Perplexity failed with error:', perplexityError.message);
+    console.warn('⚠️ Falling back to OpenAI...');
+    
+    // Fallback to OpenAI
+    const prompt = `Research "${topic}" and provide a brief summary (2-3 sentences) about recent news or updates. Include 3-4 example links where someone could learn more (format as markdown links).`;
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a research assistant. Provide concise summaries with example links in markdown format [text](url).'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+    });
+
+    const content = response.choices[0].message.content || '';
+    const links = extractLinks(content);
+
+    console.log('✅ OpenAI fallback succeeded');
+    return {
+      type: 'interest',
+      topic,
+      summary: content,
+      links: links.length > 0 ? links : [
+        { source: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(topic)}`, label: 'Search Google' },
+        { source: 'YouTube', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic)}`, label: 'Search YouTube' }
+      ],
+      last_updated: new Date().toISOString(),
+    };
+  }
 }
 
-async function analyzeCompany(companyName: string, linkedInUrl?: string) {
+async function analyzeCompany(companyName: string, linkedInUrl?: string, customInstructions?: string, contextData?: any) {
   console.log(`🏢 Researching company: ${companyName}`);
   
-  const prompt = `Research the company "${companyName}"${linkedInUrl ? ` (LinkedIn: ${linkedInUrl})` : ''} and provide:
+  // Build context section if provided
+  let contextSection = '';
+  if (contextData) {
+    contextSection = '\n\nADDITIONAL CONTEXT:\n';
+    
+    if (contextData.profile) {
+      contextSection += `\nProfile: ${contextData.profile.name} - ${contextData.profile.role} at ${contextData.profile.company}`;
+    }
+    
+    if (contextData.linkedin) {
+      contextSection += `\n\nLinkedIn Profile Data:\n${JSON.stringify(contextData.linkedin).substring(0, 1000)}`;
+    }
+    
+    if (contextData.conversations && contextData.conversations.length > 0) {
+      contextSection += `\n\nRecent Conversations:\n${contextData.conversations.map((c: any) => c.content || c.text).join('\n').substring(0, 1000)}`;
+    }
+    
+    if (contextData.notes && contextData.notes.length > 0) {
+      contextSection += `\n\nExisting Notes:\n${contextData.notes.map((n: any) => n.content || n.text).join('\n').substring(0, 500)}`;
+    }
+  }
+  
+  const basePrompt = customInstructions 
+    ? `Research the company "${companyName}"${linkedInUrl ? ` (LinkedIn: ${linkedInUrl})` : ''}.
+
+SPECIFIC FOCUS: ${customInstructions}${contextSection}
+
+Also provide 5-7 relevant links for verification.`
+    : `Research the company "${companyName}"${linkedInUrl ? ` (LinkedIn: ${linkedInUrl})` : ''} and provide:
 
 1. Company Overview (2-3 sentences): What they do, size, industry
 2. Latest News (1-2 items): Recent funding, product launches, news
 3. Key Products/Services
-4. Organizational Structure hints (if available)
+4. Organizational Structure hints (if available)${contextSection}
 
 Provide 5-7 relevant links including:
 - Company website
@@ -113,6 +252,8 @@ Provide 5-7 relevant links including:
 - LinkedIn company page
 - Crunchbase or similar
 - Any relevant blog posts or press releases`;
+  
+  const prompt = basePrompt;
 
   const response = await perplexity.chat.completions.create({
     model: 'sonar-pro',

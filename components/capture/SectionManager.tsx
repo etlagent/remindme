@@ -227,6 +227,9 @@ export function SectionManager({
   // State for visibility settings panel
   const [showVisibilityPanel, setShowVisibilityPanel] = React.useState(false);
 
+  // State for research count
+  const [researchCount, setResearchCount] = React.useState(0);
+
   // Get badge counts for sections
   const getBadge = (sectionId: string) => {
     if (sectionId === 'conversations') {
@@ -248,9 +251,8 @@ export function SectionManager({
       }
     }
     if (sectionId === 'research') {
-      const count = editedPreview?.research?.length || 0;
-      if (count > 0) {
-        return <Badge variant="outline" className="text-xs">{count}</Badge>;
+      if (researchCount > 0) {
+        return <Badge variant="outline" className="text-xs">{researchCount}</Badge>;
       }
     }
     return null;
@@ -371,6 +373,7 @@ export function SectionManager({
                 
                 if (section.id === 'research') {
                   componentProps.personId = personId;
+                  componentProps.onCountChange = setResearchCount;
                 }
 
                 return (
