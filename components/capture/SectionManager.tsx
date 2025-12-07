@@ -18,7 +18,7 @@ import { LinkedInSection } from "./sections/LinkedInSection";
 import { ConversationsSection } from "./sections/ConversationsSection";
 import { FollowUpsSection } from "./sections/FollowUpsSection";
 import { MemoriesSection } from "./sections/MemoriesSection";
-import { ResearchSection } from "./sections/ResearchSection";
+import { ResearchSectionV2 as ResearchSection } from "./sections/ResearchSectionV2";
 import { VoiceRecorderButton } from "./VoiceRecorderButton";
 import { Badge } from "@/components/ui/badge";
 import { Eye, X } from "lucide-react";
@@ -75,6 +75,8 @@ interface SectionManagerProps {
   // Voice recording props
   isRecording?: boolean;
   onToggleRecording?: () => void;
+  // Person ID for research
+  personId?: string;
 }
 
 // Component mapping
@@ -175,6 +177,8 @@ export function SectionManager({
   // Voice recording props
   isRecording,
   onToggleRecording,
+  // Person ID
+  personId,
 }: SectionManagerProps) {
   // Setup drag sensors
   const sensors = useSensors(
@@ -353,14 +357,21 @@ export function SectionManager({
                 }
 
                 // Render standard sections with standard props
-                const Component = SectionComponent as React.ComponentType<{
-                  editedPreview: any;
-                  setEditedPreview: (preview: any) => void;
-                  personName: string;
-                  personCompany: string;
-                  personRole: string;
-                  personLocation: string;
-                }>;
+                const Component = SectionComponent as React.ComponentType<any>;
+                
+                // Build props - add personId for research section
+                const componentProps: any = {
+                  editedPreview,
+                  setEditedPreview,
+                  personName,
+                  personCompany,
+                  personRole,
+                  personLocation,
+                };
+                
+                if (section.id === 'research') {
+                  componentProps.personId = personId;
+                }
 
                 return (
                   <SortableSection
@@ -370,14 +381,7 @@ export function SectionManager({
                     onToggle={() => onToggleSection(section.id)}
                     badge={getBadge(section.id)}
                   >
-                    <Component
-                      editedPreview={editedPreview}
-                      setEditedPreview={setEditedPreview}
-                      personName={personName}
-                      personCompany={personCompany}
-                      personRole={personRole}
-                      personLocation={personLocation}
-                    />
+                    <Component {...componentProps} />
                   </SortableSection>
                 );
               })}

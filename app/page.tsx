@@ -1317,6 +1317,7 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               isParsing={isParsing}
               isRecording={isRecording}
               onToggleRecording={handleMicClick}
+              personId={loadedPersonId || undefined}
             />
 
             {/* Action Buttons - Disabled, using Save to Rolodex instead */}
