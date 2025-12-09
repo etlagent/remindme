@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AuthButton } from "@/components/AuthButton";
 import { PersonInfoCard } from "@/components/capture/PersonInfoCard";
+import { GlobalModeHeader } from "@/components/layout/GlobalModeHeader";
 import { DirectSaveButton } from "@/components/capture/DirectSaveButton";
 import { SectionManager, SectionConfig } from "@/components/capture/SectionManager";
 import { supabase } from "@/lib/supabase";
@@ -1228,15 +1229,8 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-lg">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Relationship Builder
-          </h1>
-          <AuthButton />
-        </div>
-      </header>
+      {/* Global Mode Header */}
+      <GlobalModeHeader />
 
       {/* Main Split Screen */}
       <div className="container mx-auto p-4">

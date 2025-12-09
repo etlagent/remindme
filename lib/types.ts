@@ -149,6 +149,167 @@ export interface Education {
   order?: number;
 }
 
+/**
+ * Business - Represents a business/client being pursued
+ * DATABASE TABLE: businesses
+ * RELATED TABLES: business_people, business_notes, meetings
+ */
+export interface Business {
+  id: string;
+  user_id: string;
+  name: string;
+  industry: string | null;
+  stage: 'discovery' | 'qualification' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost' | null;
+  deal_value: number | null;
+  website: string | null;
+  linkedin_url: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * BusinessPerson - Links a person to a business with role context
+ * DATABASE TABLE: business_people
+ * RELATED TABLES: businesses, people
+ */
+export interface BusinessPerson {
+  id: string;
+  business_id: string;
+  person_id: string;
+  role: 'champion' | 'decision_maker' | 'influencer' | 'blocker' | 'end_user' | 'coach' | null;
+  influence_level: 'high' | 'medium' | 'low' | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * BusinessNote - Notes and context about a business
+ * DATABASE TABLE: business_notes
+ * RELATED TABLES: businesses
+ */
+export interface BusinessNote {
+  id: string;
+  business_id: string;
+  user_id: string;
+  content: string;
+  source: 'manual' | 'slack' | 'zoom' | 'email' | 'linkedin' | string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Meeting - Represents a meeting with a business
+ * DATABASE TABLE: meetings
+ * RELATED TABLES: businesses, meeting_attendees, meeting_agenda, meeting_questions, meeting_notes, meeting_followups
+ */
+export interface Meeting {
+  id: string;
+  business_id: string;
+  user_id: string;
+  title: string;
+  meeting_date: string | null;
+  location: string | null;
+  goal: string | null;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * MeetingAttendee - Links a person to a meeting
+ * DATABASE TABLE: meeting_attendees
+ * RELATED TABLES: meetings, people
+ */
+export interface MeetingAttendee {
+  id: string;
+  meeting_id: string;
+  person_id: string;
+  created_at: string;
+}
+
+/**
+ * MeetingAgendaItem - Agenda item for a meeting
+ * DATABASE TABLE: meeting_agenda
+ * RELATED TABLES: meetings
+ */
+export interface MeetingAgendaItem {
+  id: string;
+  meeting_id: string;
+  item_order: number;
+  duration_minutes: number | null;
+  description: string;
+  created_at: string;
+}
+
+/**
+ * MeetingQuestion - Question to ask in a meeting
+ * DATABASE TABLE: meeting_questions
+ * RELATED TABLES: meetings
+ */
+export interface MeetingQuestion {
+  id: string;
+  meeting_id: string;
+  question: string;
+  priority: 'high' | 'medium' | 'low';
+  context: string | null;
+  status: 'to_ask' | 'asked' | 'answered';
+  answer: string | null;
+  asked_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * MeetingNote - Notes from a meeting
+ * DATABASE TABLE: meeting_notes
+ * RELATED TABLES: meetings
+ */
+export interface MeetingNote {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  content: string;
+  note_type: 'pre' | 'during' | 'post';
+  source: 'manual' | 'zoom_transcript' | 'slack' | string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * MeetingFollowUp - Follow-up action from a meeting
+ * DATABASE TABLE: meeting_followups
+ * RELATED TABLES: meetings
+ */
+export interface MeetingFollowUp {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  due_date: string | null;
+  status: 'pending' | 'completed' | 'cancelled';
+  completed_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PersonBusinessNote - Notes about a person in the context of a business
+ * DATABASE TABLE: person_business_notes
+ * RELATED TABLES: people, businesses
+ */
+export interface PersonBusinessNote {
+  id: string;
+  person_id: string;
+  business_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================================
 // UI STATE TYPES
 // These represent application state, not database models
@@ -273,3 +434,32 @@ export interface PersonFormData {
  * RE-EXPORTED from @dnd-kit/core for convenience
  */
 export type { DragEndEvent } from '@dnd-kit/core';
+
+/**
+ * WorkspaceView - Type of view to show in the right panel workspace
+ * USED BY: Business page right panel
+ */
+export type WorkspaceView = 'business' | 'person' | 'meeting' | 'library';
+
+/**
+ * BusinessWithRelations - Business with related data loaded
+ * USED BY: Business detail views
+ */
+export interface BusinessWithRelations extends Business {
+  people?: (BusinessPerson & { person?: Person })[];
+  meetings?: Meeting[];
+  notes?: BusinessNote[];
+}
+
+/**
+ * MeetingWithRelations - Meeting with related data loaded
+ * USED BY: Meeting detail views
+ */
+export interface MeetingWithRelations extends Meeting {
+  business?: Business;
+  attendees?: (MeetingAttendee & { person?: Person })[];
+  agenda?: MeetingAgendaItem[];
+  questions?: MeetingQuestion[];
+  notes?: MeetingNote[];
+  followups?: MeetingFollowUp[];
+}
