@@ -238,7 +238,15 @@ async function analyzeCompany(companyName: string, linkedInUrl?: string, customI
 
 SPECIFIC FOCUS: ${customInstructions}${contextSection}
 
-Also provide 5-7 relevant links for verification.`
+FORMAT INSTRUCTIONS:
+- For EACH specific article or update you mention, include the FULL DIRECT URL to that article, not the homepage
+- Format links as: [Specific Article Title](https://domain.com/article/full-path)
+- Example: [Netflix's $83B Acquisition Impact](https://adweek.com/tvnewser/netflix-acquisition-analysis/12345) NOT [Adweek](https://adweek.com)
+- DO NOT include generic homepage links like adweek.com - only link to specific articles
+- Organize by source/publication with clear headings
+- Use markdown formatting for readability with proper spacing between sections
+
+Focus on providing actionable, specific article links that the user can click to read immediately.`
     : `Research the company "${companyName}"${linkedInUrl ? ` (LinkedIn: ${linkedInUrl})` : ''} and provide:
 
 1. Company Overview (2-3 sentences): What they do, size, industry
@@ -272,9 +280,17 @@ Provide 5-7 relevant links including:
   const content = response.choices[0].message.content || '';
   const links = extractLinks(content);
 
+  // Generate a concise title if the input is long (likely custom instructions)
+  let topic = companyName;
+  if (customInstructions && customInstructions.length > 50) {
+    // Extract a shorter title from the instructions
+    const titleMatch = customInstructions.match(/(?:scan|updates?|news).+?(?:on|about|for)\s+(.+?)(?:\s+(?:look|from|today|1\.|$))/i);
+    topic = titleMatch ? titleMatch[1].trim() : companyName.substring(0, 50) + '...';
+  }
+
   return {
     type: 'company',
-    topic: companyName,
+    topic: topic,
     summary: content,
     data: {
       company_name: companyName,

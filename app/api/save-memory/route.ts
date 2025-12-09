@@ -47,12 +47,12 @@ export async function POST(request: Request) {
 
     // 1. Create or get event if mentioned
     let eventId = null;
-    if (structuredData.event) {
+    if (structuredData.event && structuredData.event.name && structuredData.event.name.trim()) {
       const { data: existingEvent } = await supabase
         .from("events")
         .select("id")
         .eq("user_id", userId)
-        .eq("name", structuredData.event.name)
+        .eq("name", structuredData.event.name.trim())
         .single();
 
       if (existingEvent) {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
           .from("events")
           .insert({
             user_id: userId,
-            name: structuredData.event.name,
+            name: structuredData.event.name.trim(),
             date: structuredData.event.date || null,
             location: structuredData.event.location || null,
           })

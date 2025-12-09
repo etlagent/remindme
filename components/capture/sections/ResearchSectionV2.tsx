@@ -44,6 +44,13 @@ interface ResearchResult {
     label: string;
   }>;
   last_updated: string;
+  original_query?: string; // The original user query
+  context_selections?: {
+    useProfile?: boolean;
+    useLinkedIn?: boolean;
+    useConversations?: boolean;
+    useNotes?: boolean;
+  };
 }
 
 export function ResearchSectionV2({
@@ -267,6 +274,13 @@ export function ResearchSectionV2({
         body: JSON.stringify({
           person_id: personId,
           ...analyzeData.result,
+          original_query: companyInput.trim(), // Save the original query
+          context_selections: { // Save which context was selected
+            useProfile,
+            useLinkedIn,
+            useConversations,
+            useNotes
+          },
         }),
       });
 
@@ -363,7 +377,33 @@ export function ResearchSectionV2({
 
     setRefreshingId(result.id);
     try {
-      // Re-analyze
+      // Gather context data based on saved context selections
+      let contextData: any = null;
+      if (result.context_selections) {
+        contextData = {};
+        
+        if (result.context_selections.useProfile) {
+          contextData.profile = {
+            name: personName,
+            role: personRole,
+            company: personCompany
+          };
+        }
+        
+        if (result.context_selections.useLinkedIn && editedPreview?.people?.[0]) {
+          contextData.linkedin = editedPreview.people[0];
+        }
+        
+        if (result.context_selections.useConversations && editedPreview?.additional_notes) {
+          contextData.conversations = editedPreview.additional_notes;
+        }
+        
+        if (result.context_selections.useNotes && editedPreview?.memories) {
+          contextData.notes = editedPreview.memories;
+        }
+      }
+
+      // Re-analyze with the original query and context
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -372,6 +412,8 @@ export function ResearchSectionV2({
           topic: result.type === 'interest' ? result.topic : undefined,
           companyName: result.type !== 'interest' ? personCompany : undefined,
           companyLinkedInUrl: result.type === 'company' ? editedPreview?.people?.[0]?.company_linkedin_url : undefined,
+          customInstructions: result.original_query, // Use the saved original query!
+          contextData, // Use the saved context selections
           personContext: result.type === 'tech_stack' ? {
             name: personName,
             role: personRole,
@@ -394,6 +436,8 @@ export function ResearchSectionV2({
         body: JSON.stringify({
           person_id: personId,
           ...analyzeData.result,
+          original_query: result.original_query, // Keep the original query
+          context_selections: result.context_selections, // Keep the context selections
         }),
       });
 
@@ -732,10 +776,41 @@ export function ResearchSectionV2({
               </button>
               
               <div className="pr-8">
-                <h5 className="text-sm font-semibold text-gray-800 mb-1">{result.topic}</h5>
+                <h5 className="text-sm font-semibold text-gray-800 mb-3">{result.topic}</h5>
+                
+                {/* Show original prompt if available */}
+                {result.original_query && (
+                  <div className="mb-4 pb-3 border-b border-gray-200">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Prompt:</p>
+                    <p className="text-xs text-gray-600 italic">{result.original_query}</p>
+                  </div>
+                )}
+                
+                {/* Show result */}
                 {result.summary && (
-                  <div className="text-xs text-gray-600 mb-3 prose prose-sm max-w-none">
-                    <ReactMarkdown>{result.summary}</ReactMarkdown>
+                  <div className="mb-2">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">Result:</p>
+                  </div>
+                )}
+                
+                {result.summary && (
+                  <div className="text-xs text-gray-700 mb-3 prose prose-sm max-w-none
+                    [&_ol]:space-y-4 [&_ul]:space-y-4 
+                    [&_li]:mb-3 [&_li]:leading-relaxed
+                    [&_p]:mb-2 [&_p]:leading-relaxed
+                    [&_h1]:text-sm [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-4
+                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3
+                    [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-3
+                    [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800">
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a {...props} target="_blank" rel="noopener noreferrer" />
+                        ),
+                      }}
+                    >
+                      {result.summary}
+                    </ReactMarkdown>
                   </div>
                 )}
                 

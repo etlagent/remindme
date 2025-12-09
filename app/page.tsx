@@ -585,9 +585,6 @@ export default function Home() {
 
       // Store the person ID so we know to UPDATE instead of INSERT
       setLoadedPersonId(personId);
-
-      console.log('✅ Loaded person into form:', person.name, 'ID:', personId);
-      console.log('📊 Preview data:', previewData);
     } catch (error) {
       console.error('Error loading person:', error);
       alert('Failed to load person data');

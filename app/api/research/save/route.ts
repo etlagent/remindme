@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { person_id, type, topic, summary, data, links } = body;
+    const { person_id, type, topic, summary, data, links, original_query, context_selections } = body;
 
     if (!person_id || !type || !topic) {
       return NextResponse.json(
@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
           summary,
           data,
           links,
+          original_query,
+          context_selections,
           last_updated: new Date().toISOString(),
         })
         .eq('id', existing.id)
@@ -79,6 +81,8 @@ export async function POST(request: NextRequest) {
           summary,
           data,
           links,
+          original_query,
+          context_selections,
         })
         .select()
         .single();
