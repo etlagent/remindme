@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { GlobalModeHeader } from '@/components/layout/GlobalModeHeader';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { 
   Business, 
   Meeting, 
@@ -67,29 +70,31 @@ export default function BusinessPage() {
       {/* Global Mode Header */}
       <GlobalModeHeader />
 
-      {/* Main Two-Panel Layout */}
-      <div className="flex h-[calc(100vh-57px)]">
-        {/* LEFT PANEL - Business Context */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <LeftPanel
-            businesses={businesses}
-            selectedBusiness={selectedBusiness}
-            onBusinessSelect={handleBusinessSelect}
-            onMeetingSelect={handleMeetingSelect}
-            onPersonClick={handlePersonClick}
-            isLoading={isLoading}
-          />
-        </div>
+      {/* Main Split Screen - Matching Relationship Builder Layout */}
+      <div className="container mx-auto p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
+          {/* Left: Business Section */}
+          <Card className="bg-white border-gray-200 shadow-sm p-6">
+            <LeftPanel
+              businesses={businesses}
+              selectedBusiness={selectedBusiness}
+              onBusinessSelect={handleBusinessSelect}
+              onMeetingSelect={handleMeetingSelect}
+              onPersonClick={handlePersonClick}
+              isLoading={isLoading}
+            />
+          </Card>
 
-        {/* RIGHT PANEL - Dynamic Workspace */}
-        <div className="w-96 bg-white border-l border-gray-200 overflow-y-auto p-6">
-          <RightPanel
-            workspaceView={workspaceView}
-            business={selectedBusiness}
-            meeting={selectedMeeting}
-            person={selectedPerson}
-            onViewChange={setWorkspaceView}
-          />
+          {/* Right: Library Section */}
+          <Card className="bg-white border-gray-200 shadow-sm p-6">
+            <RightPanel
+              workspaceView={workspaceView}
+              business={selectedBusiness}
+              meeting={selectedMeeting}
+              person={selectedPerson}
+              onViewChange={setWorkspaceView}
+            />
+          </Card>
         </div>
       </div>
     </div>
@@ -117,90 +122,115 @@ function LeftPanel({
   onPersonClick,
   isLoading
 }: LeftPanelProps) {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading businesses...</div>
-      </div>
-    );
-  }
+  const [businessName, setBusinessName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [stage, setStage] = useState('');
+  const [dealValue, setDealValue] = useState('');
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
-  if (businesses.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          No Businesses Yet
-        </h3>
-        <p className="text-gray-600 mb-4">
-          Create your first business to start managing meetings and relationships.
-        </p>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-          + Create Business
-        </button>
-      </div>
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
     );
-  }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Business Selector */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-700">BUSINESSES</h2>
-          <button className="text-sm text-blue-600 hover:text-blue-700">
-            + New
-          </button>
+      {/* Business Info Card - Matching PersonInfoCard style */}
+      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <input
+            type="text"
+            placeholder="Business Name"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            className="text-2xl font-semibold bg-transparent border-none outline-none placeholder-gray-400 text-gray-900 w-full"
+          />
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                setBusinessName('');
+                setIndustry('');
+                setStage('');
+                setDealValue('');
+              }}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md bg-white"
+            >
+              Clear
+            </button>
+          </div>
         </div>
-        
-        <select
-          value={selectedBusiness?.id || ''}
-          onChange={(e) => {
-            const business = businesses.find(b => b.id === e.target.value);
-            if (business) onBusinessSelect(business);
-          }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-        >
-          <option value="">Select a business...</option>
-          {businesses.map((business) => (
-            <option key={business.id} value={business.id}>
-              {business.name}
-            </option>
-          ))}
-        </select>
+
+        <input
+          type="text"
+          placeholder="Industry"
+          value={industry}
+          onChange={(e) => setIndustry(e.target.value)}
+          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
+        />
+
+        <input
+          type="text"
+          placeholder="Stage (e.g., Discovery, Proposal, Closed Won)"
+          value={stage}
+          onChange={(e) => setStage(e.target.value)}
+          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
+        />
+
+        <input
+          type="text"
+          placeholder="Deal Value"
+          value={dealValue}
+          onChange={(e) => setDealValue(e.target.value)}
+          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
+        />
       </div>
 
-      {/* Selected Business Details */}
-      {selectedBusiness && (
-        <div className="space-y-4">
-          {/* Business Header Placeholder */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900">{selectedBusiness.name}</h3>
-            {selectedBusiness.industry && (
-              <p className="text-sm text-gray-600 mt-1">{selectedBusiness.industry}</p>
-            )}
-          </div>
+      {/* Collapsible Sections */}
+      <div className="space-y-2">
+        {/* People Section */}
+        <button
+          onClick={() => toggleSection('people')}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">People</span>
+          <span className="text-gray-400">▶</span>
+        </button>
 
-          {/* People Section Placeholder */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
-              People ({selectedBusiness.people?.length || 0})
-            </h4>
-            <p className="text-sm text-gray-500">
-              People section coming in Phase 7...
-            </p>
-          </div>
+        {/* Meetings Section */}
+        <button
+          onClick={() => toggleSection('meetings')}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">Meetings</span>
+          <span className="text-gray-400">▶</span>
+        </button>
 
-          {/* Meetings Section Placeholder */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
-              Meetings ({selectedBusiness.meetings?.length || 0})
-            </h4>
-            <p className="text-sm text-gray-500">
-              Meetings section coming in Phase 7...
-            </p>
-          </div>
-        </div>
-      )}
+        {/* Notes Section */}
+        <button
+          onClick={() => toggleSection('notes')}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">Notes & Context</span>
+          <span className="text-gray-400">▶</span>
+        </button>
+
+        {/* Research Section */}
+        <button
+          onClick={() => toggleSection('research')}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">Research</span>
+          <span className="text-gray-400">▶</span>
+        </button>
+      </div>
+
+      {/* Save Button - Bottom */}
+      <button className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+        💾 Save Business
+      </button>
     </div>
   );
 }
@@ -224,93 +254,87 @@ function RightPanel({
   person,
   onViewChange
 }: RightPanelProps) {
+  const [allPeople, setAllPeople] = useState<Person[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+
   return (
-    <div className="space-y-4">
-      {/* View Selector */}
-      <div className="flex gap-2 text-xs pb-3 border-b border-gray-200">
-        <button
-          onClick={() => onViewChange('business')}
-          className={`px-2 py-1 rounded ${
-            workspaceView === 'business'
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Business
-        </button>
-        <button
-          onClick={() => onViewChange('library')}
-          className={`px-2 py-1 rounded ${
-            workspaceView === 'library'
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Library
-        </button>
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Library</h2>
+      
+      {/* Filter Tags - Matching existing UI */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Badge variant="secondary" className="cursor-pointer hover:bg-blue-100">All</Badge>
+        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Business</Badge>
+        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Personal</Badge>
+        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Projects</Badge>
       </div>
 
-      {/* Workspace Content */}
-      {workspaceView === 'business' && business && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">
-            {business.name}
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes & Context
-              </label>
-              <textarea
-                placeholder="Add notes about this business..."
-                className="w-full h-64 px-3 py-2 border border-gray-300 rounded-md text-sm resize-y"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Full notes editor coming in Phase 8...
-              </p>
+      {/* Tabs - Matching existing UI */}
+      <Tabs defaultValue="people" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="people">👥 People</TabsTrigger>
+          <TabsTrigger value="businesses">🏢 Businesses</TabsTrigger>
+          <TabsTrigger value="meetings">📅 Meetings</TabsTrigger>
+        </TabsList>
+
+        {/* People Tab */}
+        <TabsContent value="people" className="space-y-3">
+          {allPeople.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-2">No people yet</p>
+              <p className="text-sm">Switch to Relationship mode to add people</p>
             </div>
+          ) : (
+            allPeople.map((person) => (
+              <div
+                key={person.id}
+                className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer transition-colors"
+              >
+                <h3 className="font-semibold text-gray-900">{person.name}</h3>
+                {person.company && (
+                  <p className="text-sm text-gray-600 mt-1">{person.company}</p>
+                )}
+                {person.role && (
+                  <p className="text-sm text-gray-500">{person.role}</p>
+                )}
+              </div>
+            ))
+          )}
+        </TabsContent>
+
+        {/* Businesses Tab */}
+        <TabsContent value="businesses" className="space-y-3">
+          {allBusinesses.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-2">No businesses yet</p>
+              <p className="text-sm">Add your first business to get started</p>
+            </div>
+          ) : (
+            allBusinesses.map((biz) => (
+              <div
+                key={biz.id}
+                className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer transition-colors"
+              >
+                <h3 className="font-semibold text-gray-900">{biz.name}</h3>
+                {biz.industry && (
+                  <p className="text-sm text-gray-600 mt-1">{biz.industry}</p>
+                )}
+                {biz.stage && (
+                  <Badge variant="secondary" className="mt-2">{biz.stage}</Badge>
+                )}
+              </div>
+            ))
+          )}
+        </TabsContent>
+
+        {/* Meetings Tab */}
+        <TabsContent value="meetings" className="space-y-3">
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-2">No meetings yet</p>
+            <p className="text-sm">Add a business first, then create meetings</p>
           </div>
-        </div>
-      )}
-
-      {workspaceView === 'meeting' && meeting && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">
-            {meeting.title}
-          </h3>
-          <p className="text-sm text-gray-600">
-            Meeting workspace coming in Phase 10...
-          </p>
-        </div>
-      )}
-
-      {workspaceView === 'person' && person && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">
-            {person.name}
-          </h3>
-          <p className="text-sm text-gray-600">
-            Person workspace coming in Phase 8...
-          </p>
-        </div>
-      )}
-
-      {workspaceView === 'library' && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">
-            Library
-          </h3>
-          <p className="text-sm text-gray-600">
-            Library view coming in Phase 8...
-          </p>
-        </div>
-      )}
-
-      {!business && workspaceView === 'business' && (
-        <div className="text-center py-12 text-gray-500">
-          <p>Select a business to get started</p>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
