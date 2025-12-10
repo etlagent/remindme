@@ -185,30 +185,26 @@ function OrgChartPerson({
   onEdit
 }: OrgChartPersonProps) {
   const indentClass = level === 0 ? '' : level === 1 ? 'ml-8' : 'ml-16';
-  const [showActions, setShowActions] = useState(false);
   
   return (
-    <div 
-      className={`${indentClass} relative pb-14`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
+    <div className={`${indentClass} relative`}>
       <div className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
         <div className="flex items-start justify-between mb-2">
           <div>
             <h4 className="font-semibold text-gray-900">{name}</h4>
             <p className="text-sm text-gray-600">{title}</p>
           </div>
-          <button 
-            onClick={onEdit}
-            className="text-gray-400 hover:text-gray-600 text-sm"
-          >
-            ✏️ Edit
-          </button>
+          {onEdit && (
+            <button 
+              onClick={onEdit}
+              className="text-gray-400 hover:text-gray-600 text-sm"
+            >
+              ✏️ Edit
+            </button>
+          )}
         </div>
 
-      
-      {responsibilities && (
+        {responsibilities && (
         <div className="mt-2 text-sm">
           <span className="font-medium text-gray-700">Manages:</span>
           <p className="text-gray-600 mt-0.5">• {responsibilities}</p>
@@ -236,39 +232,6 @@ function OrgChartPerson({
           </div>
         )}
       </div>
-      
-      {/* Action Buttons - Show on Hover */}
-      {showActions && (onAddAbove || onAddBelow || onAddSide) && (
-        <div className="absolute bottom-2 left-4 flex gap-2 bg-white border border-gray-300 rounded-md shadow-lg p-2 z-10">
-          {onAddAbove && (
-            <button
-              onClick={onAddAbove}
-              className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100"
-              title="Add person above (manager)"
-            >
-              ↑ Add Above
-            </button>
-          )}
-          {onAddBelow && (
-            <button
-              onClick={onAddBelow}
-              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100"
-              title="Add person below (reports to)"
-            >
-              ↓ Add Below
-            </button>
-          )}
-          {onAddSide && (
-            <button
-              onClick={onAddSide}
-              className="px-2 py-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100"
-              title="Add peer (same level)"
-            >
-              ↔ Add Side
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -1107,124 +1070,88 @@ function RightPanel({
                 <p className="text-sm">Assign people from the Library tab to build your org chart</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-gray-600">
-                    Visualize the hierarchy and relationships at {business.name}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setAddContext(null);
-                      loadPeople();
-                      setShowPersonSelector(true);
-                    }}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-                  >
-                    + Add Person
-                  </button>
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Visualize the hierarchy and relationships at {business.name}
+                </p>
+
+                {/* Org Chart Area */}
+                {orgChartPeople.length > 0 && (
+                  <div className="mb-6">
+                    <div className="space-y-3">
+                      {orgChartPeople.map((person, index) => (
+                        <div key={person.id}>
+                          <OrgChartPerson
+                            name={person.name}
+                            title={person.title}
+                            level={person.level}
+                            responsibilities={person.responsibilities}
+                            challenges={person.challenges}
+                            needs={person.needs}
+                            notes={person.notes}
+                            onEdit={() => {
+                              alert('Edit person details - Coming soon');
+                            }}
+                          />
+
+                          {index < orgChartPeople.length - 1 && (
+                            <div className="flex items-center justify-center">
+                              <div className="border-l-2 border-gray-300 h-4"></div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Separator */}
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-4 text-sm text-gray-500 font-medium">
+                      {orgChartPeople.length === 0 ? 'Drag people here to build org chart' : 'Assigned People'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {orgChartPeople.map((person, index) => (
-                    <div key={person.id}>
-                      <OrgChartPerson
-                        name={person.name}
-                        title={person.title}
-                        level={person.level}
-                        responsibilities={person.responsibilities}
-                        challenges={person.challenges}
-                        needs={person.needs}
-                        notes={person.notes}
-                        onAddAbove={() => {
-                          setAddContext({ position: 'above', personIndex: index });
-                          loadPeople();
-                          setShowPersonSelector(true);
-                        }}
-                        onAddBelow={() => {
-                          setAddContext({ position: 'below', personIndex: index });
-                          loadPeople();
-                          setShowPersonSelector(true);
-                        }}
-                        onAddSide={() => {
-                          setAddContext({ position: 'side', personIndex: index });
-                          loadPeople();
-                          setShowPersonSelector(true);
-                        }}
-                        onEdit={() => {
-                          alert('Edit functionality coming soon');
-                        }}
-                      />
-
-                      {index < orgChartPeople.length - 1 && (
-                        <div className="flex items-center justify-center">
-                          <div className="border-l-2 border-gray-300 h-4"></div>
+                {/* Assigned People (not in org chart) */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 mb-3">
+                    Click on a person to add them to the org chart above
+                  </p>
+                  {assignedPeople
+                    .filter(person => !orgChartPeople.some(op => op.personId === person.id))
+                    .map((person) => (
+                      <div
+                        key={person.id}
+                        onClick={() => handleAddPersonToOrgChart(person)}
+                        className="p-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900">{person.name}</h3>
+                            {person.company && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                {person.role && `${person.role} at `}{person.company}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs text-blue-600 font-medium">+ Add to chart</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ))}
+                  
+                  {assignedPeople.filter(p => !orgChartPeople.some(op => op.personId === p.id)).length === 0 && orgChartPeople.length > 0 && (
+                    <p className="text-center text-sm text-gray-500 py-4">
+                      All assigned people are in the org chart
+                    </p>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-        )}
-        
-        {/* Person Selector Modal for Organization */}
-        {showPersonSelector && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Select Person</h3>
-                  <button
-                    onClick={() => {
-                      setShowPersonSelector(false);
-                      setPersonSelectorSearch('');
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by name or company..."
-                  value={personSelectorSearch}
-                  onChange={(e) => setPersonSelectorSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {filteredSelectorPeople.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {allPeople.length === 0 ? (
-                      <>
-                        <p className="mb-2">No people in your library</p>
-                        <p className="text-sm">Add people in Relationship mode first</p>
-                      </>
-                    ) : (
-                      <p>No people match your search</p>
-                    )}
-                  </div>
-                ) : (
-                  filteredSelectorPeople.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => handleAddPersonToOrgChart(p)}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="font-medium text-gray-900">{p.name}</div>
-                      {p.company && (
-                        <div className="text-sm text-gray-600 mt-0.5">
-                          {p.role && `${p.role} at `}{p.company}
-                        </div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
         )}
       </div>
