@@ -638,6 +638,7 @@ function RightPanel({
   const [showPersonSelector, setShowPersonSelector] = useState(false);
   const [personSelectorSearch, setPersonSelectorSearch] = useState('');
   const [orgChartPeople, setOrgChartPeople] = useState<any[]>([]);
+  const [addContext, setAddContext] = useState<{position: 'above' | 'below' | 'side', personIndex?: number} | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -729,22 +730,45 @@ function RightPanel({
   );
 
   const handleAddPersonToOrgChart = (person: Person) => {
-    // Add person to org chart with default values
     const newOrgPerson = {
       id: `org-${person.id}-${Date.now()}`,
       personId: person.id,
       name: person.name,
       title: person.role || person.company || 'Role not specified',
-      level: orgChartPeople.length, // Simple level assignment for now
+      level: 0,
       responsibilities: '',
       challenges: '',
       needs: '',
       notes: '',
     };
     
-    setOrgChartPeople([...orgChartPeople, newOrgPerson]);
+    let updatedPeople = [...orgChartPeople];
+    
+    if (addContext) {
+      const { position, personIndex } = addContext;
+      
+      if (position === 'above' && personIndex !== undefined) {
+        // Insert before the reference person
+        updatedPeople.splice(personIndex, 0, newOrgPerson);
+      } else if (position === 'below' && personIndex !== undefined) {
+        // Insert after the reference person
+        updatedPeople.splice(personIndex + 1, 0, newOrgPerson);
+      } else if (position === 'side' && personIndex !== undefined) {
+        // Insert after (same as below for now, but could adjust level)
+        updatedPeople.splice(personIndex + 1, 0, { ...newOrgPerson, level: 1 });
+      } else {
+        // Default: add to end
+        updatedPeople.push(newOrgPerson);
+      }
+    } else {
+      // No context: add to end
+      updatedPeople.push(newOrgPerson);
+    }
+    
+    setOrgChartPeople(updatedPeople);
     setShowPersonSelector(false);
     setPersonSelectorSearch('');
+    setAddContext(null);
   };
 
   // If viewing organization chart
@@ -755,6 +779,7 @@ function RightPanel({
           <h2 className="text-xl font-semibold text-gray-900">Organization</h2>
           <button 
             onClick={() => {
+              setAddContext(null); // Clear context - add to end
               loadPeople(); // Load people if not loaded
               setShowPersonSelector(true);
             }}
@@ -778,7 +803,7 @@ function RightPanel({
           ) : (
             <>
               {/* Org Chart Entries */}
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {orgChartPeople.map((person, index) => (
                   <div key={person.id}>
                     <OrgChartPerson
@@ -790,19 +815,19 @@ function RightPanel({
                       needs={person.needs}
                       notes={person.notes}
                       onAddAbove={() => {
+                        setAddContext({ position: 'above', personIndex: index });
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position context for hierarchy
                       }}
                       onAddBelow={() => {
+                        setAddContext({ position: 'below', personIndex: index });
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position context for hierarchy
                       }}
                       onAddSide={() => {
+                        setAddContext({ position: 'side', personIndex: index });
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position context for hierarchy
                       }}
                       onEdit={() => {
                         // TODO: Edit person details
@@ -813,7 +838,7 @@ function RightPanel({
                     {/* Connection line if there's a next person */}
                     {index < orgChartPeople.length - 1 && (
                       <div className="flex items-center justify-center">
-                        <div className="border-l-2 border-gray-300 h-8"></div>
+                        <div className="border-l-2 border-gray-300 h-4"></div>
                       </div>
                     )}
                   </div>
