@@ -169,6 +169,7 @@ interface OrgChartPersonProps {
   onAddBelow?: () => void;
   onAddSide?: () => void;
   onEdit?: () => void;
+  onRemove?: () => void;
 }
 
 function OrgChartPerson({
@@ -182,7 +183,8 @@ function OrgChartPerson({
   onAddAbove,
   onAddBelow,
   onAddSide,
-  onEdit
+  onEdit,
+  onRemove
 }: OrgChartPersonProps) {
   const indentClass = level === 0 ? '' : level === 1 ? 'ml-8' : 'ml-16';
   
@@ -190,18 +192,30 @@ function OrgChartPerson({
     <div className={`${indentClass} relative`}>
       <div className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
         <div className="flex items-start justify-between mb-2">
-          <div>
+          <div className="flex-1">
             <h4 className="font-semibold text-gray-900">{name}</h4>
             <p className="text-sm text-gray-600">{title}</p>
           </div>
-          {onEdit && (
-            <button 
-              onClick={onEdit}
-              className="text-gray-400 hover:text-gray-600 text-sm"
-            >
-              ✏️ Edit
-            </button>
-          )}
+          <div className="flex gap-2">
+            {onEdit && (
+              <button 
+                onClick={onEdit}
+                className="text-gray-400 hover:text-gray-600 text-sm"
+                title="Edit person details"
+              >
+                ✏️ Edit
+              </button>
+            )}
+            {onRemove && (
+              <button 
+                onClick={onRemove}
+                className="text-gray-400 hover:text-red-600 text-sm"
+                title="Remove from org chart"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {responsibilities && (
@@ -786,6 +800,10 @@ function RightPanel({
     setAddContext(null);
   };
 
+  const handleRemovePersonFromOrgChart = (orgPersonId: string) => {
+    setOrgChartPeople(orgChartPeople.filter(p => p.id !== orgPersonId));
+  };
+
   // If viewing people assigned to this business, show them
   if (workspaceView === 'people') {
     return (
@@ -1092,6 +1110,7 @@ function RightPanel({
                             onEdit={() => {
                               alert('Edit person details - Coming soon');
                             }}
+                            onRemove={() => handleRemovePersonFromOrgChart(person.id)}
                           />
 
                           {index < orgChartPeople.length - 1 && (
