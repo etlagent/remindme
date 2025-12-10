@@ -214,26 +214,15 @@ function OrgChartPerson({
             <h4 className="font-semibold text-gray-900">{name}</h4>
             <p className="text-sm text-gray-600">{title}</p>
           </div>
-          <div className="flex gap-2">
-            {onEdit && (
-              <button 
-                onClick={onEdit}
-                className="text-gray-400 hover:text-gray-600 text-sm"
-                title="Edit person details"
-              >
-                ✏️ Edit
-              </button>
-            )}
-            {onRemove && (
-              <button 
-                onClick={onRemove}
-                className="text-gray-400 hover:text-red-600 text-sm"
-                title="Remove from org chart"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          {onRemove && (
+            <button 
+              onClick={onRemove}
+              className="text-gray-400 hover:text-red-600 text-sm"
+              title="Remove from org chart"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         {responsibilities && (
@@ -625,6 +614,8 @@ function RightPanel({
   const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library' | 'organization'>('assigned');
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<Set<string>>(new Set());
   const [draggedPersonId, setDraggedPersonId] = useState<string | null>(null);
+  const [draggedTeamId, setDraggedTeamId] = useState<string | null>(null);
+  const [orgHierarchy, setOrgHierarchy] = useState<Array<{type: 'person' | 'team', id: string}>>([]);
   const [teams, setTeams] = useState<Array<{id: string, name: string, memberIds: string[], order: number}>>([]);
   const [editingPerson, setEditingPerson] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({
@@ -633,6 +624,8 @@ function RightPanel({
     needs: '',
     notes: ''
   });
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editingTeamName, setEditingTeamName] = useState('');
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -798,30 +791,8 @@ function RightPanel({
       notes: '',
     };
     
-    let updatedPeople = [...orgChartPeople];
-    
-    if (addContext) {
-      const { position, personIndex } = addContext;
-      
-      if (position === 'above' && personIndex !== undefined) {
-        // Insert before the reference person
-        updatedPeople.splice(personIndex, 0, newOrgPerson);
-      } else if (position === 'below' && personIndex !== undefined) {
-        // Insert after the reference person
-        updatedPeople.splice(personIndex + 1, 0, newOrgPerson);
-      } else if (position === 'side' && personIndex !== undefined) {
-        // Insert after (same as below for now, but could adjust level)
-        updatedPeople.splice(personIndex + 1, 0, { ...newOrgPerson, level: 1 });
-      } else {
-        // Default: add to end
-        updatedPeople.push(newOrgPerson);
-      }
-    } else {
-      // No context: add to end
-      updatedPeople.push(newOrgPerson);
-    }
-    
-    setOrgChartPeople(updatedPeople);
+    setOrgChartPeople([...orgChartPeople, newOrgPerson]);
+    setOrgHierarchy([...orgHierarchy, { type: 'person', id: newOrgPerson.id }]);
     setShowPersonSelector(false);
     setPersonSelectorSearch('');
     setAddContext(null);
@@ -829,44 +800,49 @@ function RightPanel({
 
   const handleRemovePersonFromOrgChart = (orgPersonId: string) => {
     setOrgChartPeople(orgChartPeople.filter(p => p.id !== orgPersonId));
+    setOrgHierarchy(orgHierarchy.filter(item => item.id !== orgPersonId));
   };
 
   const handleDragStart = (personId: string) => {
     setDraggedPersonId(personId);
   };
 
+  const handleTeamDragStart = (teamId: string) => {
+    setDraggedTeamId(teamId);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault(); // Allow drop
   };
 
-  const handleDrop = (targetPersonId: string) => {
-    if (!draggedPersonId || draggedPersonId === targetPersonId) return;
+  const handleHierarchyDrop = (targetId: string) => {
+    const draggedId = draggedPersonId || draggedTeamId;
+    if (!draggedId || draggedId === targetId) return;
 
-    const draggedIndex = orgChartPeople.findIndex(p => p.id === draggedPersonId);
-    const targetIndex = orgChartPeople.findIndex(p => p.id === targetPersonId);
+    const draggedIndex = orgHierarchy.findIndex(item => item.id === draggedId);
+    const targetIndex = orgHierarchy.findIndex(item => item.id === targetId);
 
     if (draggedIndex === -1 || targetIndex === -1) return;
 
-    const newPeople = [...orgChartPeople];
-    const [draggedPerson] = newPeople.splice(draggedIndex, 1);
-    newPeople.splice(targetIndex, 0, draggedPerson);
+    const newHierarchy = [...orgHierarchy];
+    const [draggedItem] = newHierarchy.splice(draggedIndex, 1);
+    newHierarchy.splice(targetIndex, 0, draggedItem);
 
-    setOrgChartPeople(newPeople);
+    setOrgHierarchy(newHierarchy);
     setDraggedPersonId(null);
+    setDraggedTeamId(null);
   };
 
   const handleCreateTeam = () => {
-    const teamName = prompt('Enter team name:');
-    if (!teamName) return;
-
     const newTeam = {
       id: `team-${Date.now()}`,
-      name: teamName,
+      name: 'Untitled',
       memberIds: [],
-      order: orgChartPeople.length + teams.length // Place at end
+      order: orgHierarchy.length
     };
 
     setTeams([...teams, newTeam]);
+    setOrgHierarchy([...orgHierarchy, { type: 'team', id: newTeam.id }]);
   };
 
   const handleDropOnTeam = (teamId: string) => {
@@ -915,6 +891,25 @@ function RightPanel({
     setOrgChartPeople(updatedPeople);
     setEditingPerson(null);
     setEditForm({ responsibilities: '', challenges: '', needs: '', notes: '' });
+  };
+
+  const handleStartEditTeamName = (teamId: string, currentName: string) => {
+    setEditingTeamId(teamId);
+    setEditingTeamName(currentName);
+  };
+
+  const handleSaveTeamName = () => {
+    if (!editingTeamId) return;
+
+    const updatedTeams = teams.map(t =>
+      t.id === editingTeamId
+        ? { ...t, name: editingTeamName || 'Untitled' }
+        : t
+    );
+
+    setTeams(updatedTeams);
+    setEditingTeamId(null);
+    setEditingTeamName('');
   };
 
   // If viewing people assigned to this business, show them
@@ -1214,21 +1209,57 @@ function RightPanel({
                   </button>
                 </div>
 
-                {/* Teams */}
-                {teams.length > 0 && (
+                {/* Unified Hierarchy - Teams and People */}
+                {orgHierarchy.length > 0 && (
                   <div className="space-y-4 mb-6">
-                    {teams.map(team => {
-                      const teamMembers = orgChartPeople.filter(p => team.memberIds.includes(p.id));
-                      return (
-                        <div
-                          key={team.id}
-                          className="border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50"
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                          }}
-                          onDrop={() => handleDropOnTeam(team.id)}
-                        >
-                          <h3 className="font-semibold text-purple-900 mb-3">{team.name}</h3>
+                    {orgHierarchy.map((item) => {
+                      if (item.type === 'team') {
+                        const team = teams.find(t => t.id === item.id);
+                        if (!team) return null;
+                        const teamMembers = orgChartPeople.filter(p => team.memberIds.includes(p.id));
+                        return (
+                          <div
+                            key={team.id}
+                            className={`border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50 cursor-move ${
+                              draggedTeamId === team.id ? 'opacity-50' : ''
+                            }`}
+                            draggable={true}
+                            onDragStart={() => handleTeamDragStart(team.id)}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                            }}
+                            onDrop={() => {
+                              if (draggedPersonId) {
+                                handleDropOnTeam(team.id);
+                              } else {
+                                handleHierarchyDrop(team.id);
+                              }
+                            }}
+                          >
+                            {editingTeamId === team.id ? (
+                              <input
+                                type="text"
+                                value={editingTeamName}
+                                onChange={(e) => setEditingTeamName(e.target.value)}
+                                onBlur={handleSaveTeamName}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveTeamName();
+                                  if (e.key === 'Escape') {
+                                    setEditingTeamId(null);
+                                    setEditingTeamName('');
+                                  }
+                                }}
+                                className="font-semibold text-purple-900 mb-3 bg-transparent border-b-2 border-purple-400 outline-none w-full"
+                                autoFocus
+                              />
+                            ) : (
+                              <h3 
+                                className="font-semibold text-purple-900 mb-3 cursor-text hover:text-purple-700"
+                                onClick={() => handleStartEditTeamName(team.id, team.name)}
+                              >
+                                {team.name}
+                              </h3>
+                            )}
                           {teamMembers.length === 0 ? (
                             <p className="text-sm text-purple-600 text-center py-4">
                               Drag people here to add to team
@@ -1250,7 +1281,7 @@ function RightPanel({
                                     onRemove={() => handleRemoveFromTeam(team.id, person.id)}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
-                                    onDrop={handleDrop}
+                                    onDrop={handleHierarchyDrop}
                                     isDragging={draggedPersonId === person.id}
                                   />
                                 </div>
@@ -1259,42 +1290,36 @@ function RightPanel({
                           )}
                         </div>
                       );
+                      } else if (item.type === 'person') {
+                        const person = orgChartPeople.find(p => p.id === item.id);
+                        if (!person) return null;
+                        // Only show if not in a team
+                        const inTeam = teams.some(t => t.memberIds.includes(person.id));
+                        if (inTeam) return null;
+
+                        return (
+                          <div key={person.id}>
+                            <OrgChartPerson
+                              id={person.id}
+                              name={person.name}
+                              title={person.title}
+                              level={person.level}
+                              responsibilities={person.responsibilities}
+                              challenges={person.challenges}
+                              needs={person.needs}
+                              notes={person.notes}
+                              onEdit={() => handleEditPerson(person)}
+                              onRemove={() => handleRemovePersonFromOrgChart(person.id)}
+                              onDragStart={handleDragStart}
+                              onDragOver={handleDragOver}
+                              onDrop={handleHierarchyDrop}
+                              isDragging={draggedPersonId === person.id}
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
                     })}
-                  </div>
-                )}
-
-                {/* Org Chart Area - Individual People */}
-                {orgChartPeople.filter(p => !teams.some(t => t.memberIds.includes(p.id))).length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">Individual Contributors</h3>
-                    <div className="space-y-3">
-                      {orgChartPeople.filter(p => !teams.some(t => t.memberIds.includes(p.id))).map((person, index, filteredArray) => (
-                        <div key={person.id}>
-                          <OrgChartPerson
-                            id={person.id}
-                            name={person.name}
-                            title={person.title}
-                            level={person.level}
-                            responsibilities={person.responsibilities}
-                            challenges={person.challenges}
-                            needs={person.needs}
-                            notes={person.notes}
-                            onEdit={() => handleEditPerson(person)}
-                            onRemove={() => handleRemovePersonFromOrgChart(person.id)}
-                            onDragStart={handleDragStart}
-                            onDragOver={handleDragOver}
-                            onDrop={handleDrop}
-                            isDragging={draggedPersonId === person.id}
-                          />
-
-                          {index < filteredArray.length - 1 && (
-                            <div className="flex items-center justify-center">
-                              <div className="border-l-2 border-gray-300 h-4"></div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
 
