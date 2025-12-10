@@ -159,6 +159,7 @@ function LeftPanel({
   const [dealValue, setDealValue] = useState('');
   const [website, setWebsite] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [description, setDescription] = useState('');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -177,6 +178,7 @@ function LeftPanel({
     setDealValue('');
     setWebsite('');
     setLinkedinUrl('');
+    setDescription('');
   };
 
   const handleSaveToRolodex = async () => {
@@ -207,6 +209,7 @@ function LeftPanel({
           deal_value: dealValue ? parseFloat(dealValue) : null,
           website: website || null,
           linkedin_url: linkedinUrl || null,
+          description: description || null,
         }),
       });
 
@@ -284,33 +287,74 @@ function LeftPanel({
           onChange={(e) => setDealValue(e.target.value)}
           className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
         />
-
-        <input
-          type="text"
-          placeholder="Website URL"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
-          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
-        />
-
-        <input
-          type="text"
-          placeholder="LinkedIn Profile URL"
-          value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
-          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
-        />
       </div>
 
       {/* Collapsible Sections */}
       <div className="space-y-2">
+        {/* Context & Social Media Section */}
+        <div>
+          <button
+            onClick={() => toggleSection('context')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Context & Social Media</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('context') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+          
+          {expandedSections.includes('context') && (
+            <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Website URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://company.com"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  LinkedIn Profile URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://linkedin.com/company/..."
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Links & Resources
+                </label>
+                <textarea
+                  placeholder="Paste links (blogs, media, about page, etc.) separated by commas&#10;&#10;Example:&#10;https://company.com/blog, https://techcrunch.com/article, https://company.com/about"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Add multiple links separated by commas
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Organization Section */}
         <button
           onClick={() => toggleSection('organization')}
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Organization</span>
-          <span className="text-gray-400">▶</span>
+          <span className={`text-gray-400 transition-transform ${expandedSections.includes('organization') ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
         {/* People Section */}
@@ -322,7 +366,7 @@ function LeftPanel({
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">People</span>
-          <span className="text-gray-400">▶</span>
+          <span className={`text-gray-400 transition-transform ${expandedSections.includes('people') ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
         {/* Meetings Section */}
@@ -331,7 +375,7 @@ function LeftPanel({
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Meetings</span>
-          <span className="text-gray-400">▶</span>
+          <span className={`text-gray-400 transition-transform ${expandedSections.includes('meetings') ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
         {/* Notes Section */}
@@ -340,7 +384,7 @@ function LeftPanel({
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Notes & Context</span>
-          <span className="text-gray-400">▶</span>
+          <span className={`text-gray-400 transition-transform ${expandedSections.includes('notes') ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
         {/* Research Section */}
@@ -349,7 +393,7 @@ function LeftPanel({
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Research</span>
-          <span className="text-gray-400">▶</span>
+          <span className={`text-gray-400 transition-transform ${expandedSections.includes('research') ? 'rotate-90' : ''}`}>▶</span>
         </button>
       </div>
 
