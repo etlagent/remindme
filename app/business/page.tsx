@@ -45,8 +45,30 @@ export default function BusinessPage() {
   }, []);
 
   const loadBusinesses = async () => {
-    // TODO: Implement API call
-    setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/business/list', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.businesses) {
+        setBusinesses(result.businesses);
+      }
+    } catch (error) {
+      console.error('Error loading businesses:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loadBusinessWithRelations = async (businessId: string) => {
@@ -109,6 +131,7 @@ export default function BusinessPage() {
               onMeetingSelect={handleMeetingSelect}
               onPersonClick={handlePersonClick}
               onViewChange={setWorkspaceView}
+              onReloadBusinesses={loadBusinesses}
               isLoading={isLoading}
             />
           </Card>
@@ -259,6 +282,7 @@ interface LeftPanelProps {
   onMeetingSelect: (meeting: Meeting) => void;
   onPersonClick: (person: Person) => void;
   onViewChange: (view: WorkspaceView) => void;
+  onReloadBusinesses: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -269,6 +293,7 @@ function LeftPanel({
   onMeetingSelect,
   onPersonClick,
   onViewChange,
+  onReloadBusinesses,
   isLoading
 }: LeftPanelProps) {
   const [businessName, setBusinessName] = useState('');
@@ -335,6 +360,8 @@ function LeftPanel({
 
       if (result.success) {
         alert('✅ Business saved to Rolodex!');
+        // Reload businesses list
+        await onReloadBusinesses();
         // Set the newly created business as selected
         const newBusiness: BusinessWithRelations = {
           ...result.business,
@@ -357,6 +384,47 @@ function LeftPanel({
 
   return (
     <div className="space-y-6">
+      {/* Business List - Matching People list style */}
+      {businesses.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
+            <span>MY BUSINESSES</span>
+            <button 
+              onClick={handleCancel}
+              className="text-xs text-blue-600 hover:text-blue-700"
+            >
+              + New Business
+            </button>
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {businesses.map((biz) => (
+              <div
+                key={biz.id}
+                onClick={() => onBusinessSelect(biz)}
+                className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                  selectedBusiness?.id === biz.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{biz.name}</h4>
+                    {biz.industry && (
+                      <p className="text-sm text-gray-600 mt-0.5">{biz.industry}</p>
+                    )}
+                    {biz.stage && (
+                      <p className="text-xs text-gray-500 mt-1">Stage: {biz.stage}</p>
+                    )}
+                  </div>
+                  <button className="text-gray-400 hover:text-gray-600 text-sm">⋮</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {/* Business Info Card - Matching PersonInfoCard style */}
       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
