@@ -674,7 +674,7 @@ function RightPanel({
 
   const handleAssignPerson = async (personToAssign: Person) => {
     if (!business?.id) {
-      alert('⚠️ Please save the business first before assigning people');
+      alert('⚠️ Please select a business from the left panel first');
       return;
     }
 
@@ -716,11 +716,6 @@ function RightPanel({
 
   // Get assigned people from business.people relation
   const assignedPeople: Person[] = business?.people?.map(bp => bp.person).filter(Boolean) as Person[] || [];
-  
-  // Debug log
-  console.log('Business:', business);
-  console.log('Business people:', business?.people);
-  console.log('Assigned people:', assignedPeople);
 
   // Filter and search people
   const filteredPeople = allPeople.filter(person => {
@@ -964,10 +959,15 @@ function RightPanel({
         {peopleViewMode === 'assigned' ? (
           // Assigned People View
           <div className="space-y-3">
-            {assignedPeople.length === 0 ? (
+            {!business ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="mb-2">No business selected</p>
+                <p className="text-sm">Select a business from the list on the left to see assigned people</p>
+              </div>
+            ) : assignedPeople.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <p className="mb-2">No people assigned yet</p>
-                <p className="text-sm">Switch to Library tab to assign people</p>
+                <p className="text-sm">Switch to Library tab to assign people to {business.name}</p>
               </div>
             ) : (
             assignedPeople.map((person) => (
