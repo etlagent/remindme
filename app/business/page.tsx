@@ -552,7 +552,7 @@ function LeftPanel({
         <button
           onClick={() => {
             toggleSection('people');
-            onViewChange('library'); // Changed from 'people' to 'library' to show library directly
+            onViewChange('people');
           }}
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
@@ -639,6 +639,7 @@ function RightPanel({
   const [personSelectorSearch, setPersonSelectorSearch] = useState('');
   const [orgChartPeople, setOrgChartPeople] = useState<any[]>([]);
   const [addContext, setAddContext] = useState<{position: 'above' | 'below' | 'side', personIndex?: number} | null>(null);
+  const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library'>('assigned');
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -918,22 +919,45 @@ function RightPanel({
     return (
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          People Assigned to {business?.name || 'this Business'}
+          People
         </h2>
         
-        <div className="space-y-3">
-          {assignedPeople.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p className="mb-2">No people assigned yet</p>
-              <p className="text-sm">Assign people from your library to this business</p>
-              <button
-                onClick={() => onViewChange('library')}
-                className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Browse Library
-              </button>
-            </div>
-          ) : (
+        {/* Toggle between Assigned and Library */}
+        <div className="flex gap-2 mb-4 border-b border-gray-200">
+          <button
+            onClick={() => setPeopleViewMode('assigned')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              peopleViewMode === 'assigned'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Assigned ({assignedPeople.length})
+          </button>
+          <button
+            onClick={() => {
+              setPeopleViewMode('library');
+              loadPeople(); // Load people when switching to library
+            }}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              peopleViewMode === 'library'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Library
+          </button>
+        </div>
+
+        {peopleViewMode === 'assigned' ? (
+          // Assigned People View
+          <div className="space-y-3">
+            {assignedPeople.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="mb-2">No people assigned yet</p>
+                <p className="text-sm">Switch to Library tab to assign people</p>
+              </div>
+            ) : (
             assignedPeople.map((person) => (
               <div
                 key={person.id}
@@ -974,28 +998,23 @@ function RightPanel({
               </div>
             ))
           )}
-        </div>
-      </div>
-    );
-  }
+          </div>
+        ) : (
+          // Library View
+          <div>
+            {/* Search Bar */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search people by name, company, or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
 
-  return (
-    <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Library</h2>
-      
-      {/* Search Bar */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search people by name, company, or role..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
-
-      {/* Filter Tags - Matching existing UI */}
-      <div className="flex flex-wrap gap-2 mb-4">
+            {/* Filter Tags - Matching existing UI */}
+            <div className="flex flex-wrap gap-2 mb-4">
         <Badge 
           variant={selectedFilter === 'all' ? 'default' : 'outline'}
           className="cursor-pointer hover:bg-blue-100"
@@ -1119,6 +1138,16 @@ function RightPanel({
           </div>
         </TabsContent>
       </Tabs>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Library</h2>
+      <p className="text-gray-500">This is the fallback library view</p>
     </div>
   );
 }
