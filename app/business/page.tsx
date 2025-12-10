@@ -5,6 +5,7 @@ import { GlobalModeHeader } from '@/components/layout/GlobalModeHeader';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/lib/supabase';
 import { 
   Business, 
   Meeting, 
@@ -130,6 +131,7 @@ function LeftPanel({
   const [stage, setStage] = useState('');
   const [dealValue, setDealValue] = useState('');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -137,6 +139,59 @@ function LeftPanel({
         ? prev.filter(s => s !== section)
         : [...prev, section]
     );
+  };
+
+  const handleCancel = () => {
+    setBusinessName('');
+    setIndustry('');
+    setStage('');
+    setDealValue('');
+  };
+
+  const handleSaveToRolodex = async () => {
+    if (!businessName.trim()) {
+      alert('Please enter a business name');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please sign in to save');
+        return;
+      }
+
+      const response = await fetch('/api/business/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: businessName,
+          industry: industry || null,
+          stage: stage || null,
+          deal_value: dealValue ? parseFloat(dealValue) : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('✅ Business saved to Rolodex!');
+        handleCancel(); // Clear form
+        // TODO: Refresh businesses list
+      } else {
+        alert('Failed to save: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error saving business:', error);
+      alert('Failed to save business');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -242,10 +297,23 @@ function LeftPanel({
         </button>
       </div>
 
-      {/* Save Button - Bottom */}
-      <button className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
-        💾 Save Business
-      </button>
+      {/* Action Buttons - Bottom */}
+      <div className="flex gap-3">
+        <button 
+          onClick={handleCancel}
+          disabled={isSaving}
+          className="flex-1 px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 font-medium disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSaveToRolodex}
+          disabled={isSaving || !businessName.trim()}
+          className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSaving ? 'Saving...' : 'Save to Rolodex'}
+        </button>
+      </div>
     </div>
   );
 }
