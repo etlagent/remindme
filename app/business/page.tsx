@@ -626,6 +626,7 @@ function RightPanel({
   });
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editingTeamName, setEditingTeamName] = useState('');
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -784,7 +785,8 @@ function RightPanel({
       personId: person.id,
       name: person.name,
       title: person.role || person.company || 'Role not specified',
-      level: 0,
+      level: 0, // CEO level by default
+      parentId: null, // No parent by default
       responsibilities: '',
       challenges: '',
       needs: '',
@@ -910,6 +912,38 @@ function RightPanel({
     setTeams(updatedTeams);
     setEditingTeamId(null);
     setEditingTeamName('');
+  };
+
+  const handleSetReportsTo = (personId: string, managerId: string | null) => {
+    const updatedPeople = orgChartPeople.map(p => {
+      if (p.id === personId) {
+        // Calculate level based on manager's level
+        const manager = managerId ? orgChartPeople.find(m => m.id === managerId) : null;
+        const newLevel = manager ? (manager.level || 0) + 1 : 0;
+        return { ...p, parentId: managerId, level: newLevel };
+      }
+      return p;
+    });
+
+    setOrgChartPeople(updatedPeople);
+    setConnectingFrom(null);
+  };
+
+  // Group people by hierarchy level
+  const getOrgChartByLevels = () => {
+    const levels: { [key: number]: any[] } = {};
+    
+    orgChartPeople.forEach(person => {
+      // Skip people in teams
+      const inTeam = teams.some(t => t.memberIds.includes(person.id));
+      if (inTeam) return;
+
+      const level = person.level || 0;
+      if (!levels[level]) levels[level] = [];
+      levels[level].push(person);
+    });
+
+    return levels;
   };
 
   // If viewing people assigned to this business, show them
@@ -1209,117 +1243,71 @@ function RightPanel({
                   </button>
                 </div>
 
-                {/* Unified Hierarchy - Teams and People */}
-                {orgHierarchy.length > 0 && (
-                  <div className="space-y-4 mb-6">
-                    {orgHierarchy.map((item) => {
-                      if (item.type === 'team') {
-                        const team = teams.find(t => t.id === item.id);
-                        if (!team) return null;
-                        const teamMembers = orgChartPeople.filter(p => team.memberIds.includes(p.id));
-                        return (
-                          <div
-                            key={team.id}
-                            className={`border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50 cursor-move ${
-                              draggedTeamId === team.id ? 'opacity-50' : ''
-                            }`}
-                            draggable={true}
-                            onDragStart={() => handleTeamDragStart(team.id)}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                            }}
-                            onDrop={() => {
-                              if (draggedPersonId) {
-                                handleDropOnTeam(team.id);
-                              } else {
-                                handleHierarchyDrop(team.id);
-                              }
-                            }}
-                          >
-                            {editingTeamId === team.id ? (
-                              <input
-                                type="text"
-                                value={editingTeamName}
-                                onChange={(e) => setEditingTeamName(e.target.value)}
-                                onBlur={handleSaveTeamName}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveTeamName();
-                                  if (e.key === 'Escape') {
-                                    setEditingTeamId(null);
-                                    setEditingTeamName('');
+                {/* Hierarchical Org Chart by Levels */}
+                {Object.keys(getOrgChartByLevels()).length > 0 && (
+                  <div className="mb-6">
+                    {Object.entries(getOrgChartByLevels()).sort(([a], [b]) => Number(a) - Number(b)).map(([level, people]) => (
+                        <div key={level} className="mb-8">
+                          {/* Level Header */}
+                          <div className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+                            {level === '0' ? 'Executive Level' : level === '1' ? 'VP Level' : level === '2' ? 'Director Level' : `Level ${level}`}
+                          </div>
+
+                          {/* People at this level - horizontal layout */}
+                          <div className="flex gap-4 flex-wrap justify-center">
+                            {people.map((person: any) => (
+                              <div 
+                                key={person.id}
+                                className="relative w-64"
+                                onClick={() => {
+                                  if (connectingFrom && connectingFrom !== person.id) {
+                                    handleSetReportsTo(connectingFrom, person.id);
                                   }
                                 }}
-                                className="font-semibold text-purple-900 mb-3 bg-transparent border-b-2 border-purple-400 outline-none w-full"
-                                autoFocus
-                              />
-                            ) : (
-                              <h3 
-                                className="font-semibold text-purple-900 mb-3 cursor-text hover:text-purple-700"
-                                onClick={() => handleStartEditTeamName(team.id, team.name)}
                               >
-                                {team.name}
-                              </h3>
-                            )}
-                          {teamMembers.length === 0 ? (
-                            <p className="text-sm text-purple-600 text-center py-4">
-                              Drag people here to add to team
-                            </p>
-                          ) : (
-                            <div className="grid grid-cols-3 gap-3">
-                              {teamMembers.map(person => (
-                                <div key={person.id} className="relative">
-                                  <OrgChartPerson
-                                    id={person.id}
-                                    name={person.name}
-                                    title={person.title}
-                                    level={0}
-                                    responsibilities={person.responsibilities}
-                                    challenges={person.challenges}
-                                    needs={person.needs}
-                                    notes={person.notes}
-                                    onEdit={() => handleEditPerson(person)}
-                                    onRemove={() => handleRemoveFromTeam(team.id, person.id)}
-                                    onDragStart={handleDragStart}
-                                    onDragOver={handleDragOver}
-                                    onDrop={handleHierarchyDrop}
-                                    isDragging={draggedPersonId === person.id}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                      } else if (item.type === 'person') {
-                        const person = orgChartPeople.find(p => p.id === item.id);
-                        if (!person) return null;
-                        // Only show if not in a team
-                        const inTeam = teams.some(t => t.memberIds.includes(person.id));
-                        if (inTeam) return null;
+                                <OrgChartPerson
+                                  id={person.id}
+                                  name={person.name}
+                                  title={person.title}
+                                  level={person.level}
+                                  responsibilities={person.responsibilities}
+                                  challenges={person.challenges}
+                                  needs={person.needs}
+                                  notes={person.notes}
+                                  onEdit={() => handleEditPerson(person)}
+                                  onRemove={() => handleRemovePersonFromOrgChart(person.id)}
+                                  onDragStart={handleDragStart}
+                                  onDragOver={handleDragOver}
+                                  onDrop={handleHierarchyDrop}
+                                  isDragging={draggedPersonId === person.id}
+                                />
 
-                        return (
-                          <div key={person.id}>
-                            <OrgChartPerson
-                              id={person.id}
-                              name={person.name}
-                              title={person.title}
-                              level={person.level}
-                              responsibilities={person.responsibilities}
-                              challenges={person.challenges}
-                              needs={person.needs}
-                              notes={person.notes}
-                              onEdit={() => handleEditPerson(person)}
-                              onRemove={() => handleRemovePersonFromOrgChart(person.id)}
-                              onDragStart={handleDragStart}
-                              onDragOver={handleDragOver}
-                              onDrop={handleHierarchyDrop}
-                              isDragging={draggedPersonId === person.id}
-                            />
+                                {/* Set Reports To button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConnectingFrom(connectingFrom === person.id ? null : person.id);
+                                  }}
+                                  className={`mt-2 w-full px-2 py-1 text-xs rounded ${
+                                    connectingFrom === person.id
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {connectingFrom === person.id ? 'Click manager to connect' : 'Set Reports To'}
+                                </button>
+
+                                {/* Show who this person reports to */}
+                                {person.parentId && (
+                                  <div className="mt-1 text-xs text-gray-500 text-center">
+                                    Reports to: {orgChartPeople.find(p => p.id === person.parentId)?.name}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        );
-                      }
-                      return null;
-                    })}
+                        </div>
+                    ))}
                   </div>
                 )}
 
