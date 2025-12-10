@@ -648,6 +648,13 @@ function RightPanel({
     }
   }, [workspaceView]);
 
+  // Reload business with people when people view is shown
+  useEffect(() => {
+    if (workspaceView === 'people' && business?.id) {
+      onReloadBusiness(business.id);
+    }
+  }, [workspaceView]);
+
   const loadPeople = async () => {
     setIsLoadingPeople(true);
     try {
@@ -707,8 +714,13 @@ function RightPanel({
     }
   };
 
-  // Mock assigned people for demo - will be replaced with real data from business.people
+  // Get assigned people from business.people relation
   const assignedPeople: Person[] = business?.people?.map(bp => bp.person).filter(Boolean) as Person[] || [];
+  
+  // Debug log
+  console.log('Business:', business);
+  console.log('Business people:', business?.people);
+  console.log('Assigned people:', assignedPeople);
 
   // Filter and search people
   const filteredPeople = allPeople.filter(person => {
