@@ -627,6 +627,9 @@ function RightPanel({
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editingTeamName, setEditingTeamName] = useState('');
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const [isDraggingConnection, setIsDraggingConnection] = useState(false);
+  const [dragLineStart, setDragLineStart] = useState<{x: number, y: number} | null>(null);
+  const [dragLineEnd, setDragLineEnd] = useState<{x: number, y: number} | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -927,6 +930,40 @@ function RightPanel({
 
     setOrgChartPeople(updatedPeople);
     setConnectingFrom(null);
+    setIsDraggingConnection(false);
+    setDragLineStart(null);
+    setDragLineEnd(null);
+  };
+
+  const handleStartConnection = (personId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setConnectingFrom(personId);
+    setIsDraggingConnection(true);
+    setDragLineStart({
+      x: rect.left + rect.width / 2,
+      y: rect.bottom
+    });
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (isDraggingConnection && dragLineStart) {
+      setDragLineEnd({
+        x: event.clientX,
+        y: event.clientY
+      });
+    }
+  };
+
+  const handleEndConnection = (targetPersonId: string) => {
+    if (connectingFrom && connectingFrom !== targetPersonId) {
+      handleSetReportsTo(connectingFrom, targetPersonId);
+    } else {
+      setConnectingFrom(null);
+      setIsDraggingConnection(false);
+      setDragLineStart(null);
+      setDragLineEnd(null);
+    }
   };
 
   // Group people by hierarchy level
@@ -1245,7 +1282,24 @@ function RightPanel({
 
                 {/* Hierarchical Org Chart by Levels */}
                 {Object.keys(getOrgChartByLevels()).length > 0 && (
-                  <div className="mb-6">
+                  <div className="mb-6 relative" onMouseMove={handleMouseMove}>
+                    {/* SVG overlay for drag line */}
+                    {isDraggingConnection && dragLineStart && dragLineEnd && (
+                      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{zIndex: 1000}}>
+                        <line
+                          x1={dragLineStart.x}
+                          y1={dragLineStart.y}
+                          x2={dragLineEnd.x}
+                          y2={dragLineEnd.y}
+                          stroke="#3B82F6"
+                          strokeWidth="2"
+                          strokeDasharray="5,5"
+                        />
+                        <circle cx={dragLineStart.x} cy={dragLineStart.y} r="4" fill="#3B82F6" />
+                        <circle cx={dragLineEnd.x} cy={dragLineEnd.y} r="4" fill="#3B82F6" />
+                      </svg>
+                    )}
+                    
                     {Object.entries(getOrgChartByLevels()).sort(([a], [b]) => Number(a) - Number(b)).map(([level, people]) => (
                         <div key={level} className="mb-8">
                           {/* Level Header */}
@@ -1261,7 +1315,7 @@ function RightPanel({
                                 className="relative w-64"
                                 onClick={() => {
                                   if (connectingFrom && connectingFrom !== person.id) {
-                                    handleSetReportsTo(connectingFrom, person.id);
+                                    handleEndConnection(person.id);
                                   }
                                 }}
                               >
@@ -1282,25 +1336,27 @@ function RightPanel({
                                   isDragging={draggedPersonId === person.id}
                                 />
 
-                                {/* Set Reports To button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConnectingFrom(connectingFrom === person.id ? null : person.id);
-                                  }}
-                                  className={`mt-2 w-full px-2 py-1 text-xs rounded ${
-                                    connectingFrom === person.id
-                                      ? 'bg-blue-600 text-white'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  {connectingFrom === person.id ? 'Click manager to connect' : 'Set Reports To'}
-                                </button>
+                                {/* Connection handle - drag from here to create reporting relationship */}
+                                <div className="flex items-center justify-center mt-2">
+                                  <div
+                                    onMouseDown={(e) => handleStartConnection(person.id, e)}
+                                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center cursor-grab hover:scale-110 transition-transform ${
+                                      connectingFrom === person.id
+                                        ? 'bg-blue-600 border-blue-600'
+                                        : 'bg-white border-gray-400 hover:border-blue-500'
+                                    }`}
+                                    title="Drag to another person to set reporting relationship"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                      <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke={connectingFrom === person.id ? 'white' : 'currentColor'} strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                  </div>
+                                </div>
 
                                 {/* Show who this person reports to */}
                                 {person.parentId && (
-                                  <div className="mt-1 text-xs text-gray-500 text-center">
-                                    Reports to: {orgChartPeople.find(p => p.id === person.parentId)?.name}
+                                  <div className="mt-2 text-xs text-gray-500 text-center">
+                                    → Reports to: <span className="font-medium">{orgChartPeople.find(p => p.id === person.parentId)?.name}</span>
                                   </div>
                                 )}
                               </div>
