@@ -158,6 +158,7 @@ export default function BusinessPage() {
  * Displays a person in the org hierarchy with their details
  */
 interface OrgChartPersonProps {
+  id: string;
   name: string;
   title: string;
   level: number;
@@ -170,9 +171,14 @@ interface OrgChartPersonProps {
   onAddSide?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
+  onDragStart?: (id: string) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (id: string) => void;
+  isDragging?: boolean;
 }
 
 function OrgChartPerson({
+  id,
   name,
   title,
   level,
@@ -184,13 +190,25 @@ function OrgChartPerson({
   onAddBelow,
   onAddSide,
   onEdit,
-  onRemove
+  onRemove,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging
 }: OrgChartPersonProps) {
   const indentClass = level === 0 ? '' : level === 1 ? 'ml-8' : 'ml-16';
   
   return (
     <div className={`${indentClass} relative`}>
-      <div className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
+      <div 
+        className={`border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg cursor-move ${
+          isDragging ? 'opacity-50' : ''
+        }`}
+        draggable={true}
+        onDragStart={() => onDragStart?.(id)}
+        onDragOver={(e) => onDragOver?.(e)}
+        onDrop={() => onDrop?.(id)}
+      >
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
             <h4 className="font-semibold text-gray-900">{name}</h4>
@@ -606,6 +624,15 @@ function RightPanel({
   const [addContext, setAddContext] = useState<{position: 'above' | 'below' | 'side', personIndex?: number} | null>(null);
   const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library' | 'organization'>('assigned');
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<Set<string>>(new Set());
+  const [draggedPersonId, setDraggedPersonId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Array<{id: string, name: string, memberIds: string[], order: number}>>([]);
+  const [editingPerson, setEditingPerson] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    responsibilities: '',
+    challenges: '',
+    needs: '',
+    notes: ''
+  });
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -802,6 +829,92 @@ function RightPanel({
 
   const handleRemovePersonFromOrgChart = (orgPersonId: string) => {
     setOrgChartPeople(orgChartPeople.filter(p => p.id !== orgPersonId));
+  };
+
+  const handleDragStart = (personId: string) => {
+    setDraggedPersonId(personId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  const handleDrop = (targetPersonId: string) => {
+    if (!draggedPersonId || draggedPersonId === targetPersonId) return;
+
+    const draggedIndex = orgChartPeople.findIndex(p => p.id === draggedPersonId);
+    const targetIndex = orgChartPeople.findIndex(p => p.id === targetPersonId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newPeople = [...orgChartPeople];
+    const [draggedPerson] = newPeople.splice(draggedIndex, 1);
+    newPeople.splice(targetIndex, 0, draggedPerson);
+
+    setOrgChartPeople(newPeople);
+    setDraggedPersonId(null);
+  };
+
+  const handleCreateTeam = () => {
+    const teamName = prompt('Enter team name:');
+    if (!teamName) return;
+
+    const newTeam = {
+      id: `team-${Date.now()}`,
+      name: teamName,
+      memberIds: [],
+      order: orgChartPeople.length + teams.length // Place at end
+    };
+
+    setTeams([...teams, newTeam]);
+  };
+
+  const handleDropOnTeam = (teamId: string) => {
+    if (!draggedPersonId) return;
+
+    // Add person to team
+    const updatedTeams = teams.map(team => 
+      team.id === teamId && !team.memberIds.includes(draggedPersonId)
+        ? { ...team, memberIds: [...team.memberIds, draggedPersonId] }
+        : team
+    );
+
+    setTeams(updatedTeams);
+    setDraggedPersonId(null);
+  };
+
+  const handleRemoveFromTeam = (teamId: string, personId: string) => {
+    const updatedTeams = teams.map(team =>
+      team.id === teamId
+        ? { ...team, memberIds: team.memberIds.filter(id => id !== personId) }
+        : team
+    );
+
+    setTeams(updatedTeams);
+  };
+
+  const handleEditPerson = (person: any) => {
+    setEditingPerson(person);
+    setEditForm({
+      responsibilities: person.responsibilities || '',
+      challenges: person.challenges || '',
+      needs: person.needs || '',
+      notes: person.notes || ''
+    });
+  };
+
+  const handleSavePersonDetails = () => {
+    if (!editingPerson) return;
+
+    const updatedPeople = orgChartPeople.map(p =>
+      p.id === editingPerson.id
+        ? { ...p, ...editForm }
+        : p
+    );
+
+    setOrgChartPeople(updatedPeople);
+    setEditingPerson(null);
+    setEditForm({ responsibilities: '', challenges: '', needs: '', notes: '' });
   };
 
   // If viewing people assigned to this business, show them
@@ -1089,17 +1202,76 @@ function RightPanel({
               </div>
             ) : (
               <div>
-                <p className="text-sm text-gray-600 mb-4">
-                  Visualize the hierarchy and relationships at {business.name}
-                </p>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    Visualize the hierarchy and relationships at {business.name}
+                  </p>
+                  <button
+                    onClick={handleCreateTeam}
+                    className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
+                  >
+                    + Create Team
+                  </button>
+                </div>
 
-                {/* Org Chart Area */}
-                {orgChartPeople.length > 0 && (
+                {/* Teams */}
+                {teams.length > 0 && (
+                  <div className="space-y-4 mb-6">
+                    {teams.map(team => {
+                      const teamMembers = orgChartPeople.filter(p => team.memberIds.includes(p.id));
+                      return (
+                        <div
+                          key={team.id}
+                          className="border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50"
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                          }}
+                          onDrop={() => handleDropOnTeam(team.id)}
+                        >
+                          <h3 className="font-semibold text-purple-900 mb-3">{team.name}</h3>
+                          {teamMembers.length === 0 ? (
+                            <p className="text-sm text-purple-600 text-center py-4">
+                              Drag people here to add to team
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-3">
+                              {teamMembers.map(person => (
+                                <div key={person.id} className="relative">
+                                  <OrgChartPerson
+                                    id={person.id}
+                                    name={person.name}
+                                    title={person.title}
+                                    level={0}
+                                    responsibilities={person.responsibilities}
+                                    challenges={person.challenges}
+                                    needs={person.needs}
+                                    notes={person.notes}
+                                    onEdit={() => handleEditPerson(person)}
+                                    onRemove={() => handleRemoveFromTeam(team.id, person.id)}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDrop}
+                                    isDragging={draggedPersonId === person.id}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Org Chart Area - Individual People */}
+                {orgChartPeople.filter(p => !teams.some(t => t.memberIds.includes(p.id))).length > 0 && (
                   <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Individual Contributors</h3>
                     <div className="space-y-3">
-                      {orgChartPeople.map((person, index) => (
+                      {orgChartPeople.filter(p => !teams.some(t => t.memberIds.includes(p.id))).map((person, index, filteredArray) => (
                         <div key={person.id}>
                           <OrgChartPerson
+                            id={person.id}
                             name={person.name}
                             title={person.title}
                             level={person.level}
@@ -1107,13 +1279,15 @@ function RightPanel({
                             challenges={person.challenges}
                             needs={person.needs}
                             notes={person.notes}
-                            onEdit={() => {
-                              alert('Edit person details - Coming soon');
-                            }}
+                            onEdit={() => handleEditPerson(person)}
                             onRemove={() => handleRemovePersonFromOrgChart(person.id)}
+                            onDragStart={handleDragStart}
+                            onDragOver={handleDragOver}
+                            onDrop={handleDrop}
+                            isDragging={draggedPersonId === person.id}
                           />
 
-                          {index < orgChartPeople.length - 1 && (
+                          {index < filteredArray.length - 1 && (
                             <div className="flex items-center justify-center">
                               <div className="border-l-2 border-gray-300 h-4"></div>
                             </div>
@@ -1171,6 +1345,101 @@ function RightPanel({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Edit Person Modal */}
+        {editingPerson && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Edit: {editingPerson.name}
+                  </h3>
+                  <button
+                    onClick={() => setEditingPerson(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{editingPerson.title}</p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {/* Goals / What they manage */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Goals / What They Manage
+                  </label>
+                  <textarea
+                    value={editForm.responsibilities}
+                    onChange={(e) => setEditForm({ ...editForm, responsibilities: e.target.value })}
+                    placeholder="What are their goals? What do they manage or oversee?"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Issues / Challenges */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Issues / Challenges
+                  </label>
+                  <textarea
+                    value={editForm.challenges}
+                    onChange={(e) => setEditForm({ ...editForm, challenges: e.target.value })}
+                    placeholder="What challenges are they facing? What problems need solving?"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    rows={3}
+                  />
+                </div>
+
+                {/* What They Need */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    What They Need
+                  </label>
+                  <textarea
+                    value={editForm.needs}
+                    onChange={(e) => setEditForm({ ...editForm, needs: e.target.value })}
+                    placeholder="What do they need? Resources, support, information?"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Communication Strategy */}
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Communication Strategy
+                  </label>
+                  <textarea
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    placeholder="What should you communicate to them? Key messages, talking points?"
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y bg-blue-50"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex gap-3 justify-end">
+                <button
+                  onClick={() => setEditingPerson(null)}
+                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePersonDetails}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
