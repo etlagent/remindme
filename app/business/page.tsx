@@ -552,7 +552,7 @@ function LeftPanel({
         <button
           onClick={() => {
             toggleSection('people');
-            onViewChange('people');
+            onViewChange('library'); // Changed from 'people' to 'library' to show library directly
           }}
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
