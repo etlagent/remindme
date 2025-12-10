@@ -189,26 +189,57 @@ function OrgChartPerson({
   
   return (
     <div 
-      className={`${indentClass} border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg relative group`}
+      className={`${indentClass} relative pb-14`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h4 className="font-semibold text-gray-900">{name}</h4>
-          <p className="text-sm text-gray-600">{title}</p>
+      <div className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <h4 className="font-semibold text-gray-900">{name}</h4>
+            <p className="text-sm text-gray-600">{title}</p>
+          </div>
+          <button 
+            onClick={onEdit}
+            className="text-gray-400 hover:text-gray-600 text-sm"
+          >
+            ✏️ Edit
+          </button>
         </div>
-        <button 
-          onClick={onEdit}
-          className="text-gray-400 hover:text-gray-600 text-sm"
-        >
-          ✏️ Edit
-        </button>
+
+      
+      {responsibilities && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Manages:</span>
+          <p className="text-gray-600 mt-0.5">• {responsibilities}</p>
+        </div>
+      )}
+      
+      {challenges && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Challenge:</span>
+          <p className="text-gray-600 mt-0.5">• {challenges}</p>
+        </div>
+      )}
+      
+      {needs && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Needs:</span>
+          <p className="text-gray-600 mt-0.5">• {needs}</p>
+        </div>
+      )}
+      
+        {notes && (
+          <div className="mt-2 text-sm">
+            <span className="font-medium text-blue-700">Strategy:</span>
+            <p className="text-blue-600 mt-0.5">→ {notes}</p>
+          </div>
+        )}
       </div>
       
       {/* Action Buttons - Show on Hover */}
       {showActions && (onAddAbove || onAddBelow || onAddSide) && (
-        <div className="absolute -bottom-12 left-4 flex gap-2 bg-white border border-gray-300 rounded-md shadow-lg p-2 z-10">
+        <div className="absolute bottom-2 left-4 flex gap-2 bg-white border border-gray-300 rounded-md shadow-lg p-2 z-10">
           {onAddAbove && (
             <button
               onClick={onAddAbove}
@@ -236,35 +267,6 @@ function OrgChartPerson({
               ↔ Add Side
             </button>
           )}
-        </div>
-      )}
-
-      
-      {responsibilities && (
-        <div className="mt-2 text-sm">
-          <span className="font-medium text-gray-700">Manages:</span>
-          <p className="text-gray-600 mt-0.5">• {responsibilities}</p>
-        </div>
-      )}
-      
-      {challenges && (
-        <div className="mt-2 text-sm">
-          <span className="font-medium text-gray-700">Challenge:</span>
-          <p className="text-gray-600 mt-0.5">• {challenges}</p>
-        </div>
-      )}
-      
-      {needs && (
-        <div className="mt-2 text-sm">
-          <span className="font-medium text-gray-700">Needs:</span>
-          <p className="text-gray-600 mt-0.5">• {needs}</p>
-        </div>
-      )}
-      
-      {notes && (
-        <div className="mt-2 text-sm">
-          <span className="font-medium text-blue-700">Strategy:</span>
-          <p className="text-blue-600 mt-0.5">→ {notes}</p>
         </div>
       )}
     </div>
