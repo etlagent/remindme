@@ -406,6 +406,7 @@ function LeftPanel({
   };
 
   const [businessSearch, setBusinessSearch] = useState('');
+  const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
   const filteredBusinesses = businesses.filter(b => 
     b.name.toLowerCase().includes(businessSearch.toLowerCase()) ||
     b.industry?.toLowerCase().includes(businessSearch.toLowerCase())
@@ -413,7 +414,8 @@ function LeftPanel({
 
   return (
     <div className="space-y-6">
-      {/* Business Selector - Matching Person Selector style */}
+      {/* Business Selector - Only show when no business selected and not adding new */}
+      {!selectedBusiness && !showNewBusinessForm && (
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-700">SELECT BUSINESS</h3>
@@ -425,42 +427,62 @@ function LeftPanel({
           </button>
         </div>
         
-        <input
-          type="text"
-          placeholder="Search businesses..."
-          value={businessSearch}
-          onChange={(e) => setBusinessSearch(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-        />
-        
-        <div className="max-h-48 overflow-y-auto space-y-1">
-          {filteredBusinesses.map((biz) => (
-            <div
-              key={biz.id}
-              onClick={() => onBusinessSelect(biz)}
-              className={`p-2 rounded-md cursor-pointer transition-colors ${
-                selectedBusiness?.id === biz.id
-                  ? 'bg-blue-100 text-blue-900'
-                  : 'hover:bg-gray-100'
-              }`}
-            >
-              <div className="font-medium text-sm">{biz.name}</div>
-              {biz.industry && (
-                <div className="text-xs text-gray-600">{biz.industry}</div>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search or select business..."
+            value={businessSearch}
+            onChange={(e) => {
+              setBusinessSearch(e.target.value);
+              setShowBusinessDropdown(true);
+            }}
+            onFocus={() => setShowBusinessDropdown(true)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          
+          {showBusinessDropdown && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {filteredBusinesses.map((biz) => (
+                <div
+                  key={biz.id}
+                  onClick={() => {
+                    onBusinessSelect(biz);
+                    setBusinessSearch('');
+                    setShowBusinessDropdown(false);
+                  }}
+                  className="p-3 cursor-pointer transition-colors hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="font-medium text-sm">{biz.name}</div>
+                  {biz.industry && (
+                    <div className="text-xs text-gray-600">{biz.industry}</div>
+                  )}
+                </div>
+              ))}
+              {filteredBusinesses.length === 0 && (
+                <div className="p-4 text-sm text-gray-500 text-center">
+                  {businessSearch ? 'No businesses found' : 'No businesses yet'}
+                </div>
               )}
-            </div>
-          ))}
-          {filteredBusinesses.length === 0 && (
-            <div className="text-sm text-gray-500 text-center py-4">
-              {businessSearch ? 'No businesses found' : 'No businesses yet'}
             </div>
           )}
         </div>
       </div>
+      )}
 
       {/* Selected Business Card - Show when business is selected */}
       {selectedBusiness && !showNewBusinessForm && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">SELECTED BUSINESS</h3>
+            <button 
+              onClick={() => setShowNewBusinessForm(true)}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            >
+              + New Business
+            </button>
+          </div>
+          
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold text-gray-900">{selectedBusiness.name}</h2>
             <button 
