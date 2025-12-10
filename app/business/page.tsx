@@ -339,9 +339,50 @@ function RightPanel({
 }: RightPanelProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [isLoadingPeople, setIsLoadingPeople] = useState(false);
+
+  // Load people from database when library view is shown
+  useEffect(() => {
+    if (workspaceView === 'library' && allPeople.length === 0) {
+      loadPeople();
+    }
+  }, [workspaceView]);
+
+  const loadPeople = async () => {
+    setIsLoadingPeople(true);
+    try {
+      const { data, error } = await supabase
+        .from('people')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setAllPeople(data || []);
+    } catch (error) {
+      console.error('Error loading people:', error);
+    } finally {
+      setIsLoadingPeople(false);
+    }
+  };
 
   // Mock assigned people for demo - will be replaced with real data from business.people
   const assignedPeople: Person[] = business?.people?.map(bp => bp.person).filter(Boolean) as Person[] || [];
+
+  // Filter and search people
+  const filteredPeople = allPeople.filter(person => {
+    // Search filter
+    const matchesSearch = searchQuery === '' || 
+      person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      person.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      person.role?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Tag filter (this would come from person tags in real implementation)
+    const matchesFilter = selectedFilter === 'all'; // TODO: implement tag filtering
+    
+    return matchesSearch && matchesFilter;
+  });
 
   // If viewing people assigned to this business, show them
   if (workspaceView === 'people') {
@@ -413,12 +454,47 @@ function RightPanel({
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Library</h2>
       
+      {/* Search Bar */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Search people by name, company, or role..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
       {/* Filter Tags - Matching existing UI */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <Badge variant="secondary" className="cursor-pointer hover:bg-blue-100">All</Badge>
-        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Business</Badge>
-        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Personal</Badge>
-        <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Projects</Badge>
+        <Badge 
+          variant={selectedFilter === 'all' ? 'default' : 'outline'}
+          className="cursor-pointer hover:bg-blue-100"
+          onClick={() => setSelectedFilter('all')}
+        >
+          All
+        </Badge>
+        <Badge 
+          variant={selectedFilter === 'business' ? 'default' : 'outline'}
+          className="cursor-pointer hover:bg-gray-100"
+          onClick={() => setSelectedFilter('business')}
+        >
+          Business
+        </Badge>
+        <Badge 
+          variant={selectedFilter === 'personal' ? 'default' : 'outline'}
+          className="cursor-pointer hover:bg-gray-100"
+          onClick={() => setSelectedFilter('personal')}
+        >
+          Personal
+        </Badge>
+        <Badge 
+          variant={selectedFilter === 'projects' ? 'default' : 'outline'}
+          className="cursor-pointer hover:bg-gray-100"
+          onClick={() => setSelectedFilter('projects')}
+        >
+          Projects
+        </Badge>
       </div>
 
       {/* Tabs - Matching existing UI */}
@@ -431,24 +507,54 @@ function RightPanel({
 
         {/* People Tab */}
         <TabsContent value="people" className="space-y-3">
-          {allPeople.length === 0 ? (
+          {isLoadingPeople ? (
             <div className="text-center py-12 text-gray-500">
-              <p className="mb-2">No people yet</p>
-              <p className="text-sm">Switch to Relationship mode to add people</p>
+              <p>Loading your people...</p>
+            </div>
+          ) : filteredPeople.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              {allPeople.length === 0 ? (
+                <>
+                  <p className="mb-2">No people in your library yet</p>
+                  <p className="text-sm">Switch to Relationship mode to add people</p>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2">No people match your search</p>
+                  <p className="text-sm">Try a different search term or filter</p>
+                </>
+              )}
             </div>
           ) : (
-            allPeople.map((person) => (
+            filteredPeople.map((person) => (
               <div
                 key={person.id}
-                className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer transition-colors"
+                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all group"
               >
-                <h3 className="font-semibold text-gray-900">{person.name}</h3>
-                {person.company && (
-                  <p className="text-sm text-gray-600 mt-1">{person.company}</p>
-                )}
-                {person.role && (
-                  <p className="text-sm text-gray-500">{person.role}</p>
-                )}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">{person.name}</h3>
+                    {person.company && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        {person.role && `${person.role} at `}{person.company}
+                      </p>
+                    )}
+                    {person.created_at && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Added: {new Date(person.created_at).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <button 
+                    className="opacity-0 group-hover:opacity-100 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-all"
+                    onClick={() => {
+                      // TODO: Implement assign person to business
+                      alert(`Assigning ${person.name} to ${business?.name || 'this business'}`);
+                    }}
+                  >
+                    + Assign
+                  </button>
+                </div>
               </div>
             ))
           )}
