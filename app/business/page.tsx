@@ -792,7 +792,7 @@ function RightPanel({
   const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
   const [visibleLevels, setVisibleLevels] = useState<Set<number>>(new Set([0])); // Start with Executive level visible
   const [draggedPersonFromList, setDraggedPersonFromList] = useState<Person | null>(null);
-  const [selectedPersonForDetails, setSelectedPersonForDetails] = useState<string | null>(null);
+  const [selectedPersonForDetails, setSelectedPersonForDetails] = useState<Set<string>>(new Set());
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -1545,14 +1545,25 @@ function RightPanel({
                             {people.map((item: any) => {
                               if (item.type === 'person') {
                                 const person = item.data;
-                                const isExpanded = selectedPersonForDetails === person.id;
+                                const isExpanded = selectedPersonForDetails.has(person.id);
                                 
                                 return (
                                   <div 
                                     key={person.id}
                                     className={`relative transition-all ${isExpanded ? 'w-96' : 'w-64'}`}
+                                    draggable
+                                    onDragStart={() => setDraggedPersonId(person.id)}
+                                    onDragEnd={() => setDraggedPersonId(null)}
                                   >
-                                    <div onClick={() => setSelectedPersonForDetails(isExpanded ? null : person.id)}>
+                                    <div onClick={() => {
+                                      const newSet = new Set(selectedPersonForDetails);
+                                      if (isExpanded) {
+                                        newSet.delete(person.id);
+                                      } else {
+                                        newSet.add(person.id);
+                                      }
+                                      setSelectedPersonForDetails(newSet);
+                                    }}>
                                       <OrgChartPerson
                                         id={person.id}
                                         name={person.name}
@@ -1622,13 +1633,68 @@ function RightPanel({
                                 );
                               }
                               
-                              // Render teams (placeholder for now)
+                              // Render teams
                               if (item.type === 'team') {
                                 const team = item.data;
+                                const teamMembers = orgChartPeople.filter(p => team.memberIds.includes(p.id));
+                                
                                 return (
-                                  <div key={team.id} className="w-64 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
-                                    <h3 className="font-semibold text-purple-900">{team.name}</h3>
-                                    <p className="text-xs text-purple-600 mt-1">{team.memberIds.length} members</p>
+                                  <div 
+                                    key={team.id} 
+                                    className="w-64 min-h-24 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg hover:border-purple-500 transition-colors"
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={() => handleDropOnTeam(team.id)}
+                                  >
+                                    <div className="flex items-center justify-between mb-2">
+                                      <input
+                                        type="text"
+                                        value={team.name}
+                                        onChange={(e) => {
+                                          setTeams(teams.map(t => t.id === team.id ? {...t, name: e.target.value} : t));
+                                        }}
+                                        className="font-semibold text-purple-900 bg-transparent border-b border-purple-300 focus:border-purple-500 outline-none flex-1"
+                                        placeholder="Team name..."
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          setTeams(teams.filter(t => t.id !== team.id));
+                                          setOrgHierarchy(orgHierarchy.filter(item => item.id !== team.id));
+                                        }}
+                                        className="text-purple-400 hover:text-purple-700 text-xs ml-2"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                    <p className="text-xs text-purple-600 mb-2">
+                                      {team.memberIds.length} {team.memberIds.length === 1 ? 'member' : 'members'}
+                                    </p>
+                                    
+                                    {/* Team Members */}
+                                    {teamMembers.length > 0 ? (
+                                      <div className="mt-2 space-y-1">
+                                        {teamMembers.map(member => (
+                                          <div key={member.id} className="text-xs bg-white rounded px-2 py-1 flex items-center justify-between">
+                                            <span className="text-gray-700">{member.name}</span>
+                                            <button
+                                              onClick={() => {
+                                                setTeams(teams.map(t => 
+                                                  t.id === team.id 
+                                                    ? {...t, memberIds: t.memberIds.filter(id => id !== member.id)} 
+                                                    : t
+                                                ));
+                                              }}
+                                              className="text-gray-400 hover:text-red-600"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="mt-2 p-2 border-2 border-dashed border-purple-200 rounded text-center text-xs text-purple-400">
+                                        Drag people here
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               }
