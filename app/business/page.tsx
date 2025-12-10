@@ -791,6 +791,7 @@ function RightPanel({
   const [dragLineEnd, setDragLineEnd] = useState<{x: number, y: number} | null>(null);
   const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
   const [visibleLevels, setVisibleLevels] = useState<Set<number>>(new Set([0])); // Start with Executive level visible
+  const [draggedPersonFromList, setDraggedPersonFromList] = useState<Person | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -943,13 +944,13 @@ function RightPanel({
     p.company?.toLowerCase().includes(personSelectorSearch.toLowerCase())
   );
 
-  const handleAddPersonToOrgChart = (person: Person) => {
+  const handleAddPersonToOrgChart = (person: Person, targetLevel: number = 0) => {
     const newOrgPerson = {
       id: `org-${person.id}-${Date.now()}`,
       personId: person.id,
       name: person.name,
       title: person.role || person.company || 'Role not specified',
-      level: 0, // Default to Executive level
+      level: targetLevel, // Use specified level or default to Executive
       parentId: null, // No parent by default
       responsibilities: '',
       challenges: '',
@@ -962,6 +963,7 @@ function RightPanel({
     setShowPersonSelector(false);
     setPersonSelectorSearch('');
     setAddContext(null);
+    setDraggedPersonFromList(null);
   };
 
   const handleRemovePersonFromOrgChart = (orgPersonId: string) => {
@@ -1505,9 +1507,17 @@ function RightPanel({
                           </div>
 
                           {/* People at this level - horizontal layout */}
-                          <div className="flex gap-4 flex-wrap justify-center">
+                          <div 
+                            className="flex gap-4 flex-wrap justify-center"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (draggedPersonFromList) {
+                                handleAddPersonToOrgChart(draggedPersonFromList, Number(level));
+                              }
+                            }}
+                          >
                             {people.length === 0 && (
-                              <div className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-400 text-sm">
+                              <div className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-400 text-sm hover:border-blue-400 hover:bg-blue-50 transition-colors">
                                 Empty level - drag people here or connect reporting relationships
                               </div>
                             )}
@@ -1584,15 +1594,18 @@ function RightPanel({
                 {/* Assigned People (not in org chart) */}
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 mb-3">
-                    Click to add people at Executive level, then drag connections to set reporting structure. Levels adjust automatically.
+                    Drag people to any level or click to add at Executive level. Use drag connections to set reporting structure.
                   </p>
                   {assignedPeople
                     .filter(person => !orgChartPeople.some(op => op.personId === person.id))
                     .map((person) => (
                       <div
                         key={person.id}
+                        draggable
+                        onDragStart={() => setDraggedPersonFromList(person)}
+                        onDragEnd={() => setDraggedPersonFromList(null)}
                         onClick={() => handleAddPersonToOrgChart(person)}
-                        className="p-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all"
+                        className="p-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 cursor-move transition-all"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
