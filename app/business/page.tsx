@@ -792,6 +792,7 @@ function RightPanel({
   const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
   const [visibleLevels, setVisibleLevels] = useState<Set<number>>(new Set([0])); // Start with Executive level visible
   const [draggedPersonFromList, setDraggedPersonFromList] = useState<Person | null>(null);
+  const [selectedPersonForDetails, setSelectedPersonForDetails] = useState<string | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -1001,12 +1002,13 @@ function RightPanel({
     setDraggedTeamId(null);
   };
 
-  const handleCreateTeam = () => {
+  const handleCreateTeam = (level: number = 0) => {
     const newTeam = {
       id: `team-${Date.now()}`,
       name: 'Untitled',
       memberIds: [],
-      order: orgHierarchy.length
+      order: orgHierarchy.length,
+      level: level
     };
 
     setTeams([...teams, newTeam]);
@@ -1142,7 +1144,7 @@ function RightPanel({
     return labels[level] || `Level ${level}`;
   };
 
-  // Group people by hierarchy level, including empty visible levels
+  // Group people and teams by hierarchy level, including empty visible levels
   const getOrgChartByLevels = () => {
     const levels: { [key: number]: any[] } = {};
     
@@ -1159,7 +1161,19 @@ function RightPanel({
 
       const level = person.level || 0;
       if (!levels[level]) levels[level] = [];
-      levels[level].push(person);
+      levels[level].push({ type: 'person', data: person });
+      
+      // Make sure this level is visible
+      if (!visibleLevels.has(level)) {
+        setVisibleLevels(new Set([...visibleLevels, level]));
+      }
+    });
+
+    // Add teams to their levels
+    teams.forEach(team => {
+      const level = (team as any).level || 0;
+      if (!levels[level]) levels[level] = [];
+      levels[level].push({ type: 'team', data: team });
       
       // Make sure this level is visible
       if (!visibleLevels.has(level)) {
@@ -1460,7 +1474,7 @@ function RightPanel({
                     Visualize the hierarchy and relationships at {business.name}
                   </p>
                   <button
-                    onClick={handleCreateTeam}
+                    onClick={() => handleCreateTeam(0)}
                     className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
                   >
                     + Create Team
@@ -1505,7 +1519,7 @@ function RightPanel({
                               ▼ Add level below
                             </button>
                             <button
-                              onClick={handleCreateTeam}
+                              onClick={() => handleCreateTeam(Number(level))}
                               className="text-xs text-purple-600 hover:text-purple-800 font-medium"
                               title="Create team at this level"
                             >
@@ -1513,9 +1527,9 @@ function RightPanel({
                             </button>
                           </div>
 
-                          {/* People at this level - horizontal layout, left-aligned */}
+                          {/* People and Teams at this level - horizontal layout, left-aligned */}
                           <div 
-                            className="flex gap-4 flex-wrap justify-start"
+                            className="flex gap-2 flex-wrap justify-start"
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={() => {
                               if (draggedPersonFromList) {
@@ -1528,58 +1542,99 @@ function RightPanel({
                                 Empty level - drag people here or connect reporting relationships
                               </div>
                             )}
-                            {people.map((person: any) => (
-                              <div 
-                                key={person.id}
-                                className="relative w-64"
-                                onClick={() => {
-                                  if (connectingFrom && connectingFrom !== person.id) {
-                                    handleEndConnection(person.id);
-                                  }
-                                }}
-                              >
-                                <OrgChartPerson
-                                  id={person.id}
-                                  name={person.name}
-                                  title={person.title}
-                                  level={person.level}
-                                  responsibilities={person.responsibilities}
-                                  challenges={person.challenges}
-                                  needs={person.needs}
-                                  notes={person.notes}
-                                  onEdit={() => handleEditPerson(person)}
-                                  onRemove={() => handleRemovePersonFromOrgChart(person.id)}
-                                  onDragStart={handleDragStart}
-                                  onDragOver={handleDragOver}
-                                  onDrop={handleHierarchyDrop}
-                                  isDragging={draggedPersonId === person.id}
-                                />
-
-                                {/* Connection handle - drag from here to create reporting relationship */}
-                                <div className="flex items-center justify-center mt-2">
-                                  <div
-                                    onMouseDown={(e) => handleStartConnection(person.id, e)}
-                                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center cursor-grab hover:scale-110 transition-transform ${
-                                      connectingFrom === person.id
-                                        ? 'bg-blue-600 border-blue-600'
-                                        : 'bg-white border-gray-400 hover:border-blue-500'
-                                    }`}
-                                    title="Drag to another person to set reporting relationship"
+                            {people.map((item: any) => {
+                              if (item.type === 'person') {
+                                const person = item.data;
+                                const isExpanded = selectedPersonForDetails === person.id;
+                                
+                                return (
+                                  <div 
+                                    key={person.id}
+                                    className={`relative transition-all ${isExpanded ? 'w-96' : 'w-64'}`}
                                   >
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                      <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke={connectingFrom === person.id ? 'white' : 'currentColor'} strokeWidth="2" strokeLinecap="round"/>
-                                    </svg>
-                                  </div>
-                                </div>
+                                    <div onClick={() => setSelectedPersonForDetails(isExpanded ? null : person.id)}>
+                                      <OrgChartPerson
+                                        id={person.id}
+                                        name={person.name}
+                                        title={person.title}
+                                        level={person.level}
+                                        responsibilities={person.responsibilities}
+                                        challenges={person.challenges}
+                                        needs={person.needs}
+                                        notes={person.notes}
+                                        onEdit={() => handleEditPerson(person)}
+                                        onRemove={() => handleRemovePersonFromOrgChart(person.id)}
+                                        onDragStart={handleDragStart}
+                                        onDragOver={handleDragOver}
+                                        onDrop={handleHierarchyDrop}
+                                        isDragging={draggedPersonId === person.id}
+                                      />
+                                    </div>
 
-                                {/* Show who this person reports to */}
-                                {person.parentId && (
-                                  <div className="mt-2 text-xs text-gray-500 text-center">
-                                    → Reports to: <span className="font-medium">{orgChartPeople.find(p => p.id === person.parentId)?.name}</span>
+                                    {/* Expanded Details View */}
+                                    {isExpanded && (
+                                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                        <h4 className="text-sm font-semibold text-blue-900">Call Preparation Notes</h4>
+                                        
+                                        {person.responsibilities && (
+                                          <div>
+                                            <p className="text-xs font-medium text-gray-700">Responsibilities:</p>
+                                            <p className="text-xs text-gray-600">{person.responsibilities}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {person.needs && (
+                                          <div>
+                                            <p className="text-xs font-medium text-gray-700">Needs & Goals:</p>
+                                            <p className="text-xs text-gray-600">{person.needs}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {person.challenges && (
+                                          <div>
+                                            <p className="text-xs font-medium text-gray-700">Issues & Challenges:</p>
+                                            <p className="text-xs text-gray-600">{person.challenges}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {person.notes && (
+                                          <div>
+                                            <p className="text-xs font-medium text-gray-700">Notes:</p>
+                                            <p className="text-xs text-gray-600">{person.notes}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {!person.responsibilities && !person.needs && !person.challenges && !person.notes && (
+                                          <p className="text-xs text-gray-500 italic">
+                                            Click the edit button to add details about this person's goals, needs, and challenges.
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Show who this person reports to */}
+                                    {person.parentId && (
+                                      <div className="mt-2 text-xs text-gray-500 text-center">
+                                        → Reports to: <span className="font-medium">{orgChartPeople.find(p => p.id === person.parentId)?.name}</span>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                );
+                              }
+                              
+                              // Render teams (placeholder for now)
+                              if (item.type === 'team') {
+                                const team = item.data;
+                                return (
+                                  <div key={team.id} className="w-64 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+                                    <h3 className="font-semibold text-purple-900">{team.name}</h3>
+                                    <p className="text-xs text-purple-600 mt-1">{team.memberIds.length} members</p>
+                                  </div>
+                                );
+                              }
+                              
+                              return null;
+                            })}
                           </div>
                         </div>
                     ))}
