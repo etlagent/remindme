@@ -505,6 +505,7 @@ function LeftPanel({
             </p>
           )}
         </div>
+        </div>
       )}
 
       {/* Collapsible Sections - Show when business is selected */}
@@ -788,6 +789,7 @@ function RightPanel({
   const [isDraggingConnection, setIsDraggingConnection] = useState(false);
   const [dragLineStart, setDragLineStart] = useState<{x: number, y: number} | null>(null);
   const [dragLineEnd, setDragLineEnd] = useState<{x: number, y: number} | null>(null);
+  const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -1122,6 +1124,19 @@ function RightPanel({
       setDragLineStart(null);
       setDragLineEnd(null);
     }
+  };
+
+  // Get level label based on hierarchy
+  const getLevelLabel = (level: number): string => {
+    const labels: {[key: number]: string} = {
+      0: 'Executive Level',
+      1: 'VP / Partner Level',
+      2: 'Director Level',
+      3: 'Manager Level',
+      4: 'Analyst / Individual Contributor',
+      5: 'Technical Team'
+    };
+    return labels[level] || `Level ${level}`;
   };
 
   // Group people by hierarchy level
@@ -1462,7 +1477,7 @@ function RightPanel({
                         <div key={level} className="mb-8">
                           {/* Level Header */}
                           <div className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-                            {level === '0' ? 'Executive Level' : level === '1' ? 'VP Level' : level === '2' ? 'Director Level' : `Level ${level}`}
+                            {getLevelLabel(Number(level))}
                           </div>
 
                           {/* People at this level - horizontal layout */}
@@ -1540,7 +1555,7 @@ function RightPanel({
                 {/* Assigned People (not in org chart) */}
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 mb-3">
-                    Click on a person to add them to the org chart above
+                    Click to add people at Executive level (default), then drag connections to set reporting structure. Levels adjust automatically.
                   </p>
                   {assignedPeople
                     .filter(person => !orgChartPeople.some(op => op.personId === person.id))
@@ -1683,8 +1698,6 @@ function RightPanel({
       { key: 'closed_won', label: 'Closed Won', color: 'bg-green-100 border-green-300' },
       { key: 'closed_lost', label: 'Closed Lost', color: 'bg-red-100 border-red-300' },
     ];
-
-    const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
 
     const handleDragStartBusiness = (business: Business) => {
       setDraggedBusiness(business);
