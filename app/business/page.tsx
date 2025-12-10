@@ -81,6 +81,7 @@ export default function BusinessPage() {
               onBusinessSelect={handleBusinessSelect}
               onMeetingSelect={handleMeetingSelect}
               onPersonClick={handlePersonClick}
+              onViewChange={setWorkspaceView}
               isLoading={isLoading}
             />
           </Card>
@@ -111,6 +112,7 @@ interface LeftPanelProps {
   onBusinessSelect: (business: Business) => void;
   onMeetingSelect: (meeting: Meeting) => void;
   onPersonClick: (person: Person) => void;
+  onViewChange: (view: WorkspaceView) => void;
   isLoading: boolean;
 }
 
@@ -120,6 +122,7 @@ function LeftPanel({
   onBusinessSelect,
   onMeetingSelect,
   onPersonClick,
+  onViewChange,
   isLoading
 }: LeftPanelProps) {
   const [businessName, setBusinessName] = useState('');
@@ -190,9 +193,21 @@ function LeftPanel({
 
       {/* Collapsible Sections */}
       <div className="space-y-2">
+        {/* Organization Section */}
+        <button
+          onClick={() => toggleSection('organization')}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">Organization</span>
+          <span className="text-gray-400">▶</span>
+        </button>
+
         {/* People Section */}
         <button
-          onClick={() => toggleSection('people')}
+          onClick={() => {
+            toggleSection('people');
+            onViewChange('people');
+          }}
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">People</span>
@@ -256,6 +271,75 @@ function RightPanel({
 }: RightPanelProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+
+  // Mock assigned people for demo - will be replaced with real data from business.people
+  const assignedPeople: Person[] = business?.people?.map(bp => bp.person).filter(Boolean) as Person[] || [];
+
+  // If viewing people assigned to this business, show them
+  if (workspaceView === 'people') {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          People Assigned to {business?.name || 'this Business'}
+        </h2>
+        
+        <div className="space-y-3">
+          {assignedPeople.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="mb-2">No people assigned yet</p>
+              <p className="text-sm">Assign people from your library to this business</p>
+              <button
+                onClick={() => onViewChange('library')}
+                className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Browse Library
+              </button>
+            </div>
+          ) : (
+            assignedPeople.map((person) => (
+              <div
+                key={person.id}
+                className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">{person.name}</h3>
+                    {person.company && (
+                      <p className="text-sm text-gray-600 mt-1">{person.role || 'Role'} at {person.company}</p>
+                    )}
+                    {person.created_at && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Added: {new Date(person.created_at).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <button className="text-gray-400 hover:text-gray-600 text-xl">⋮</button>
+                </div>
+                
+                {/* Inspiration/Priority Badge */}
+                {person.inspiration_level && person.inspiration_level !== 'low' && (
+                  <div className="mt-3">
+                    <Badge 
+                      variant={person.inspiration_level === 'high' ? 'default' : 'secondary'}
+                      className={
+                        person.inspiration_level === 'high' 
+                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' 
+                          : person.inspiration_level === 'medium'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-800'
+                      }
+                    >
+                      {person.inspiration_level === 'high' ? '⭐ Worth nurturing' : '✨ Inspiring'}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
