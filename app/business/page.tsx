@@ -536,18 +536,6 @@ function LeftPanel({
           )}
         </div>
 
-        {/* Organization Section */}
-        <button
-          onClick={() => {
-            toggleSection('organization');
-            onViewChange('organization');
-          }}
-          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <span className="font-medium text-gray-900">Organization</span>
-          <span className={`text-gray-400 transition-transform ${expandedSections.includes('organization') ? 'rotate-90' : ''}`}>▶</span>
-        </button>
-
         {/* People Section */}
         <button
           onClick={() => {
@@ -639,7 +627,8 @@ function RightPanel({
   const [personSelectorSearch, setPersonSelectorSearch] = useState('');
   const [orgChartPeople, setOrgChartPeople] = useState<any[]>([]);
   const [addContext, setAddContext] = useState<{position: 'above' | 'below' | 'side', personIndex?: number} | null>(null);
-  const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library'>('assigned');
+  const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library' | 'organization'>('assigned');
+  const [selectedPeopleIds, setSelectedPeopleIds] = useState<Set<string>>(new Set());
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -670,6 +659,16 @@ function RightPanel({
     } finally {
       setIsLoadingPeople(false);
     }
+  };
+
+  const togglePersonSelection = (personId: string) => {
+    const newSelection = new Set(selectedPeopleIds);
+    if (newSelection.has(personId)) {
+      newSelection.delete(personId);
+    } else {
+      newSelection.add(personId);
+    }
+    setSelectedPeopleIds(newSelection);
   };
 
   const handleAssignPerson = async (personToAssign: Person) => {
@@ -711,6 +710,51 @@ function RightPanel({
     } catch (error) {
       console.error('Error assigning person:', error);
       alert('Failed to assign person');
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    if (!business?.id) {
+      alert('⚠️ Please select a business from the left panel first');
+      return;
+    }
+
+    if (selectedPeopleIds.size === 0) {
+      alert('⚠️ Please select at least one person');
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please sign in');
+        return;
+      }
+
+      // Assign all selected people
+      const promises = Array.from(selectedPeopleIds).map(personId =>
+        fetch('/api/business/people/assign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            business_id: business.id,
+            person_id: personId,
+          }),
+        })
+      );
+
+      await Promise.all(promises);
+      
+      alert(`✅ ${selectedPeopleIds.size} people assigned to ${business.name}!`);
+      setSelectedPeopleIds(new Set()); // Clear selection
+      await onReloadBusiness(business.id);
+      setPeopleViewMode('assigned'); // Switch to assigned view
+    } catch (error) {
+      console.error('Error bulk assigning people:', error);
+      alert('Failed to assign people');
     }
   };
 
@@ -779,148 +823,6 @@ function RightPanel({
     setAddContext(null);
   };
 
-  // If viewing organization chart
-  if (workspaceView === 'organization') {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Organization</h2>
-          <button 
-            onClick={() => {
-              setAddContext(null); // Clear context - add to end
-              loadPeople(); // Load people if not loaded
-              setShowPersonSelector(true);
-            }}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-          >
-            + Add Person
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          {orgChartPeople.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-2">No org chart yet</p>
-              <p className="text-xs text-gray-400">
-                Click "+ Add Person" above to add your first stakeholder
-              </p>
-              <p className="text-xs text-gray-400 mt-3">
-                Build your org chart to track stakeholders, challenges, and messaging strategy
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Org Chart Entries */}
-              <div className="space-y-3">
-                {orgChartPeople.map((person, index) => (
-                  <div key={person.id}>
-                    <OrgChartPerson
-                      name={person.name}
-                      title={person.title}
-                      level={person.level}
-                      responsibilities={person.responsibilities}
-                      challenges={person.challenges}
-                      needs={person.needs}
-                      notes={person.notes}
-                      onAddAbove={() => {
-                        setAddContext({ position: 'above', personIndex: index });
-                        loadPeople();
-                        setShowPersonSelector(true);
-                      }}
-                      onAddBelow={() => {
-                        setAddContext({ position: 'below', personIndex: index });
-                        loadPeople();
-                        setShowPersonSelector(true);
-                      }}
-                      onAddSide={() => {
-                        setAddContext({ position: 'side', personIndex: index });
-                        loadPeople();
-                        setShowPersonSelector(true);
-                      }}
-                      onEdit={() => {
-                        // TODO: Edit person details
-                        alert('Edit functionality coming soon');
-                      }}
-                    />
-                    
-                    {/* Connection line if there's a next person */}
-                    {index < orgChartPeople.length - 1 && (
-                      <div className="flex items-center justify-center">
-                        <div className="border-l-2 border-gray-300 h-4"></div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        
-        {/* Person Selector Modal */}
-        {showPersonSelector && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
-              {/* Header */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Select Person</h3>
-                  <button 
-                    onClick={() => {
-                      setShowPersonSelector(false);
-                      setPersonSelectorSearch('');
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by name or company..."
-                  value={personSelectorSearch}
-                  onChange={(e) => setPersonSelectorSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              </div>
-              
-              {/* People List */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {filteredSelectorPeople.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {allPeople.length === 0 ? (
-                      <>
-                        <p className="mb-2">No people in your library</p>
-                        <p className="text-sm">Add people in Relationship mode first</p>
-                      </>
-                    ) : (
-                      <p>No people match your search</p>
-                    )}
-                  </div>
-                ) : (
-                  filteredSelectorPeople.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => handleAddPersonToOrgChart(p)}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="font-medium text-gray-900">{p.name}</div>
-                      {p.company && (
-                        <div className="text-sm text-gray-600 mt-0.5">
-                          {p.role && `${p.role} at `}{p.company}
-                        </div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // If viewing people assigned to this business, show them
   if (workspaceView === 'people') {
     return (
@@ -929,7 +831,7 @@ function RightPanel({
           People
         </h2>
         
-        {/* Toggle between Assigned and Library */}
+        {/* Toggle between Assigned, Library, and Organization */}
         <div className="flex gap-2 mb-4 border-b border-gray-200">
           <button
             onClick={() => setPeopleViewMode('assigned')}
@@ -953,6 +855,16 @@ function RightPanel({
             }`}
           >
             Library
+          </button>
+          <button
+            onClick={() => setPeopleViewMode('organization')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              peopleViewMode === 'organization'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Organization
           </button>
         </div>
 
@@ -1011,9 +923,32 @@ function RightPanel({
             ))
           )}
           </div>
-        ) : (
+        ) : peopleViewMode === 'library' ? (
           // Library View
           <div>
+            {/* Bulk Actions Bar */}
+            {selectedPeopleIds.size > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedPeopleIds.size} {selectedPeopleIds.size === 1 ? 'person' : 'people'} selected
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedPeopleIds(new Set())}
+                    className="px-3 py-1 text-sm text-blue-700 hover:text-blue-900"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={handleBulkAssign}
+                    className="px-4 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Assign Selected
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Search Bar */}
             <div className="mb-4">
               <input
@@ -1089,9 +1024,22 @@ function RightPanel({
             filteredPeople.map((person) => (
               <div
                 key={person.id}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all group"
+                className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  selectedPeopleIds.has(person.id)
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                }`}
+                onClick={() => togglePersonSelection(person.id)}
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedPeopleIds.has(person.id)}
+                    onChange={() => {}} // Handled by div onClick
+                    className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{person.name}</h3>
                     {person.company && (
@@ -1105,12 +1053,6 @@ function RightPanel({
                       </p>
                     )}
                   </div>
-                  <button 
-                    className="opacity-0 group-hover:opacity-100 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-all"
-                    onClick={() => handleAssignPerson(person)}
-                  >
-                    + Assign
-                  </button>
                 </div>
               </div>
             ))
@@ -1150,6 +1092,139 @@ function RightPanel({
           </div>
         </TabsContent>
       </Tabs>
+          </div>
+        ) : (
+          // Organization View
+          <div>
+            {!business ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="mb-2">No business selected</p>
+                <p className="text-sm">Select a business from the list on the left</p>
+              </div>
+            ) : assignedPeople.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="mb-2">No people assigned yet</p>
+                <p className="text-sm">Assign people from the Library tab to build your org chart</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    Visualize the hierarchy and relationships at {business.name}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setAddContext(null);
+                      loadPeople();
+                      setShowPersonSelector(true);
+                    }}
+                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+                  >
+                    + Add Person
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {orgChartPeople.map((person, index) => (
+                    <div key={person.id}>
+                      <OrgChartPerson
+                        name={person.name}
+                        title={person.title}
+                        level={person.level}
+                        responsibilities={person.responsibilities}
+                        challenges={person.challenges}
+                        needs={person.needs}
+                        notes={person.notes}
+                        onAddAbove={() => {
+                          setAddContext({ position: 'above', personIndex: index });
+                          loadPeople();
+                          setShowPersonSelector(true);
+                        }}
+                        onAddBelow={() => {
+                          setAddContext({ position: 'below', personIndex: index });
+                          loadPeople();
+                          setShowPersonSelector(true);
+                        }}
+                        onAddSide={() => {
+                          setAddContext({ position: 'side', personIndex: index });
+                          loadPeople();
+                          setShowPersonSelector(true);
+                        }}
+                        onEdit={() => {
+                          alert('Edit functionality coming soon');
+                        }}
+                      />
+
+                      {index < orgChartPeople.length - 1 && (
+                        <div className="flex items-center justify-center">
+                          <div className="border-l-2 border-gray-300 h-4"></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Person Selector Modal for Organization */}
+        {showPersonSelector && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Select Person</h3>
+                  <button
+                    onClick={() => {
+                      setShowPersonSelector(false);
+                      setPersonSelectorSearch('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by name or company..."
+                  value={personSelectorSearch}
+                  onChange={(e) => setPersonSelectorSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {filteredSelectorPeople.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {allPeople.length === 0 ? (
+                      <>
+                        <p className="mb-2">No people in your library</p>
+                        <p className="text-sm">Add people in Relationship mode first</p>
+                      </>
+                    ) : (
+                      <p>No people match your search</p>
+                    )}
+                  </div>
+                ) : (
+                  filteredSelectorPeople.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAddPersonToOrgChart(p)}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">{p.name}</div>
+                      {p.company && (
+                        <div className="text-sm text-gray-600 mt-0.5">
+                          {p.role && `${p.role} at `}{p.company}
+                        </div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
