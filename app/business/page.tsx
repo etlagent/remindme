@@ -594,6 +594,19 @@ function LeftPanel({
             <span className="font-medium text-gray-900">Research</span>
             <span className={`text-gray-400 transition-transform ${expandedSections.includes('research') ? 'rotate-90' : ''}`}>▶</span>
           </button>
+
+          {/* Save Button */}
+          <div className="pt-4">
+            <button
+              onClick={async () => {
+                // TODO: Implement save functionality
+                alert('Save functionality coming soon! This will save:\n• Org chart positions & hierarchy\n• Teams & members\n• Goals/Challenges/Needs notes\n• Research & context\n• All business data');
+              }}
+              className="w-full py-3 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition-colors"
+            >
+              Save to Rolodex
+            </button>
+          </div>
         </div>
       )}
       
