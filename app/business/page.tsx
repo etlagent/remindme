@@ -790,6 +790,7 @@ function RightPanel({
   const [dragLineStart, setDragLineStart] = useState<{x: number, y: number} | null>(null);
   const [dragLineEnd, setDragLineEnd] = useState<{x: number, y: number} | null>(null);
   const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
+  const [visibleLevels, setVisibleLevels] = useState<Set<number>>(new Set([0])); // Start with Executive level visible
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -948,7 +949,7 @@ function RightPanel({
       personId: person.id,
       name: person.name,
       title: person.role || person.company || 'Role not specified',
-      level: 0, // CEO level by default
+      level: 0, // Default to Executive level
       parentId: null, // No parent by default
       responsibilities: '',
       challenges: '',
@@ -1139,10 +1140,16 @@ function RightPanel({
     return labels[level] || `Level ${level}`;
   };
 
-  // Group people by hierarchy level
+  // Group people by hierarchy level, including empty visible levels
   const getOrgChartByLevels = () => {
     const levels: { [key: number]: any[] } = {};
     
+    // Initialize all visible levels with empty arrays
+    visibleLevels.forEach(level => {
+      levels[level] = [];
+    });
+    
+    // Add people to their levels
     orgChartPeople.forEach(person => {
       // Skip people in teams
       const inTeam = teams.some(t => t.memberIds.includes(person.id));
@@ -1151,6 +1158,11 @@ function RightPanel({
       const level = person.level || 0;
       if (!levels[level]) levels[level] = [];
       levels[level].push(person);
+      
+      // Make sure this level is visible
+      if (!visibleLevels.has(level)) {
+        setVisibleLevels(new Set([...visibleLevels, level]));
+      }
     });
 
     return levels;
@@ -1475,13 +1487,30 @@ function RightPanel({
                     
                     {Object.entries(getOrgChartByLevels()).sort(([a], [b]) => Number(a) - Number(b)).map(([level, people]) => (
                         <div key={level} className="mb-8">
-                          {/* Level Header */}
-                          <div className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-                            {getLevelLabel(Number(level))}
+                          {/* Level Header with Add Level Button */}
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              {getLevelLabel(Number(level))}
+                            </div>
+                            <button
+                              onClick={() => {
+                                const nextLevel = Number(level) + 1;
+                                setVisibleLevels(new Set([...visibleLevels, nextLevel]));
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              title="Add level below"
+                            >
+                              ▼ Add level below
+                            </button>
                           </div>
 
                           {/* People at this level - horizontal layout */}
                           <div className="flex gap-4 flex-wrap justify-center">
+                            {people.length === 0 && (
+                              <div className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-400 text-sm">
+                                Empty level - drag people here or connect reporting relationships
+                              </div>
+                            )}
                             {people.map((person: any) => (
                               <div 
                                 key={person.id}
@@ -1555,7 +1584,7 @@ function RightPanel({
                 {/* Assigned People (not in org chart) */}
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 mb-3">
-                    Click to add people at Executive level (default), then drag connections to set reporting structure. Levels adjust automatically.
+                    Click to add people at Executive level, then drag connections to set reporting structure. Levels adjust automatically.
                   </p>
                   {assignedPeople
                     .filter(person => !orgChartPeople.some(op => op.personId === person.id))
