@@ -1556,10 +1556,19 @@ function RightPanel({
               </div>
             ) : (
               <div>
-                <div className="mb-4">
+                <div className="flex items-center justify-between mb-4">
                   <p className="text-sm text-gray-600">
                     Visualize the hierarchy and relationships at {business.name}
                   </p>
+                  <button
+                    onClick={async () => {
+                      // TODO: Implement save functionality
+                      alert('Save functionality coming soon! This will save:\n• Org chart positions\n• Teams & members\n• Goals/Challenges/Needs notes\n• All business context');
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Save Business Profile
+                  </button>
                 </div>
 
                 {/* Hierarchical Org Chart by Levels */}

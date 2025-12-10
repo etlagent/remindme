@@ -50,7 +50,7 @@ export function GlobalModeHeader() {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Relationship
+          Relationships
         </button>
         <button
           onClick={() => router.push('/business')}
