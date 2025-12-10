@@ -131,6 +131,72 @@ export default function BusinessPage() {
 }
 
 /**
+ * ORG CHART PERSON COMPONENT
+ * Displays a person in the org hierarchy with their details
+ */
+interface OrgChartPersonProps {
+  name: string;
+  title: string;
+  level: number;
+  responsibilities?: string;
+  challenges?: string;
+  needs?: string;
+  notes?: string;
+}
+
+function OrgChartPerson({
+  name,
+  title,
+  level,
+  responsibilities,
+  challenges,
+  needs,
+  notes
+}: OrgChartPersonProps) {
+  const indentClass = level === 0 ? '' : level === 1 ? 'ml-8' : 'ml-16';
+  
+  return (
+    <div className={`${indentClass} border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg`}>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h4 className="font-semibold text-gray-900">{name}</h4>
+          <p className="text-sm text-gray-600">{title}</p>
+        </div>
+        <button className="text-gray-400 hover:text-gray-600 text-sm">✏️ Edit</button>
+      </div>
+      
+      {responsibilities && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Manages:</span>
+          <p className="text-gray-600 mt-0.5">• {responsibilities}</p>
+        </div>
+      )}
+      
+      {challenges && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Challenge:</span>
+          <p className="text-gray-600 mt-0.5">• {challenges}</p>
+        </div>
+      )}
+      
+      {needs && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-gray-700">Needs:</span>
+          <p className="text-gray-600 mt-0.5">• {needs}</p>
+        </div>
+      )}
+      
+      {notes && (
+        <div className="mt-2 text-sm">
+          <span className="font-medium text-blue-700">Strategy:</span>
+          <p className="text-blue-600 mt-0.5">→ {notes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * LEFT PANEL - Business & Meetings
  * Placeholder component - will be replaced in Phase 7
  */
@@ -350,7 +416,10 @@ function LeftPanel({
 
         {/* Organization Section */}
         <button
-          onClick={() => toggleSection('organization')}
+          onClick={() => {
+            toggleSection('organization');
+            onViewChange('organization');
+          }}
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Organization</span>
@@ -527,6 +596,55 @@ function RightPanel({
     
     return matchesSearch && matchesFilter;
   });
+
+  // If viewing organization chart
+  if (workspaceView === 'organization') {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Organization</h2>
+        
+        <div className="space-y-4">
+          {/* Add Person Button */}
+          <button className="w-full px-3 py-2 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 font-medium">
+            + Add Person to Org Chart
+          </button>
+          
+          {/* Org Chart Entries */}
+          <div className="space-y-6">
+            {/* Example Entry - Will be dynamic */}
+            <OrgChartPerson
+              name="Greg"
+              title="VP Marketing"
+              level={0}
+              responsibilities="Manages marketing intelligence"
+              challenges="All the data is siloed"
+              needs="A platform that shows the right insights"
+              notes="Message features that consolidate data sources"
+            />
+            
+            {/* Visual Connection Line */}
+            <div className="flex items-center justify-center">
+              <div className="border-l-2 border-gray-300 h-8"></div>
+            </div>
+            
+            <OrgChartPerson
+              name="Director"
+              title="Ad Campaigns"
+              level={1}
+              responsibilities="Reports to Bob, not a decision maker"
+              challenges="Doesn't like Greg"
+              needs="Way to communicate with Bob and Greg"
+              notes=""
+            />
+          </div>
+          
+          <p className="text-xs text-gray-500 mt-4">
+            Build your org chart to track stakeholders, their challenges, and messaging strategy
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // If viewing people assigned to this business, show them
   if (workspaceView === 'people') {

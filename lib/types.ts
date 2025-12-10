@@ -439,7 +439,7 @@ export type { DragEndEvent } from '@dnd-kit/core';
  * WorkspaceView - Type of view to show in the right panel workspace
  * USED BY: Business page right panel
  */
-export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library';
+export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization';
 
 /**
  * BusinessWithRelations - Business with related data loaded
