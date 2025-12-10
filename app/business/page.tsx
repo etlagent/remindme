@@ -146,6 +146,8 @@ export default function BusinessPage() {
               person={selectedPerson}
               onViewChange={setWorkspaceView}
               onReloadBusiness={loadBusinessWithRelations}
+              allBusinesses={businesses}
+              onBusinessSelect={setSelectedBusiness}
             />
           </Card>
         </div>
@@ -586,6 +588,17 @@ function LeftPanel({
           <span className={`text-gray-400 transition-transform ${expandedSections.includes('meetings') ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
+        {/* Pipeline Section */}
+        <button
+          onClick={() => {
+            onViewChange('pipeline');
+          }}
+          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="font-medium text-gray-900">Pipeline</span>
+          <span className="text-gray-400">📊</span>
+        </button>
+
         {/* Notes Section */}
         <button
           onClick={() => toggleSection('notes')}
@@ -637,6 +650,8 @@ interface RightPanelProps {
   person: Person | null;
   onViewChange: (view: WorkspaceView) => void;
   onReloadBusiness: (businessId: string) => Promise<void>;
+  allBusinesses: Business[];
+  onBusinessSelect: (business: Business) => void;
 }
 
 function RightPanel({
@@ -645,10 +660,11 @@ function RightPanel({
   meeting,
   person,
   onViewChange,
-  onReloadBusiness
+  onReloadBusiness,
+  allBusinesses,
+  onBusinessSelect
 }: RightPanelProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
-  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [isLoadingPeople, setIsLoadingPeople] = useState(false);
@@ -1556,6 +1572,114 @@ function RightPanel({
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Pipeline / Kanban View
+  if (workspaceView === 'pipeline') {
+    const stages: Array<{key: Business['stage'], label: string, color: string}> = [
+      { key: 'discovery', label: 'Discovery', color: 'bg-gray-100 border-gray-300' },
+      { key: 'qualification', label: 'Qualification', color: 'bg-blue-100 border-blue-300' },
+      { key: 'proposal', label: 'Proposal', color: 'bg-purple-100 border-purple-300' },
+      { key: 'negotiation', label: 'Negotiation', color: 'bg-yellow-100 border-yellow-300' },
+      { key: 'closed_won', label: 'Closed Won', color: 'bg-green-100 border-green-300' },
+      { key: 'closed_lost', label: 'Closed Lost', color: 'bg-red-100 border-red-300' },
+    ];
+
+    const [draggedBusiness, setDraggedBusiness] = useState<Business | null>(null);
+
+    const handleDragStartBusiness = (business: Business) => {
+      setDraggedBusiness(business);
+    };
+
+    const handleDropOnStage = async (stage: Business['stage']) => {
+      if (!draggedBusiness || draggedBusiness.stage === stage) {
+        setDraggedBusiness(null);
+        return;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(`/api/business/update`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            id: draggedBusiness.id,
+            stage: stage,
+          }),
+        });
+
+        if (response.ok) {
+          // Reload businesses by reloading current business
+          if (business?.id) {
+            await onReloadBusiness(business.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error updating business stage:', error);
+      } finally {
+        setDraggedBusiness(null);
+      }
+    };
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Pipeline</h2>
+        <p className="text-sm text-gray-600 mb-6">Drag businesses between stages to update their status</p>
+
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {stages.map(stage => {
+            const businessesInStage = allBusinesses.filter(b => b.stage === stage.key);
+            
+            return (
+              <div
+                key={stage.key}
+                className="flex-shrink-0 w-72"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDropOnStage(stage.key)}
+              >
+                <div className={`rounded-lg border-2 ${stage.color} p-3 mb-3`}>
+                  <h3 className="font-semibold text-gray-900">{stage.label}</h3>
+                  <p className="text-xs text-gray-600 mt-1">{businessesInStage.length} {businessesInStage.length === 1 ? 'business' : 'businesses'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {businessesInStage.map(biz => (
+                    <div
+                      key={biz.id}
+                      draggable
+                      onDragStart={() => handleDragStartBusiness(biz)}
+                      className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm cursor-move hover:shadow-md transition-shadow"
+                      onClick={() => onBusinessSelect && onBusinessSelect(biz)}
+                    >
+                      <h4 className="font-semibold text-gray-900 text-sm">{biz.name}</h4>
+                      {biz.industry && (
+                        <p className="text-xs text-gray-600 mt-1">{biz.industry}</p>
+                      )}
+                      {biz.deal_value && (
+                        <p className="text-xs text-green-600 font-medium mt-1">
+                          ${(biz.deal_value / 1000).toFixed(0)}K
+                        </p>
+                      )}
+                    </div>
+                  ))}
+
+                  {businessesInStage.length === 0 && (
+                    <div className="p-4 text-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+                      Drop here
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
