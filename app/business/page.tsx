@@ -550,7 +550,10 @@ function LeftPanel({
 
           {/* Meetings Section */}
           <button
-            onClick={() => toggleSection('meetings')}
+            onClick={() => {
+              toggleSection('meetings');
+              onViewChange('meeting');
+            }}
             className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-medium text-gray-900">Meetings</span>
@@ -570,7 +573,10 @@ function LeftPanel({
 
           {/* Notes Section */}
           <button
-            onClick={() => toggleSection('notes')}
+            onClick={() => {
+              toggleSection('notes');
+              onViewChange('business');
+            }}
             className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-medium text-gray-900">Notes & Context</span>
@@ -579,7 +585,10 @@ function LeftPanel({
 
           {/* Research Section */}
           <button
-            onClick={() => toggleSection('research')}
+            onClick={() => {
+              toggleSection('research');
+              onViewChange('business');
+            }}
             className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-medium text-gray-900">Research</span>
