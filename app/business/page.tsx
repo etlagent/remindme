@@ -457,6 +457,88 @@ function LeftPanel({
           )}
         </div>
       </div>
+
+      {/* Selected Business Card - Show when business is selected */}
+      {selectedBusiness && !showNewBusinessForm && (
+        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-gray-900">{selectedBusiness.name}</h2>
+            <button 
+              onClick={() => onBusinessSelect(null as any)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Deselect business"
+            >
+              ✕
+            </button>
+          </div>
+          {selectedBusiness.industry && (
+            <p className="text-gray-600">{selectedBusiness.industry}</p>
+          )}
+          {selectedBusiness.stage && (
+            <p className="text-sm text-gray-500">Stage: {selectedBusiness.stage}</p>
+          )}
+          {selectedBusiness.deal_value && (
+            <p className="text-sm text-green-600 font-medium">
+              Deal Value: ${(selectedBusiness.deal_value / 1000).toFixed(0)}K
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Collapsible Sections - Show when business is selected */}
+      {selectedBusiness && !showNewBusinessForm && (
+        <div className="space-y-2">
+          {/* People Section */}
+          <button
+            onClick={() => {
+              toggleSection('people');
+              onViewChange('people');
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">People</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('people') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+
+          {/* Meetings Section */}
+          <button
+            onClick={() => toggleSection('meetings')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Meetings</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('meetings') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+
+          {/* Pipeline Section */}
+          <button
+            onClick={() => {
+              onViewChange('pipeline');
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Pipeline</span>
+            <span className="text-gray-400">📊</span>
+          </button>
+
+          {/* Notes Section */}
+          <button
+            onClick={() => toggleSection('notes')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Notes & Context</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('notes') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+
+          {/* Research Section */}
+          <button
+            onClick={() => toggleSection('research')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Research</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('research') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+        </div>
+      )}
       
       {/* Business Info Card - Only show when adding new business */}
       {showNewBusinessForm && (
