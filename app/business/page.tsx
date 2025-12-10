@@ -692,7 +692,7 @@ function LeftPanel({
           className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <span className="font-medium text-gray-900">Pipeline</span>
-          <span className="text-gray-400">📊</span>
+          <span className="text-gray-400">▶</span>
         </button>
 
         {/* Notes Section */}
