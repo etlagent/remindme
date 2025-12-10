@@ -635,6 +635,7 @@ function RightPanel({
   const [isLoadingPeople, setIsLoadingPeople] = useState(false);
   const [showPersonSelector, setShowPersonSelector] = useState(false);
   const [personSelectorSearch, setPersonSelectorSearch] = useState('');
+  const [orgChartPeople, setOrgChartPeople] = useState<any[]>([]);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -725,11 +726,27 @@ function RightPanel({
     p.company?.toLowerCase().includes(personSelectorSearch.toLowerCase())
   );
 
+  const handleAddPersonToOrgChart = (person: Person) => {
+    // Add person to org chart with default values
+    const newOrgPerson = {
+      id: `org-${person.id}-${Date.now()}`,
+      personId: person.id,
+      name: person.name,
+      title: person.role || person.company || 'Role not specified',
+      level: orgChartPeople.length, // Simple level assignment for now
+      responsibilities: '',
+      challenges: '',
+      needs: '',
+      notes: '',
+    };
+    
+    setOrgChartPeople([...orgChartPeople, newOrgPerson]);
+    setShowPersonSelector(false);
+    setPersonSelectorSearch('');
+  };
+
   // If viewing organization chart
   if (workspaceView === 'organization') {
-    // TODO: Load org chart people from database
-    const orgChartPeople: any[] = []; // Will be replaced with real data
-    
     return (
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -773,17 +790,17 @@ function RightPanel({
                       onAddAbove={() => {
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position (above this person)
+                        // TODO: Track position context for hierarchy
                       }}
                       onAddBelow={() => {
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position (below this person)
+                        // TODO: Track position context for hierarchy
                       }}
                       onAddSide={() => {
                         loadPeople();
                         setShowPersonSelector(true);
-                        // TODO: Track position (side of this person)
+                        // TODO: Track position context for hierarchy
                       }}
                       onEdit={() => {
                         // TODO: Edit person details
@@ -849,12 +866,7 @@ function RightPanel({
                   filteredSelectorPeople.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => {
-                        // TODO: Add person to org chart
-                        alert(`Adding ${p.name} to org chart`);
-                        setShowPersonSelector(false);
-                        setPersonSelectorSearch('');
-                      }}
+                      onClick={() => handleAddPersonToOrgChart(p)}
                       className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
                     >
                       <div className="font-medium text-gray-900">{p.name}</div>
