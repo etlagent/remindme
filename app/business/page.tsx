@@ -540,7 +540,7 @@ function LeftPanel({
             className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <span className="font-medium text-gray-900">Pipeline</span>
-            <span className="text-gray-400">📊</span>
+            <span className="text-gray-400">▶</span>
           </button>
 
           {/* Notes Section */}
@@ -793,6 +793,9 @@ function RightPanel({
   const [visibleLevels, setVisibleLevels] = useState<Set<number>>(new Set([0])); // Start with Executive level visible
   const [draggedPersonFromList, setDraggedPersonFromList] = useState<Person | null>(null);
   const [selectedPersonForDetails, setSelectedPersonForDetails] = useState<Set<string>>(new Set());
+  const [showPlaceholderForm, setShowPlaceholderForm] = useState<number | null>(null);
+  const [placeholderName, setPlaceholderName] = useState('');
+  const [placeholderTitle, setPlaceholderTitle] = useState('');
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -965,6 +968,30 @@ function RightPanel({
     setPersonSelectorSearch('');
     setAddContext(null);
     setDraggedPersonFromList(null);
+  };
+
+  const handleAddPlaceholder = (level: number) => {
+    if (!placeholderName.trim()) return;
+    
+    const newOrgPerson = {
+      id: `placeholder-${Date.now()}`,
+      personId: null, // No actual person linked
+      name: placeholderName,
+      title: placeholderTitle || 'Title not specified',
+      level: level,
+      parentId: null,
+      responsibilities: '',
+      challenges: '',
+      needs: '',
+      notes: '',
+      isPlaceholder: true, // Mark as placeholder
+    };
+    
+    setOrgChartPeople([...orgChartPeople, newOrgPerson]);
+    setOrgHierarchy([...orgHierarchy, { type: 'person', id: newOrgPerson.id }]);
+    setShowPlaceholderForm(null);
+    setPlaceholderName('');
+    setPlaceholderTitle('');
   };
 
   const handleRemovePersonFromOrgChart = (orgPersonId: string) => {
@@ -1260,7 +1287,33 @@ function RightPanel({
                       </p>
                     )}
                   </div>
-                  <button className="text-gray-400 hover:text-gray-600 text-xl">⋮</button>
+                  <button 
+                    onClick={async () => {
+                      if (!business) return;
+                      
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) return;
+
+                        const response = await fetch(`/api/business/people/remove?business_id=${business.id}&person_id=${person.id}`, {
+                          method: 'DELETE',
+                          headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                          },
+                        });
+
+                        if (response.ok) {
+                          await onReloadBusiness(business.id);
+                        }
+                      } catch (error) {
+                        console.error('Error unassigning person:', error);
+                      }
+                    }}
+                    className="text-gray-400 hover:text-red-600 text-sm font-medium transition-colors"
+                    title="Remove from business"
+                  >
+                    Remove
+                  </button>
                 </div>
                 
                 {/* Inspiration/Priority Badge */}
@@ -1469,16 +1522,10 @@ function RightPanel({
               </div>
             ) : (
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4">
                   <p className="text-sm text-gray-600">
                     Visualize the hierarchy and relationships at {business.name}
                   </p>
-                  <button
-                    onClick={() => handleCreateTeam(0)}
-                    className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
-                  >
-                    + Create Team
-                  </button>
                 </div>
 
                 {/* Hierarchical Org Chart by Levels */}
@@ -1519,6 +1566,13 @@ function RightPanel({
                               ▼ Add level below
                             </button>
                             <button
+                              onClick={() => setShowPlaceholderForm(Number(level))}
+                              className="text-xs text-green-600 hover:text-green-800 font-medium"
+                              title="Add person you know but haven't met"
+                            >
+                              + Add person
+                            </button>
+                            <button
                               onClick={() => handleCreateTeam(Number(level))}
                               className="text-xs text-purple-600 hover:text-purple-800 font-medium"
                               title="Create team at this level"
@@ -1526,6 +1580,49 @@ function RightPanel({
                               + Create Team
                             </button>
                           </div>
+
+                          {/* Placeholder Form */}
+                          {showPlaceholderForm === Number(level) && (
+                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-xs text-green-900 font-medium mb-2">Add person (placeholder)</p>
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  placeholder="Name (e.g., Michael Benson)"
+                                  value={placeholderName}
+                                  onChange={(e) => setPlaceholderName(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  autoFocus
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Title (e.g., CMO)"
+                                  value={placeholderTitle}
+                                  onChange={(e) => setPlaceholderTitle(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setShowPlaceholderForm(null);
+                                      setPlaceholderName('');
+                                      setPlaceholderTitle('');
+                                    }}
+                                    className="px-3 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleAddPlaceholder(Number(level))}
+                                    disabled={!placeholderName.trim()}
+                                    className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Add to Chart
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* People and Teams at this level - horizontal layout, left-aligned */}
                           <div 
@@ -1564,22 +1661,31 @@ function RightPanel({
                                       }
                                       setSelectedPersonForDetails(newSet);
                                     }}>
-                                      <OrgChartPerson
-                                        id={person.id}
-                                        name={person.name}
-                                        title={person.title}
-                                        level={person.level}
-                                        responsibilities={person.responsibilities}
-                                        challenges={person.challenges}
-                                        needs={person.needs}
-                                        notes={person.notes}
-                                        onEdit={() => handleEditPerson(person)}
-                                        onRemove={() => handleRemovePersonFromOrgChart(person.id)}
-                                        onDragStart={handleDragStart}
-                                        onDragOver={handleDragOver}
-                                        onDrop={handleHierarchyDrop}
-                                        isDragging={draggedPersonId === person.id}
-                                      />
+                                      <div className={person.isPlaceholder ? 'opacity-60' : ''}>
+                                        <OrgChartPerson
+                                          id={person.id}
+                                          name={person.name}
+                                          title={person.title}
+                                          level={person.level}
+                                          responsibilities={person.responsibilities}
+                                          challenges={person.challenges}
+                                          needs={person.needs}
+                                          notes={person.notes}
+                                          onEdit={() => handleEditPerson(person)}
+                                          onRemove={() => handleRemovePersonFromOrgChart(person.id)}
+                                          onDragStart={handleDragStart}
+                                          onDragOver={handleDragOver}
+                                          onDrop={handleHierarchyDrop}
+                                          isDragging={draggedPersonId === person.id}
+                                        />
+                                        {person.isPlaceholder && (
+                                          <div className="mt-1 text-center">
+                                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                                              Not yet contacted
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
 
                                     {/* Expanded Details View */}
@@ -1672,23 +1778,76 @@ function RightPanel({
                                     {/* Team Members */}
                                     {teamMembers.length > 0 ? (
                                       <div className="mt-2 space-y-1">
-                                        {teamMembers.map(member => (
-                                          <div key={member.id} className="text-xs bg-white rounded px-2 py-1 flex items-center justify-between">
-                                            <span className="text-gray-700">{member.name}</span>
-                                            <button
-                                              onClick={() => {
-                                                setTeams(teams.map(t => 
-                                                  t.id === team.id 
-                                                    ? {...t, memberIds: t.memberIds.filter(id => id !== member.id)} 
-                                                    : t
-                                                ));
-                                              }}
-                                              className="text-gray-400 hover:text-red-600"
-                                            >
-                                              ✕
-                                            </button>
-                                          </div>
-                                        ))}
+                                        {teamMembers.map(member => {
+                                          const isExpanded = selectedPersonForDetails.has(member.id);
+                                          return (
+                                            <div key={member.id}>
+                                              <div className="text-xs bg-white rounded px-2 py-1 flex items-center justify-between">
+                                                <span 
+                                                  className="text-gray-700 hover:text-blue-600 cursor-pointer flex-1"
+                                                  onClick={() => {
+                                                    const newSet = new Set(selectedPersonForDetails);
+                                                    if (isExpanded) {
+                                                      newSet.delete(member.id);
+                                                    } else {
+                                                      newSet.add(member.id);
+                                                    }
+                                                    setSelectedPersonForDetails(newSet);
+                                                  }}
+                                                >
+                                                  {member.name} {isExpanded ? '▼' : '▶'}
+                                                </span>
+                                                <button
+                                                  onClick={() => {
+                                                    setTeams(teams.map(t => 
+                                                      t.id === team.id 
+                                                        ? {...t, memberIds: t.memberIds.filter(id => id !== member.id)} 
+                                                        : t
+                                                    ));
+                                                  }}
+                                                  className="text-gray-400 hover:text-red-600 ml-2"
+                                                >
+                                                  ✕
+                                                </button>
+                                              </div>
+                                              
+                                              {/* Expanded Details for Team Member */}
+                                              {isExpanded && (
+                                                <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
+                                                  <p className="font-semibold text-blue-900">{member.title}</p>
+                                                  
+                                                  {member.responsibilities && (
+                                                    <div>
+                                                      <p className="font-medium text-gray-700">Responsibilities:</p>
+                                                      <p className="text-gray-600">{member.responsibilities}</p>
+                                                    </div>
+                                                  )}
+                                                  
+                                                  {member.needs && (
+                                                    <div>
+                                                      <p className="font-medium text-gray-700">Needs & Goals:</p>
+                                                      <p className="text-gray-600">{member.needs}</p>
+                                                    </div>
+                                                  )}
+                                                  
+                                                  {member.challenges && (
+                                                    <div>
+                                                      <p className="font-medium text-gray-700">Challenges:</p>
+                                                      <p className="text-gray-600">{member.challenges}</p>
+                                                    </div>
+                                                  )}
+                                                  
+                                                  {member.notes && (
+                                                    <div>
+                                                      <p className="font-medium text-gray-700">Notes:</p>
+                                                      <p className="text-gray-600">{member.notes}</p>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     ) : (
                                       <div className="mt-2 p-2 border-2 border-dashed border-purple-200 rounded text-center text-xs text-purple-400">
