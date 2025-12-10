@@ -310,6 +310,39 @@ function LeftPanel({
     setDescription('');
   };
 
+  const handleDeleteBusiness = async (businessId: string, businessName: string) => {
+    if (!confirm(`Are you sure you want to delete "${businessName}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please sign in to delete');
+        return;
+      }
+
+      const response = await fetch(`/api/business/delete?id=${businessId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('✅ Business deleted!');
+        await onReloadBusinesses();
+      } else {
+        alert('Failed to delete: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting business:', error);
+      alert('Failed to delete business');
+    }
+  };
+
   const handleSaveToRolodex = async () => {
     if (!businessName.trim()) {
       alert('Please enter a business name');
@@ -386,15 +419,17 @@ function LeftPanel({
             {businesses.map((biz) => (
               <div
                 key={biz.id}
-                onClick={() => onBusinessSelect(biz)}
-                className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                className={`p-3 border rounded-lg transition-colors ${
                   selectedBusiness?.id === biz.id
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => onBusinessSelect(biz)}
+                  >
                     <h4 className="font-semibold text-gray-900">{biz.name}</h4>
                     {biz.industry && (
                       <p className="text-sm text-gray-600 mt-0.5">{biz.industry}</p>
@@ -403,7 +438,16 @@ function LeftPanel({
                       <p className="text-xs text-gray-500 mt-1">Stage: {biz.stage}</p>
                     )}
                   </div>
-                  <button className="text-gray-400 hover:text-gray-600 text-sm">⋮</button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteBusiness(biz.id, biz.name);
+                    }}
+                    className="text-gray-400 hover:text-red-600 text-sm"
+                    title="Delete business"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
             ))}
