@@ -39,6 +39,7 @@ export default function BusinessPage() {
   // Data state
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
 
   // Load businesses on mount
   useEffect(() => {
@@ -122,20 +123,44 @@ export default function BusinessPage() {
 
       {/* Main Split Screen - Matching Relationship Builder Layout */}
       <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[calc(100vh-120px)]">
+        <div className={`grid grid-cols-1 ${isLeftPanelCollapsed ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6 min-h-[calc(100vh-120px)] relative`}>
+          {/* Collapsed Left Panel - Thin Bar */}
+          {isLeftPanelCollapsed && (
+            <button
+              onClick={() => setIsLeftPanelCollapsed(false)}
+              className="fixed left-0 top-32 z-50 bg-blue-600 text-white p-2 rounded-r-lg shadow-lg hover:bg-blue-700 transition-colors"
+              title="Show business panel"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                <path d="M7 4L13 10L7 16" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+
           {/* Left: Business Section */}
-          <Card className="bg-white border-gray-200 shadow-sm p-6">
-            <LeftPanel
-              businesses={businesses}
-              selectedBusiness={selectedBusiness}
-              onBusinessSelect={handleBusinessSelect}
-              onMeetingSelect={handleMeetingSelect}
-              onPersonClick={handlePersonClick}
-              onViewChange={setWorkspaceView}
-              onReloadBusinesses={loadBusinesses}
-              isLoading={isLoading}
-            />
-          </Card>
+          {!isLeftPanelCollapsed && (
+            <Card className="bg-white border-gray-200 shadow-sm p-6 relative">
+              <button
+                onClick={() => setIsLeftPanelCollapsed(true)}
+                className="absolute top-2 right-2 z-10 text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+                title="Hide business panel"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                  <path d="M13 4L7 10L13 16" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <LeftPanel
+                businesses={businesses}
+                selectedBusiness={selectedBusiness}
+                onBusinessSelect={handleBusinessSelect}
+                onMeetingSelect={handleMeetingSelect}
+                onPersonClick={handlePersonClick}
+                onViewChange={setWorkspaceView}
+                onReloadBusinesses={loadBusinesses}
+                isLoading={isLoading}
+              />
+            </Card>
+          )}
 
           {/* Right: Library Section */}
           <Card className="bg-white border-gray-200 shadow-sm p-6">
@@ -1777,26 +1802,30 @@ function RightPanel({
                                     
                                     {/* Team Members */}
                                     {teamMembers.length > 0 ? (
-                                      <div className="mt-2 space-y-1">
+                                      <div className="mt-2 space-y-2">
                                         {teamMembers.map(member => {
                                           const isExpanded = selectedPersonForDetails.has(member.id);
                                           return (
-                                            <div key={member.id}>
-                                              <div className="text-xs bg-white rounded px-2 py-1 flex items-center justify-between">
-                                                <span 
-                                                  className="text-gray-700 hover:text-blue-600 cursor-pointer flex-1"
-                                                  onClick={() => {
-                                                    const newSet = new Set(selectedPersonForDetails);
-                                                    if (isExpanded) {
-                                                      newSet.delete(member.id);
-                                                    } else {
-                                                      newSet.add(member.id);
-                                                    }
-                                                    setSelectedPersonForDetails(newSet);
-                                                  }}
-                                                >
-                                                  {member.name} {isExpanded ? '▼' : '▶'}
-                                                </span>
+                                            <div key={member.id} className="bg-white rounded p-2">
+                                              <div className="flex items-start justify-between mb-1">
+                                                <div className="flex-1">
+                                                  <div 
+                                                    className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer flex items-center gap-1"
+                                                    onClick={() => {
+                                                      const newSet = new Set(selectedPersonForDetails);
+                                                      if (isExpanded) {
+                                                        newSet.delete(member.id);
+                                                      } else {
+                                                        newSet.add(member.id);
+                                                      }
+                                                      setSelectedPersonForDetails(newSet);
+                                                    }}
+                                                  >
+                                                    <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                                                    <span className="text-sm">{member.name}</span>
+                                                  </div>
+                                                  <p className="text-xs text-blue-700 mt-1">{member.title}</p>
+                                                </div>
                                                 <button
                                                   onClick={() => {
                                                     setTeams(teams.map(t => 
@@ -1805,44 +1834,77 @@ function RightPanel({
                                                         : t
                                                     ));
                                                   }}
-                                                  className="text-gray-400 hover:text-red-600 ml-2"
+                                                  className="text-gray-400 hover:text-red-600 text-xs"
                                                 >
                                                   ✕
                                                 </button>
                                               </div>
                                               
-                                              {/* Expanded Details for Team Member */}
+                                              {/* Expanded Editable Details */}
                                               {isExpanded && (
-                                                <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1">
-                                                  <p className="font-semibold text-blue-900">{member.title}</p>
+                                                <div className="mt-2 pt-2 border-t border-blue-200 space-y-2">
+                                                  <div>
+                                                    <label className="text-xs font-medium text-gray-700 block mb-1">Goals:</label>
+                                                    <textarea
+                                                      value={member.needs || ''}
+                                                      onChange={(e) => {
+                                                        setOrgChartPeople(orgChartPeople.map(p => 
+                                                          p.id === member.id ? {...p, needs: e.target.value} : p
+                                                        ));
+                                                      }}
+                                                      placeholder="What are they trying to accomplish?"
+                                                      className="w-full text-xs p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                                                      rows={3}
+                                                      style={{ minHeight: '60px' }}
+                                                      onInput={(e) => {
+                                                        const target = e.target as HTMLTextAreaElement;
+                                                        target.style.height = 'auto';
+                                                        target.style.height = target.scrollHeight + 'px';
+                                                      }}
+                                                    />
+                                                  </div>
                                                   
-                                                  {member.responsibilities && (
-                                                    <div>
-                                                      <p className="font-medium text-gray-700">Responsibilities:</p>
-                                                      <p className="text-gray-600">{member.responsibilities}</p>
-                                                    </div>
-                                                  )}
+                                                  <div>
+                                                    <label className="text-xs font-medium text-gray-700 block mb-1">Challenges:</label>
+                                                    <textarea
+                                                      value={member.challenges || ''}
+                                                      onChange={(e) => {
+                                                        setOrgChartPeople(orgChartPeople.map(p => 
+                                                          p.id === member.id ? {...p, challenges: e.target.value} : p
+                                                        ));
+                                                      }}
+                                                      placeholder="What problems are they facing?"
+                                                      className="w-full text-xs p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                                                      rows={3}
+                                                      style={{ minHeight: '60px' }}
+                                                      onInput={(e) => {
+                                                        const target = e.target as HTMLTextAreaElement;
+                                                        target.style.height = 'auto';
+                                                        target.style.height = target.scrollHeight + 'px';
+                                                      }}
+                                                    />
+                                                  </div>
                                                   
-                                                  {member.needs && (
-                                                    <div>
-                                                      <p className="font-medium text-gray-700">Needs & Goals:</p>
-                                                      <p className="text-gray-600">{member.needs}</p>
-                                                    </div>
-                                                  )}
-                                                  
-                                                  {member.challenges && (
-                                                    <div>
-                                                      <p className="font-medium text-gray-700">Challenges:</p>
-                                                      <p className="text-gray-600">{member.challenges}</p>
-                                                    </div>
-                                                  )}
-                                                  
-                                                  {member.notes && (
-                                                    <div>
-                                                      <p className="font-medium text-gray-700">Notes:</p>
-                                                      <p className="text-gray-600">{member.notes}</p>
-                                                    </div>
-                                                  )}
+                                                  <div>
+                                                    <label className="text-xs font-medium text-gray-700 block mb-1">Needs:</label>
+                                                    <textarea
+                                                      value={member.responsibilities || ''}
+                                                      onChange={(e) => {
+                                                        setOrgChartPeople(orgChartPeople.map(p => 
+                                                          p.id === member.id ? {...p, responsibilities: e.target.value} : p
+                                                        ));
+                                                      }}
+                                                      placeholder="What do they need from you?"
+                                                      className="w-full text-xs p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                                                      rows={3}
+                                                      style={{ minHeight: '60px' }}
+                                                      onInput={(e) => {
+                                                        const target = e.target as HTMLTextAreaElement;
+                                                        target.style.height = 'auto';
+                                                        target.style.height = target.scrollHeight + 'px';
+                                                      }}
+                                                    />
+                                                  </div>
                                                 </div>
                                               )}
                                             </div>
