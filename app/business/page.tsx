@@ -498,10 +498,9 @@ function LeftPanel({
         <p className="text-xs text-gray-500">
           💡 Set stage by dragging to Pipeline view
         </p>
-      </div>
 
-      {/* Collapsible Sections */}
-      <div className="space-y-2">
+        {/* Collapsible Sections */}
+        <div className="space-y-2">
         {/* Context & Social Media Section */}
         <div>
           <button
@@ -626,6 +625,7 @@ function LeftPanel({
         >
           {isSaving ? 'Saving...' : 'Save to Rolodex'}
         </button>
+      </div>
       </div>
       )}
     </div>
