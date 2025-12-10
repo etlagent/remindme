@@ -439,7 +439,13 @@ export type { DragEndEvent } from '@dnd-kit/core';
  * WorkspaceView - Type of view to show in the right panel workspace
  * USED BY: Business page right panel
  */
-export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization';
+export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization' | 'pipeline';
+
+/**
+ * PeopleViewMode - Type of view within the People section
+ * USED BY: People section tab switching
+ */
+export type PeopleViewMode = 'assigned' | 'library' | 'organization';
 
 /**
  * BusinessWithRelations - Business with related data loaded

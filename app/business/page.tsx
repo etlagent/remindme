@@ -11,6 +11,7 @@ import {
   Meeting, 
   Person,
   WorkspaceView,
+  PeopleViewMode,
   BusinessWithRelations,
   MeetingWithRelations
 } from '@/lib/types';
@@ -655,7 +656,7 @@ function RightPanel({
   const [personSelectorSearch, setPersonSelectorSearch] = useState('');
   const [orgChartPeople, setOrgChartPeople] = useState<any[]>([]);
   const [addContext, setAddContext] = useState<{position: 'above' | 'below' | 'side', personIndex?: number} | null>(null);
-  const [peopleViewMode, setPeopleViewMode] = useState<'assigned' | 'library' | 'organization'>('assigned');
+  const [peopleViewMode, setPeopleViewMode] = useState<PeopleViewMode>('assigned');
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<Set<string>>(new Set());
   const [draggedPersonId, setDraggedPersonId] = useState<string | null>(null);
   const [draggedTeamId, setDraggedTeamId] = useState<string | null>(null);
