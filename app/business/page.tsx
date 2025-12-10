@@ -664,21 +664,26 @@ function RightPanel({
     
     return (
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Organization</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Organization</h2>
+          <button 
+            onClick={() => {
+              loadPeople(); // Load people if not loaded
+              setShowPersonSelector(true);
+            }}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+          >
+            + Add Person
+          </button>
+        </div>
         
         <div className="space-y-4">
           {orgChartPeople.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No org chart yet</p>
-              <button 
-                onClick={() => {
-                  loadPeople(); // Load people if not loaded
-                  setShowPersonSelector(true);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-              >
-                + Add First Person
-              </button>
+              <p className="text-gray-500 mb-2">No org chart yet</p>
+              <p className="text-xs text-gray-400">
+                Click "+ Add Person" above to add your first stakeholder
+              </p>
               <p className="text-xs text-gray-400 mt-3">
                 Build your org chart to track stakeholders, challenges, and messaging strategy
               </p>
