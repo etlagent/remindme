@@ -49,9 +49,35 @@ export default function BusinessPage() {
     setIsLoading(false);
   };
 
+  const loadBusinessWithRelations = async (businessId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(`/api/business/get?id=${businessId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.business) {
+        setSelectedBusiness(result.business);
+      }
+    } catch (error) {
+      console.error('Error loading business:', error);
+    }
+  };
+
   const handleBusinessSelect = (business: Business) => {
-    // TODO: Load full business with relations
-    setSelectedBusiness(business as BusinessWithRelations);
+    // Load full business with relations
+    if (business.id) {
+      loadBusinessWithRelations(business.id);
+    } else {
+      // New unsaved business
+      setSelectedBusiness(business as BusinessWithRelations);
+    }
     setWorkspaceView('business');
   };
 
@@ -95,6 +121,7 @@ export default function BusinessPage() {
               meeting={selectedMeeting}
               person={selectedPerson}
               onViewChange={setWorkspaceView}
+              onReloadBusiness={loadBusinessWithRelations}
             />
           </Card>
         </div>
@@ -130,6 +157,8 @@ function LeftPanel({
   const [industry, setIndustry] = useState('');
   const [stage, setStage] = useState('');
   const [dealValue, setDealValue] = useState('');
+  const [website, setWebsite] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -146,6 +175,8 @@ function LeftPanel({
     setIndustry('');
     setStage('');
     setDealValue('');
+    setWebsite('');
+    setLinkedinUrl('');
   };
 
   const handleSaveToRolodex = async () => {
@@ -174,6 +205,8 @@ function LeftPanel({
           industry: industry || null,
           stage: stage || null,
           deal_value: dealValue ? parseFloat(dealValue) : null,
+          website: website || null,
+          linkedin_url: linkedinUrl || null,
         }),
       });
 
@@ -181,8 +214,15 @@ function LeftPanel({
 
       if (result.success) {
         alert('✅ Business saved to Rolodex!');
+        // Set the newly created business as selected
+        const newBusiness: BusinessWithRelations = {
+          ...result.business,
+          people: [],
+          meetings: [],
+          notes: [],
+        };
+        onBusinessSelect(newBusiness);
         handleCancel(); // Clear form
-        // TODO: Refresh businesses list
       } else {
         alert('Failed to save: ' + result.error);
       }
@@ -242,6 +282,22 @@ function LeftPanel({
           placeholder="Deal Value"
           value={dealValue}
           onChange={(e) => setDealValue(e.target.value)}
+          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
+        />
+
+        <input
+          type="text"
+          placeholder="Website URL"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
+        />
+
+        <input
+          type="text"
+          placeholder="LinkedIn Profile URL"
+          value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)}
           className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
         />
       </div>
@@ -328,6 +384,7 @@ interface RightPanelProps {
   meeting: MeetingWithRelations | null;
   person: Person | null;
   onViewChange: (view: WorkspaceView) => void;
+  onReloadBusiness: (businessId: string) => Promise<void>;
 }
 
 function RightPanel({
@@ -335,7 +392,8 @@ function RightPanel({
   business,
   meeting,
   person,
-  onViewChange
+  onViewChange,
+  onReloadBusiness
 }: RightPanelProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
@@ -364,6 +422,48 @@ function RightPanel({
       console.error('Error loading people:', error);
     } finally {
       setIsLoadingPeople(false);
+    }
+  };
+
+  const handleAssignPerson = async (personToAssign: Person) => {
+    if (!business?.id) {
+      alert('⚠️ Please save the business first before assigning people');
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please sign in');
+        return;
+      }
+
+      const response = await fetch('/api/business/people/assign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          business_id: business.id,
+          person_id: personToAssign.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ ${personToAssign.name} assigned to ${business.name}!`);
+        // Reload the business to get updated people list
+        await onReloadBusiness(business.id);
+        // Switch to people view to show the assigned person
+        onViewChange('people');
+      } else {
+        alert('Failed to assign: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error assigning person:', error);
+      alert('Failed to assign person');
     }
   };
 
@@ -547,10 +647,7 @@ function RightPanel({
                   </div>
                   <button 
                     className="opacity-0 group-hover:opacity-100 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-all"
-                    onClick={() => {
-                      // TODO: Implement assign person to business
-                      alert(`Assigning ${person.name} to ${business?.name || 'this business'}`);
-                    }}
+                    onClick={() => handleAssignPerson(person)}
                   >
                     + Assign
                   </button>
