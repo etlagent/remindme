@@ -287,13 +287,13 @@ function LeftPanel({
 }: LeftPanelProps) {
   const [businessName, setBusinessName] = useState('');
   const [industry, setIndustry] = useState('');
-  const [stage, setStage] = useState('');
   const [dealValue, setDealValue] = useState('');
   const [website, setWebsite] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [description, setDescription] = useState('');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showNewBusinessForm, setShowNewBusinessForm] = useState(false);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -306,11 +306,12 @@ function LeftPanel({
   const handleCancel = () => {
     setBusinessName('');
     setIndustry('');
-    setStage('');
     setDealValue('');
     setWebsite('');
     setLinkedinUrl('');
     setDescription('');
+    setShowNewBusinessForm(false);
+    setExpandedSections([]);
   };
 
   const handleDeleteBusiness = async (businessId: string, businessName: string) => {
@@ -370,7 +371,7 @@ function LeftPanel({
         body: JSON.stringify({
           name: businessName,
           industry: industry || null,
-          stage: stage || null,
+          stage: 'discovery', // Default to discovery - can be changed in Pipeline
           deal_value: dealValue ? parseFloat(dealValue) : null,
           website: website || null,
           linkedin_url: linkedinUrl || null,
@@ -404,61 +405,61 @@ function LeftPanel({
     }
   };
 
+  const [businessSearch, setBusinessSearch] = useState('');
+  const filteredBusinesses = businesses.filter(b => 
+    b.name.toLowerCase().includes(businessSearch.toLowerCase()) ||
+    b.industry?.toLowerCase().includes(businessSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
-      {/* Business List - Matching People list style */}
-      {businesses.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
-            <span>MY BUSINESSES</span>
-            <button 
-              onClick={handleCancel}
-              className="text-xs text-blue-600 hover:text-blue-700"
-            >
-              + New Business
-            </button>
-          </h3>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {businesses.map((biz) => (
-              <div
-                key={biz.id}
-                className={`p-3 border rounded-lg transition-colors ${
-                  selectedBusiness?.id === biz.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div 
-                    className="flex-1 cursor-pointer"
-                    onClick={() => onBusinessSelect(biz)}
-                  >
-                    <h4 className="font-semibold text-gray-900">{biz.name}</h4>
-                    {biz.industry && (
-                      <p className="text-sm text-gray-600 mt-0.5">{biz.industry}</p>
-                    )}
-                    {biz.stage && (
-                      <p className="text-xs text-gray-500 mt-1">Stage: {biz.stage}</p>
-                    )}
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteBusiness(biz.id, biz.name);
-                    }}
-                    className="text-gray-400 hover:text-red-600 text-sm"
-                    title="Delete business"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Business Selector - Matching Person Selector style */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-700">SELECT BUSINESS</h3>
+          <button 
+            onClick={() => setShowNewBusinessForm(true)}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            + New Business
+          </button>
         </div>
-      )}
+        
+        <input
+          type="text"
+          placeholder="Search businesses..."
+          value={businessSearch}
+          onChange={(e) => setBusinessSearch(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+        />
+        
+        <div className="max-h-48 overflow-y-auto space-y-1">
+          {filteredBusinesses.map((biz) => (
+            <div
+              key={biz.id}
+              onClick={() => onBusinessSelect(biz)}
+              className={`p-2 rounded-md cursor-pointer transition-colors ${
+                selectedBusiness?.id === biz.id
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              <div className="font-medium text-sm">{biz.name}</div>
+              {biz.industry && (
+                <div className="text-xs text-gray-600">{biz.industry}</div>
+              )}
+            </div>
+          ))}
+          {filteredBusinesses.length === 0 && (
+            <div className="text-sm text-gray-500 text-center py-4">
+              {businessSearch ? 'No businesses found' : 'No businesses yet'}
+            </div>
+          )}
+        </div>
+      </div>
       
-      {/* Business Info Card - Matching PersonInfoCard style */}
+      {/* Business Info Card - Only show when adding new business */}
+      {showNewBusinessForm && (
       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <input
@@ -470,12 +471,7 @@ function LeftPanel({
           />
           <div className="flex gap-2">
             <button 
-              onClick={() => {
-                setBusinessName('');
-                setIndustry('');
-                setStage('');
-                setDealValue('');
-              }}
+              onClick={handleCancel}
               className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md bg-white"
             >
               Clear
@@ -493,19 +489,15 @@ function LeftPanel({
 
         <input
           type="text"
-          placeholder="Stage (e.g., Discovery, Proposal, Closed Won)"
-          value={stage}
-          onChange={(e) => setStage(e.target.value)}
-          className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
-        />
-
-        <input
-          type="text"
           placeholder="Deal Value"
           value={dealValue}
           onChange={(e) => setDealValue(e.target.value)}
           className="w-full px-0 py-1 text-gray-600 bg-transparent border-none outline-none placeholder-gray-400"
         />
+        
+        <p className="text-xs text-gray-500">
+          💡 Set stage by dragging to Pipeline view
+        </p>
       </div>
 
       {/* Collapsible Sections */}
@@ -635,6 +627,7 @@ function LeftPanel({
           {isSaving ? 'Saving...' : 'Save to Rolodex'}
         </button>
       </div>
+      )}
     </div>
   );
 }
