@@ -1504,11 +1504,18 @@ function RightPanel({
                             >
                               ▼ Add level below
                             </button>
+                            <button
+                              onClick={handleCreateTeam}
+                              className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                              title="Create team at this level"
+                            >
+                              + Create Team
+                            </button>
                           </div>
 
-                          {/* People at this level - horizontal layout */}
+                          {/* People at this level - horizontal layout, left-aligned */}
                           <div 
-                            className="flex gap-4 flex-wrap justify-center"
+                            className="flex gap-4 flex-wrap justify-start"
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={() => {
                               if (draggedPersonFromList) {
