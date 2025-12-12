@@ -6,6 +6,9 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { 
   Business, 
   Meeting, 
@@ -302,6 +305,54 @@ function OrgChartPerson({
 }
 
 /**
+ * SORTABLE SECTION BUTTON
+ * Draggable button for business sections
+ */
+interface SortableSectionButtonProps {
+  id: string;
+  label: string;
+  hasExpand: boolean;
+  isExpanded: boolean;
+  onClick: () => void;
+}
+
+function SortableSectionButton({ id, label, hasExpand, isExpanded, onClick }: SortableSectionButtonProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors cursor-move border-b border-gray-100 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
+      >
+        <span className="text-base text-gray-900">{label}</span>
+        <span className={`text-gray-400 transition-transform ${
+          hasExpand && isExpanded ? 'rotate-90' : ''
+        }`}>
+          ▶
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
  * LEFT PANEL - Business & Meetings
  * Placeholder component - will be replaced in Phase 7
  */
@@ -338,6 +389,17 @@ function LeftPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [showNewBusinessForm, setShowNewBusinessForm] = useState(false);
   const [editingBusinessName, setEditingBusinessName] = useState(false);
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
+  const [showSectionManager, setShowSectionManager] = useState(false);
+  const [sectionOrder, setSectionOrder] = useState<string[]>([
+    'people',
+    'meetings',
+    'pipeline',
+    'notes',
+    'research',
+    'followups',
+    'conversations'
+  ]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -345,6 +407,59 @@ function LeftPanel({
         ? prev.filter(s => s !== section)
         : [...prev, section]
     );
+  };
+
+  // Load section preferences from localStorage
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('businessSectionOrder');
+    const savedHidden = localStorage.getItem('businessHiddenSections');
+    
+    if (savedOrder) {
+      try {
+        setSectionOrder(JSON.parse(savedOrder));
+      } catch (e) {
+        console.error('Error parsing section order:', e);
+      }
+    }
+    
+    if (savedHidden) {
+      try {
+        setHiddenSections(new Set(JSON.parse(savedHidden)));
+      } catch (e) {
+        console.error('Error parsing hidden sections:', e);
+      }
+    }
+  }, []);
+
+  // Save section preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('businessSectionOrder', JSON.stringify(sectionOrder));
+    localStorage.setItem('businessHiddenSections', JSON.stringify(Array.from(hiddenSections)));
+  }, [sectionOrder, hiddenSections]);
+
+  // Configure drag sensors (requires long press)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  // Handle drag end to reorder sections
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = sectionOrder.indexOf(active.id as string);
+      const newIndex = sectionOrder.indexOf(over.id as string);
+
+      const newOrder = [...sectionOrder];
+      const [removed] = newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, removed);
+
+      setSectionOrder(newOrder);
+    }
   };
 
   const handleCancel = () => {
@@ -599,89 +714,117 @@ function LeftPanel({
 
       {/* Collapsible Sections - Show when business is selected */}
       {selectedBusiness && !showNewBusinessForm && (
-        <div className="space-y-2">
-          {/* People Section */}
-          <button
-            onClick={() => {
-              toggleSection('people');
-              onViewChange('people');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">People</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('people') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+        <div>
+          {/* Eye icon to manage section visibility */}
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setShowSectionManager(!showSectionManager)}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              title="Manage sections"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
 
-          {/* Meetings Section */}
-          <button
-            onClick={() => {
-              toggleSection('meetings');
-              onViewChange('meeting');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Meetings</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('meetings') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+          {/* Section Manager Modal */}
+          {showSectionManager && (
+            <div className="mb-4 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-base font-semibold text-gray-900">Show/Hide Sections</h4>
+                <button
+                  onClick={() => setShowSectionManager(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-3">
+                {sectionOrder.map((sectionId) => {
+                  const sectionConfig = {
+                    people: { label: 'People' },
+                    meetings: { label: 'Meetings' },
+                    pipeline: { label: 'Pipeline' },
+                    notes: { label: 'Notes & Context' },
+                    research: { label: 'Research' },
+                    followups: { label: 'Follow Ups' },
+                    conversations: { label: 'Conversations' }
+                  }[sectionId];
 
-          {/* Pipeline Section */}
-          <button
-            onClick={() => {
-              onViewChange('pipeline');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Pipeline</span>
-            <span className="text-gray-400">▶</span>
-          </button>
+                  const isVisible = !hiddenSections.has(sectionId);
 
-          {/* Notes Section */}
-          <button
-            onClick={() => {
-              toggleSection('notes');
-              onViewChange('conversations');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Notes & Context</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('notes') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+                  return (
+                    <label key={sectionId} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={() => {
+                          const newHidden = new Set(hiddenSections);
+                          if (isVisible) {
+                            newHidden.add(sectionId);
+                          } else {
+                            newHidden.delete(sectionId);
+                          }
+                          setHiddenSections(newHidden);
+                        }}
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{sectionConfig?.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-          {/* Research Section */}
-          <button
-            onClick={() => {
-              toggleSection('research');
-              onViewChange('business');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Research</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('research') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+          {/* Sections Container Box */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4">
+            {/* Dynamic Sections with Drag & Drop */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sectionOrder.filter(id => !hiddenSections.has(id))}
+                strategy={verticalListSortingStrategy}
+              >
+                <div>
+                  {sectionOrder.filter(id => !hiddenSections.has(id)).map((sectionId) => {
+                    const sectionConfig = {
+                      people: { label: 'People', view: 'people' as WorkspaceView, hasExpand: true },
+                      meetings: { label: 'Meetings', view: 'meeting' as WorkspaceView, hasExpand: true },
+                      pipeline: { label: 'Pipeline', view: 'pipeline' as WorkspaceView, hasExpand: false },
+                      notes: { label: 'Notes & Context', view: 'notes' as WorkspaceView, hasExpand: true },
+                      research: { label: 'Research', view: 'business' as WorkspaceView, hasExpand: true },
+                      followups: { label: 'Follow Ups', view: 'followups' as WorkspaceView, hasExpand: true },
+                      conversations: { label: 'Conversations', view: 'conversations' as WorkspaceView, hasExpand: true }
+                    }[sectionId];
 
-          {/* Follow Ups Section */}
-          <button
-            onClick={() => {
-              toggleSection('followups');
-              onViewChange('followups');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Follow Ups</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('followups') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+                    if (!sectionConfig) return null;
 
-          {/* Conversations Section */}
-          <button
-            onClick={() => {
-              toggleSection('conversations');
-              onViewChange('conversations');
-            }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="font-medium text-gray-900">Conversations</span>
-            <span className={`text-gray-400 transition-transform ${expandedSections.includes('conversations') ? 'rotate-90' : ''}`}>▶</span>
-          </button>
+                    return (
+                      <SortableSectionButton
+                        key={sectionId}
+                        id={sectionId}
+                        label={sectionConfig.label}
+                        hasExpand={sectionConfig.hasExpand}
+                        isExpanded={expandedSections.includes(sectionId)}
+                        onClick={() => {
+                          if (sectionConfig.hasExpand) {
+                            toggleSection(sectionId);
+                          }
+                          onViewChange(sectionConfig.view);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
 
           {/* Save Button */}
           <div className="pt-4 flex justify-end gap-2">
@@ -964,6 +1107,19 @@ function RightPanel({
   const [businessFollowups, setBusinessFollowups] = useState<any[]>([]);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedFollowups, setExpandedFollowups] = useState<Set<string>>(new Set());
+  const [conversationStrategies, setConversationStrategies] = useState<any[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState<any | null>(null);
+  const [newStrategy, setNewStrategy] = useState({
+    situation: '',
+    goal: '',
+    contextSources: [] as string[],
+    attendeeIds: [] as string[]
+  });
+  const [conversationSteps, setConversationSteps] = useState<any[]>([]);
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
+  const [clarifyingAnswers, setClarifyingAnswers] = useState<{[key: number]: string}>({});
+  const [isBuildFormCollapsed, setIsBuildFormCollapsed] = useState(false);
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -1047,9 +1203,9 @@ function RightPanel({
     }
   }, []);
 
-  // Load business notes when conversations view is opened
+  // Load business notes when notes view is opened
   useEffect(() => {
-    if (workspaceView === 'conversations' && business?.id) {
+    if (workspaceView === 'notes' && business?.id) {
       loadBusinessNotes();
     }
   }, [workspaceView, business?.id]);
@@ -3404,8 +3560,8 @@ function RightPanel({
     );
   }
 
-  // Conversations view (Notes & Context)
-  if (workspaceView === 'conversations') {
+  // Notes & Context view
+  if (workspaceView === 'notes') {
     return (
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Notes & Context</h2>
@@ -3499,6 +3655,770 @@ function RightPanel({
                 })}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Conversations view - AI Strategy Builder
+  if (workspaceView === 'conversations') {
+    const contextOptions = [
+      { id: 'linkedin', label: 'LinkedIn Profile', icon: '💼' },
+      { id: 'conversations', label: 'Previous Conversations', icon: '💬' },
+      { id: 'meetings', label: 'Meeting Notes', icon: '📝' },
+      { id: 'notes', label: 'Business Notes', icon: '📋' },
+      { id: 'memories', label: 'Memories', icon: '🧠' }
+    ];
+
+    const toggleContextSource = (sourceId: string) => {
+      setNewStrategy(prev => ({
+        ...prev,
+        contextSources: prev.contextSources.includes(sourceId)
+          ? prev.contextSources.filter(id => id !== sourceId)
+          : [...prev.contextSources, sourceId]
+      }));
+    };
+
+    // Check if we have steps to show horizontal layout
+    const hasSteps = conversationSteps.length > 0;
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Conversation Strategy</h2>
+          {(conversationSteps.length > 0 || newStrategy.situation || newStrategy.goal) && (
+            <button
+              onClick={() => {
+                // Clear everything to start fresh
+                setNewStrategy({
+                  situation: '',
+                  goal: '',
+                  contextSources: [],
+                  attendeeIds: []
+                });
+                setClarifyingQuestions([]);
+                setClarifyingAnswers({});
+                setConversationSteps([]);
+                setSelectedStrategy(null);
+              }}
+              className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
+            >
+              + New Strategy
+            </button>
+          )}
+        </div>
+        {!business ? (
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-2">No business selected</p>
+            <p className="text-sm">Select a business to build conversation strategies</p>
+          </div>
+        ) : hasSteps ? (
+          /* Horizontal Layout with Steps */
+          <div className="space-y-4">
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {/* Form Card - Collapsible */}
+              <div className={`flex-shrink-0 ${isBuildFormCollapsed ? 'w-12' : 'w-64'} space-y-4 transition-all duration-200`}>
+                {/* Context Builder Form */}
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  {/* Collapsible Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {!isBuildFormCollapsed && 'Build Strategy'}
+                    </h3>
+                    <button
+                      onClick={() => setIsBuildFormCollapsed(!isBuildFormCollapsed)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors text-xl"
+                      title={isBuildFormCollapsed ? 'Expand' : 'Collapse'}
+                    >
+                      {isBuildFormCollapsed ? '▶' : '◀'}
+                    </button>
+                  </div>
+                  
+                  {/* Collapsible Content */}
+                  {!isBuildFormCollapsed && (
+                    <div className="p-4">
+              {/* Context Sources */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Context Sources
+                </label>
+                <div className="space-y-1">
+                  {contextOptions.map((option) => (
+                    <label key={option.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                      <input
+                        type="checkbox"
+                        checked={newStrategy.contextSources.includes(option.id)}
+                        onChange={() => toggleContextSource(option.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-base">{option.icon}</span>
+                      <span className="text-xs text-gray-700">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Situation Input */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Your Situation
+                </label>
+                <textarea
+                  value={newStrategy.situation}
+                  onChange={(e) => setNewStrategy({ ...newStrategy, situation: e.target.value })}
+                  placeholder="Describe the current situation, concerns, or context..."
+                  className="w-full px-2.5 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  rows={3}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">
+                  What's happening? What concerns do they have? What's the background?
+                </p>
+              </div>
+
+              {/* Goal Input */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Your Goal
+                </label>
+                <textarea
+                  value={newStrategy.goal}
+                  onChange={(e) => setNewStrategy({ ...newStrategy, goal: e.target.value })}
+                  placeholder="What do you want to achieve in this conversation?"
+                  className="w-full px-2.5 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  rows={2}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">
+                  What's the desired outcome? Where do you want to move the conversation?
+                </p>
+              </div>
+
+              {/* Clarifying Questions - Show after initial generation */}
+              {clarifyingQuestions.length > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <h4 className="text-xs font-semibold text-purple-900 mb-2">
+                    🤔 A few questions to refine your strategy:
+                  </h4>
+                  <div className="space-y-3">
+                    {clarifyingQuestions.map((question, index) => (
+                      <div key={index}>
+                        <label className="block text-xs text-purple-800 mb-1">
+                          {index + 1}. {question}
+                        </label>
+                        <textarea
+                          value={clarifyingAnswers[index] || ''}
+                          onChange={(e) => {
+                            setClarifyingAnswers({
+                              ...clarifyingAnswers,
+                              [index]: e.target.value
+                            });
+                          }}
+                          placeholder="Your answer..."
+                          className="w-full px-2 py-1.5 border border-purple-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setClarifyingQuestions([]);
+                      setClarifyingAnswers({});
+                    }}
+                    className="mt-2 text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    ← Start Over
+                  </button>
+                </div>
+              )}
+
+              {/* Generate Button - Collapsed view uses same logic as vertical */}
+              {clarifyingQuestions.length === 0 ? (
+                <button
+                  onClick={async () => {
+                    if (!business || isGeneratingStrategy) return;
+                    setIsGeneratingStrategy(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please log in to generate strategies');
+                        setIsGeneratingStrategy(false);
+                        return;
+                      }
+
+                      const response = await fetch('/api/conversations/generate-questions', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          situation: newStrategy.situation,
+                          goal: newStrategy.goal,
+                          context_sources: newStrategy.contextSources
+                        })
+                      });
+
+                      const result = await response.json();
+
+                      if (result.success && result.questions) {
+                        if (result.questions.length === 0) {
+                          const strategyResponse = await fetch('/api/conversations/generate-strategy', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({
+                              business_id: business.id,
+                              situation: newStrategy.situation,
+                              goal: newStrategy.goal,
+                              context_sources: newStrategy.contextSources,
+                              clarifying_qa: []
+                            })
+                          });
+
+                          const strategyResult = await strategyResponse.json();
+
+                          if (strategyResult.success && strategyResult.steps) {
+                            setConversationSteps(strategyResult.steps);
+                            setConversationStrategies([strategyResult.strategy, ...conversationStrategies]);
+                          } else {
+                            alert(`Error: ${strategyResult.error || 'Failed to generate strategy'}`);
+                          }
+                        } else {
+                          setClarifyingQuestions(result.questions);
+                          setClarifyingAnswers({});
+                        }
+                      } else {
+                        alert(`Error: ${result.error || 'Failed to generate questions'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error generating questions:', error);
+                      alert('Failed to generate questions');
+                    } finally {
+                      setIsGeneratingStrategy(false);
+                    }
+                  }}
+                  disabled={!newStrategy.goal && !newStrategy.situation || isGeneratingStrategy}
+                  className="w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingStrategy ? '⏳ Analyzing...' : '🤖 Generate Strategy'}
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!business || isGeneratingStrategy) return;
+                    setIsGeneratingStrategy(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please log in to generate strategies');
+                        setIsGeneratingStrategy(false);
+                        return;
+                      }
+
+                      const clarifying_qa = clarifyingQuestions.map((q, i) => ({
+                        question: q,
+                        answer: clarifyingAnswers[i] || ''
+                      })).filter(qa => qa.answer);
+
+                      const response = await fetch('/api/conversations/generate-strategy', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          situation: newStrategy.situation,
+                          goal: newStrategy.goal,
+                          context_sources: newStrategy.contextSources,
+                          clarifying_qa
+                        })
+                      });
+
+                      const result = await response.json();
+
+                      if (result.success && result.steps) {
+                        setConversationSteps(result.steps);
+                        setConversationStrategies([result.strategy, ...conversationStrategies]);
+                      } else {
+                        alert(`Error: ${result.error || 'Failed to generate strategy'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error generating strategy:', error);
+                      alert('Failed to generate strategy');
+                    } finally {
+                      setIsGeneratingStrategy(false);
+                    }
+                  }}
+                  disabled={isGeneratingStrategy}
+                  className="w-full px-4 py-2.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingStrategy ? '⏳ Creating Strategy...' : '✅ Create Strategy'}
+                </button>
+              )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step Cards - Horizontal */}
+            {conversationSteps.map((step, index) => (
+              <div
+                key={step.id}
+                className="flex-shrink-0 w-80 bg-white border-2 border-gray-200 rounded-lg p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900">
+                    Step {index + 1}
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setConversationSteps(conversationSteps.filter(s => s.id !== step.id));
+                    }}
+                    className="text-gray-400 hover:text-red-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <textarea
+                  value={step.description || ''}
+                  onChange={(e) => {
+                    const updated = conversationSteps.map(s =>
+                      s.id === step.id ? { ...s, description: e.target.value } : s
+                    );
+                    setConversationSteps(updated);
+                  }}
+                  placeholder="Describe this step..."
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-3 resize-y whitespace-pre-wrap"
+                  rows={20}
+                />
+                <button
+                  onClick={() => {
+                    alert('AI suggestion for this step - Coming soon!');
+                  }}
+                  className="w-full px-3 py-2 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700"
+                >
+                  🤖 Get AI Suggestion
+                </button>
+              </div>
+            ))}
+
+            {/* Add Step Button */}
+            <div className="flex-shrink-0 w-64">
+              <button
+                onClick={() => {
+                  const newStep = {
+                    id: `step-${Date.now()}`,
+                    step_order: conversationSteps.length + 1,
+                    description: '',
+                    ai_suggestion: null
+                  };
+                  setConversationSteps([...conversationSteps, newStep]);
+                }}
+                className="w-full h-full min-h-[300px] border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center text-gray-400 hover:text-blue-600"
+              >
+                <div className="text-center">
+                  <span className="text-3xl block mb-2">+</span>
+                  <span className="text-sm">Add Step</span>
+                </div>
+              </button>
+            </div>
+            </div>
+            
+            {/* Saved Strategies - Always visible below steps */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Strategies</h3>
+              {conversationStrategies.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="text-sm">No strategies yet</p>
+                  <p className="text-xs mt-1">Create your first conversation strategy above</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {conversationStrategies.map((strategy) => (
+                    <div
+                      key={strategy.id}
+                      onClick={async () => {
+                        setSelectedStrategy(strategy);
+                        
+                        // Load strategy context back into form
+                        setNewStrategy({
+                          situation: strategy.situation || '',
+                          goal: strategy.goal || '',
+                          contextSources: strategy.context_sources || [],
+                          attendeeIds: strategy.attendee_ids || []
+                        });
+                        
+                        // Load clarifying Q&A if exists
+                        if (strategy.clarifying_qa && strategy.clarifying_qa.length > 0) {
+                          const questions = strategy.clarifying_qa.map((qa: any) => qa.question);
+                          const answers: {[key: number]: string} = {};
+                          strategy.clarifying_qa.forEach((qa: any, index: number) => {
+                            answers[index] = qa.answer;
+                          });
+                          setClarifyingQuestions(questions);
+                          setClarifyingAnswers(answers);
+                        } else {
+                          setClarifyingQuestions([]);
+                          setClarifyingAnswers({});
+                        }
+                        
+                        // Load steps from database
+                        const { data: steps } = await supabase
+                          .from('conversation_steps')
+                          .select('*')
+                          .eq('strategy_id', strategy.id)
+                          .order('step_order', { ascending: true });
+                        
+                        if (steps) {
+                          setConversationSteps(steps);
+                        }
+                      }}
+                      className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                    >
+                      <h4 className="font-medium text-gray-900 text-sm mb-1">
+                        {strategy.title || 'Untitled Strategy'}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {new Date(strategy.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Vertical Layout - No Steps Yet */
+          <div className="space-y-6">
+            {/* Context Builder Form - Collapsible */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              {/* Collapsible Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-base font-semibold text-gray-900">Build Strategy</h3>
+                <button
+                  onClick={() => setIsBuildFormCollapsed(!isBuildFormCollapsed)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors text-xl"
+                  title={isBuildFormCollapsed ? 'Expand' : 'Collapse'}
+                >
+                  {isBuildFormCollapsed ? '▼' : '▲'}
+                </button>
+              </div>
+              
+              {/* Collapsible Content */}
+              {!isBuildFormCollapsed && (
+                <div className="p-4">
+              {/* Context Sources */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Context Sources
+                </label>
+                <div className="space-y-1">
+                  {contextOptions.map((option) => (
+                    <label key={option.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                      <input
+                        type="checkbox"
+                        checked={newStrategy.contextSources.includes(option.id)}
+                        onChange={() => toggleContextSource(option.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-base">{option.icon}</span>
+                      <span className="text-xs text-gray-700">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Situation Input */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Your Situation
+                </label>
+                <textarea
+                  value={newStrategy.situation}
+                  onChange={(e) => setNewStrategy({ ...newStrategy, situation: e.target.value })}
+                  placeholder="Describe the current situation, concerns, or context..."
+                  className="w-full px-2.5 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  rows={3}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">
+                  What's happening? What concerns do they have? What's the background?
+                </p>
+              </div>
+
+              {/* Goal Input */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Your Goal
+                </label>
+                <textarea
+                  value={newStrategy.goal}
+                  onChange={(e) => setNewStrategy({ ...newStrategy, goal: e.target.value })}
+                  placeholder="What do you want to achieve in this conversation?"
+                  className="w-full px-2.5 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  rows={2}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">
+                  What's the desired outcome? Where do you want to move the conversation?
+                </p>
+              </div>
+
+              {/* Clarifying Questions - Show after initial generation */}
+              {clarifyingQuestions.length > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <h4 className="text-xs font-semibold text-purple-900 mb-2">
+                    🤔 A few questions to refine your strategy:
+                  </h4>
+                  <div className="space-y-3">
+                    {clarifyingQuestions.map((question, index) => (
+                      <div key={index}>
+                        <label className="block text-xs text-purple-800 mb-1">
+                          {index + 1}. {question}
+                        </label>
+                        <textarea
+                          value={clarifyingAnswers[index] || ''}
+                          onChange={(e) => {
+                            setClarifyingAnswers({
+                              ...clarifyingAnswers,
+                              [index]: e.target.value
+                            });
+                          }}
+                          placeholder="Your answer..."
+                          className="w-full px-2 py-1.5 border border-purple-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setClarifyingQuestions([]);
+                      setClarifyingAnswers({});
+                    }}
+                    className="mt-2 text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    ← Start Over
+                  </button>
+                </div>
+              )}
+
+              {/* Generate Button - Phase 1: Get Questions */}
+              {clarifyingQuestions.length === 0 ? (
+                <button
+                  onClick={async () => {
+                    if (!business || isGeneratingStrategy) return;
+
+                    setIsGeneratingStrategy(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please log in to generate strategies');
+                        setIsGeneratingStrategy(false);
+                        return;
+                      }
+
+                      const response = await fetch('/api/conversations/generate-questions', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          situation: newStrategy.situation,
+                          goal: newStrategy.goal,
+                          context_sources: newStrategy.contextSources
+                        })
+                      });
+
+                      const result = await response.json();
+
+                      if (result.success && result.questions) {
+                        // If no questions needed, skip straight to strategy generation
+                        if (result.questions.length === 0) {
+                          // AI has enough info - proceed directly to strategy
+                          const strategyResponse = await fetch('/api/conversations/generate-strategy', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({
+                              business_id: business.id,
+                              situation: newStrategy.situation,
+                              goal: newStrategy.goal,
+                              context_sources: newStrategy.contextSources,
+                              clarifying_qa: []
+                            })
+                          });
+
+                          const strategyResult = await strategyResponse.json();
+                          console.log('Strategy Result:', strategyResult);
+                          console.log('Steps from API:', strategyResult.steps);
+
+                          if (strategyResult.success && strategyResult.steps) {
+                            console.log('Setting steps:', strategyResult.steps);
+                            setConversationSteps(strategyResult.steps);
+                            setConversationStrategies([strategyResult.strategy, ...conversationStrategies]);
+                            
+                            // Keep form populated so user can see what was used and regenerate steps
+                            // Don't clear the form anymore
+                          } else {
+                            alert(`Error: ${strategyResult.error || 'Failed to generate strategy'}`);
+                          }
+                        } else {
+                          // AI needs clarification - show questions
+                          setClarifyingQuestions(result.questions);
+                          setClarifyingAnswers({});
+                        }
+                      } else {
+                        alert(`Error: ${result.error || 'Failed to generate questions'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error generating questions:', error);
+                      alert('Failed to generate questions');
+                    } finally {
+                      setIsGeneratingStrategy(false);
+                    }
+                  }}
+                  disabled={!newStrategy.goal && !newStrategy.situation || isGeneratingStrategy}
+                  className="w-full px-4 py-2.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingStrategy ? '⏳ Analyzing...' : '🤖 Generate Strategy'}
+                </button>
+              ) : (
+                /* Phase 2: Show Questions and Generate Final Strategy */
+                <button
+                  onClick={async () => {
+                    if (!business || isGeneratingStrategy) return;
+
+                    setIsGeneratingStrategy(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please log in to generate strategies');
+                        setIsGeneratingStrategy(false);
+                        return;
+                      }
+
+                      // Build Q&A array
+                      const clarifying_qa = clarifyingQuestions.map((q, i) => ({
+                        question: q,
+                        answer: clarifyingAnswers[i] || ''
+                      })).filter(qa => qa.answer); // Only include answered questions
+
+                      const response = await fetch('/api/conversations/generate-strategy', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          situation: newStrategy.situation,
+                          goal: newStrategy.goal,
+                          context_sources: newStrategy.contextSources,
+                          clarifying_qa
+                        })
+                      });
+
+                      const result = await response.json();
+                      console.log('Final Strategy Result:', result);
+                      console.log('Final Steps from API:', result.steps);
+
+                      if (result.success && result.steps) {
+                        console.log('Setting final steps:', result.steps);
+                        setConversationSteps(result.steps);
+                        setConversationStrategies([result.strategy, ...conversationStrategies]);
+                        
+                        // Keep form and questions populated for potential step regeneration
+                        // Don't clear anymore - user can see full context
+                      } else {
+                        alert(`Error: ${result.error || 'Failed to generate strategy'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error generating strategy:', error);
+                      alert('Failed to generate strategy');
+                    } finally {
+                      setIsGeneratingStrategy(false);
+                    }
+                  }}
+                  disabled={isGeneratingStrategy}
+                  className="w-full px-4 py-2.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingStrategy ? '⏳ Creating Strategy...' : '✅ Create Strategy'}
+                </button>
+              )}
+                </div>
+              )}
+            </div>
+
+            {/* Saved Strategies */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Strategies</h3>
+              {conversationStrategies.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="text-sm">No strategies yet</p>
+                  <p className="text-xs mt-1">Create your first conversation strategy above</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {conversationStrategies.map((strategy) => (
+                    <div
+                      key={strategy.id}
+                      onClick={async () => {
+                        setSelectedStrategy(strategy);
+                        
+                        // Load strategy context back into form
+                        setNewStrategy({
+                          situation: strategy.situation || '',
+                          goal: strategy.goal || '',
+                          contextSources: strategy.context_sources || [],
+                          attendeeIds: strategy.attendee_ids || []
+                        });
+                        
+                        // Load clarifying Q&A if exists
+                        if (strategy.clarifying_qa && strategy.clarifying_qa.length > 0) {
+                          const questions = strategy.clarifying_qa.map((qa: any) => qa.question);
+                          const answers: {[key: number]: string} = {};
+                          strategy.clarifying_qa.forEach((qa: any, index: number) => {
+                            answers[index] = qa.answer;
+                          });
+                          setClarifyingQuestions(questions);
+                          setClarifyingAnswers(answers);
+                        } else {
+                          setClarifyingQuestions([]);
+                          setClarifyingAnswers({});
+                        }
+                        
+                        // Load steps from database
+                        const { data: steps } = await supabase
+                          .from('conversation_steps')
+                          .select('*')
+                          .eq('strategy_id', strategy.id)
+                          .order('step_order', { ascending: true });
+                        
+                        if (steps) {
+                          setConversationSteps(steps);
+                        }
+                      }}
+                      className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                    >
+                      <h4 className="font-medium text-gray-900 text-sm mb-1">
+                        {strategy.title || 'Untitled Strategy'}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {new Date(strategy.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
