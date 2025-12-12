@@ -296,6 +296,25 @@ export interface MeetingFollowUp {
 }
 
 /**
+ * BusinessFollowUp - Follow-up action for a business
+ * DATABASE TABLE: business_followups
+ * RELATED TABLES: businesses
+ */
+export interface BusinessFollowUp {
+  id: string;
+  business_id: string;
+  user_id: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  due_date: string | null;
+  status: 'pending' | 'completed' | 'cancelled';
+  completed_date: string | null;
+  created_at: string;
+  updated_at: string;
+  display_order: number | null;
+}
+
+/**
  * PersonBusinessNote - Notes about a person in the context of a business
  * DATABASE TABLE: person_business_notes
  * RELATED TABLES: people, businesses
@@ -439,7 +458,7 @@ export type { DragEndEvent } from '@dnd-kit/core';
  * WorkspaceView - Type of view to show in the right panel workspace
  * USED BY: Business page right panel
  */
-export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization' | 'pipeline';
+export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization' | 'pipeline' | 'followups' | 'conversations';
 
 /**
  * PeopleViewMode - Type of view within the People section

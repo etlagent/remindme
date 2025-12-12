@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GlobalModeHeader } from '@/components/layout/GlobalModeHeader';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,6 +40,9 @@ export default function BusinessPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  
+  // Org chart save handler (will be set by RightPanel)
+  const saveOrgChartRef = useRef<(() => Promise<void>) | null>(null);
 
   // Load businesses on mount
   useEffect(() => {
@@ -94,9 +97,16 @@ export default function BusinessPage() {
     }
   };
 
-  const handleBusinessSelect = (business: Business) => {
-    // Load full business with relations
+  const handleBusinessSelect = (business: Business | null) => {
+    if (!business) {
+      // Deselect business
+      setSelectedBusiness(null);
+      return;
+    }
+    
     if (business.id) {
+      // Existing business - load full details
+      setSelectedBusiness(business as BusinessWithRelations);
       loadBusinessWithRelations(business.id);
     } else {
       // New unsaved business
@@ -158,6 +168,11 @@ export default function BusinessPage() {
                 onViewChange={setWorkspaceView}
                 onReloadBusinesses={loadBusinesses}
                 isLoading={isLoading}
+                onSaveOrgChart={async () => {
+                  if (saveOrgChartRef.current) {
+                    await saveOrgChartRef.current();
+                  }
+                }}
               />
             </Card>
           )}
@@ -173,6 +188,7 @@ export default function BusinessPage() {
               onReloadBusiness={loadBusinessWithRelations}
               allBusinesses={businesses}
               onBusinessSelect={setSelectedBusiness}
+              saveOrgChartRef={saveOrgChartRef}
             />
           </Card>
         </div>
@@ -292,12 +308,13 @@ function OrgChartPerson({
 interface LeftPanelProps {
   businesses: Business[];
   selectedBusiness: BusinessWithRelations | null;
-  onBusinessSelect: (business: Business) => void;
+  onBusinessSelect: (business: Business | null) => void;
   onMeetingSelect: (meeting: Meeting) => void;
   onPersonClick: (person: Person) => void;
   onViewChange: (view: WorkspaceView) => void;
   onReloadBusinesses: () => Promise<void>;
   isLoading: boolean;
+  onSaveOrgChart?: () => Promise<void>;
 }
 
 function LeftPanel({
@@ -308,7 +325,8 @@ function LeftPanel({
   onPersonClick,
   onViewChange,
   onReloadBusinesses,
-  isLoading
+  isLoading,
+  onSaveOrgChart
 }: LeftPanelProps) {
   const [businessName, setBusinessName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -319,6 +337,7 @@ function LeftPanel({
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showNewBusinessForm, setShowNewBusinessForm] = useState(false);
+  const [editingBusinessName, setEditingBusinessName] = useState(false);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -509,9 +528,54 @@ function LeftPanel({
           
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-gray-900">{selectedBusiness.name}</h2>
+            {editingBusinessName ? (
+              <input
+                type="text"
+                value={selectedBusiness.name}
+                onChange={(e) => {
+                  const updatedBusiness = {...selectedBusiness, name: e.target.value};
+                  onBusinessSelect(updatedBusiness);
+                }}
+                onBlur={async () => {
+                  setEditingBusinessName(false);
+                  // Save to database
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) return;
+
+                    await fetch('/api/business/update', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        id: selectedBusiness.id,
+                        name: selectedBusiness.name,
+                      }),
+                    });
+                  } catch (error) {
+                    console.error('Error updating business name:', error);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="text-2xl font-semibold bg-transparent border-b-2 border-blue-500 focus:outline-none text-gray-900 flex-1"
+                autoFocus
+              />
+            ) : (
+              <h2 
+                className="text-2xl font-semibold text-gray-900 cursor-pointer hover:text-blue-600"
+                onClick={() => setEditingBusinessName(true)}
+              >
+                {selectedBusiness.name}
+              </h2>
+            )}
             <button 
-              onClick={() => onBusinessSelect(null as any)}
+              onClick={() => onBusinessSelect(null)}
               className="text-gray-400 hover:text-gray-600"
               title="Deselect business"
             >
@@ -575,7 +639,7 @@ function LeftPanel({
           <button
             onClick={() => {
               toggleSection('notes');
-              onViewChange('business');
+              onViewChange('conversations');
             }}
             className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -595,16 +659,47 @@ function LeftPanel({
             <span className={`text-gray-400 transition-transform ${expandedSections.includes('research') ? 'rotate-90' : ''}`}>▶</span>
           </button>
 
+          {/* Follow Ups Section */}
+          <button
+            onClick={() => {
+              toggleSection('followups');
+              onViewChange('followups');
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Follow Ups</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('followups') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+
+          {/* Conversations Section */}
+          <button
+            onClick={() => {
+              toggleSection('conversations');
+              onViewChange('conversations');
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <span className="font-medium text-gray-900">Conversations</span>
+            <span className={`text-gray-400 transition-transform ${expandedSections.includes('conversations') ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+
           {/* Save Button */}
-          <div className="pt-4">
+          <div className="pt-4 flex justify-end gap-2">
+            <button
+              onClick={() => onBusinessSelect(null)}
+              className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
             <button
               onClick={async () => {
-                // TODO: Implement save functionality
-                alert('Save functionality coming soon! This will save:\n• Org chart positions & hierarchy\n• Teams & members\n• Goals/Challenges/Needs notes\n• Research & context\n• All business data');
+                if (onSaveOrgChart) {
+                  await onSaveOrgChart();
+                }
               }}
-              className="w-full py-3 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition-colors"
+              className="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
             >
-              Save to Rolodex
+              Save Business
             </button>
           </div>
         </div>
@@ -775,7 +870,7 @@ function LeftPanel({
           disabled={isSaving || !businessName.trim()}
           className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSaving ? 'Saving...' : 'Save to Rolodex'}
+          {isSaving ? 'Saving...' : 'Save Business'}
         </button>
       </div>
       </div>
@@ -797,6 +892,7 @@ interface RightPanelProps {
   onReloadBusiness: (businessId: string) => Promise<void>;
   allBusinesses: Business[];
   onBusinessSelect: (business: Business) => void;
+  saveOrgChartRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 function RightPanel({
@@ -807,7 +903,8 @@ function RightPanel({
   onViewChange,
   onReloadBusiness,
   allBusinesses,
-  onBusinessSelect
+  onBusinessSelect,
+  saveOrgChartRef
 }: RightPanelProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -843,6 +940,30 @@ function RightPanel({
   const [showPlaceholderForm, setShowPlaceholderForm] = useState<number | null>(null);
   const [placeholderName, setPlaceholderName] = useState('');
   const [placeholderTitle, setPlaceholderTitle] = useState('');
+  
+  // Meetings state
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [showNewMeetingForm, setShowNewMeetingForm] = useState(false);
+  const [newMeetingTitle, setNewMeetingTitle] = useState('');
+  const [newMeetingDate, setNewMeetingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [meetingNotes, setMeetingNotes] = useState<{[key: string]: string}>({});
+  const [expandedMeetings, setExpandedMeetings] = useState<Set<string>>(new Set());
+  const [draggedMeetingId, setDraggedMeetingId] = useState<string | null>(null);
+  const [meetingAttendees, setMeetingAttendees] = useState<{[key: string]: string[]}>({});
+  const [showAttendeeSelector, setShowAttendeeSelector] = useState<string | null>(null);
+  const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
+  const [showGuestForm, setShowGuestForm] = useState<string | null>(null);
+  const [guestName, setGuestName] = useState('');
+  const [guestCompany, setGuestCompany] = useState('');
+  const attendeeSelectorRef = useRef<HTMLDivElement>(null);
+  const [editingMeetingTitle, setEditingMeetingTitle] = useState<string | null>(null);
+  const [ideationNotes, setIdeationNotes] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [businessNotes, setBusinessNotes] = useState<any[]>([]);
+  const [businessFollowups, setBusinessFollowups] = useState<any[]>([]);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [expandedFollowups, setExpandedFollowups] = useState<Set<string>>(new Set());
 
   // Load people from database when library view is shown
   useEffect(() => {
@@ -857,6 +978,318 @@ function RightPanel({
       onReloadBusiness(business.id);
     }
   }, [workspaceView]);
+
+  // Load org chart data (including meetings) when business changes
+  useEffect(() => {
+    const loadOrgChartData = async () => {
+      if (!business?.id) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(`/api/business/org-chart/load?business_id=${business.id}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Load meetings, notes, and attendees
+          if (result.meetings && result.meetings.length > 0) {
+            setMeetings(result.meetings);
+            const notes: {[key: string]: string} = {};
+            const attendees: {[key: string]: string[]} = {};
+            result.meetings.forEach((meeting: any) => {
+              notes[meeting.id] = meeting.notes || '';
+              attendees[meeting.id] = meeting.attendees || [];
+            });
+            setMeetingNotes(notes);
+            setMeetingAttendees(attendees);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading org chart data:', error);
+      }
+    };
+
+    loadOrgChartData();
+  }, [business]);
+
+  // Close attendee selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (attendeeSelectorRef.current && !attendeeSelectorRef.current.contains(event.target as Node)) {
+        setShowAttendeeSelector(null);
+        setAttendeeSearchQuery('');
+        setShowGuestForm(null);
+        setGuestName('');
+        setGuestCompany('');
+      }
+    };
+
+    if (showAttendeeSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAttendeeSelector]);
+
+  // Load ideation notes from localStorage on mount
+  useEffect(() => {
+    const savedNotes = localStorage.getItem('ideationNotes');
+    if (savedNotes) {
+      setIdeationNotes(savedNotes);
+    }
+  }, []);
+
+  // Load business notes when conversations view is opened
+  useEffect(() => {
+    if (workspaceView === 'conversations' && business?.id) {
+      loadBusinessNotes();
+    }
+  }, [workspaceView, business?.id]);
+
+  // Load business followups when followups view is opened
+  useEffect(() => {
+    if (workspaceView === 'followups' && business?.id) {
+      loadBusinessFollowups();
+    }
+  }, [workspaceView, business?.id]);
+
+  // Save ideation notes to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('ideationNotes', ideationNotes);
+  }, [ideationNotes]);
+
+  // Mark as having unsaved changes when meetings, notes, or attendees change
+  useEffect(() => {
+    if (meetings.length > 0 || Object.keys(meetingNotes).length > 0 || Object.keys(meetingAttendees).length > 0) {
+      setHasUnsavedChanges(true);
+    }
+  }, [meetings, meetingNotes, meetingAttendees]);
+
+  // Browser warning when trying to close tab with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Auto-save when changing views or business
+  useEffect(() => {
+    const autoSave = async () => {
+      if (hasUnsavedChanges && business?.id) {
+        setIsAutoSaving(true);
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+
+          // Transform data for API
+          const peopleToSave = orgChartPeople.map(person => ({
+            id: person.id,
+            personId: person.personId,
+            name: person.name,
+            title: person.title,
+            level: person.level,
+            positionOrder: 0,
+            responsibilities: person.responsibilities,
+            challenges: person.challenges,
+            needs: person.needs,
+            notes: person.notes,
+            isPlaceholder: person.isPlaceholder || false,
+          }));
+
+          const teamsToSave = teams.map(team => ({
+            id: team.id,
+            name: team.name,
+            description: '',
+            level: 0,
+            positionOrder: team.order || 0,
+            memberIds: team.memberIds,
+          }));
+
+          const meetingsToSave = meetings.map((meeting, index) => ({
+            id: meeting.id.startsWith('temp-') ? undefined : meeting.id,
+            title: meeting.title,
+            meeting_date: meeting.meeting_date,
+            notes: meetingNotes[meeting.id] || '',
+            attendees: meetingAttendees[meeting.id] || [],
+            order: index,
+          }));
+
+          const response = await fetch('/api/business/org-chart/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              business_id: business.id,
+              people: peopleToSave,
+              teams: teamsToSave,
+              meetings: meetingsToSave,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            setHasUnsavedChanges(false);
+            console.log('✅ Auto-saved:', result);
+          }
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        } finally {
+          setIsAutoSaving(false);
+        }
+      }
+    };
+
+    // Debounce to avoid too many saves
+    const timeoutId = setTimeout(autoSave, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [workspaceView, business?.id, hasUnsavedChanges, orgChartPeople, teams, meetings, meetingNotes, meetingAttendees]);
+
+  // Register save org chart function
+  useEffect(() => {
+    if (saveOrgChartRef) {
+      saveOrgChartRef.current = async () => {
+        if (!business?.id) {
+          alert('⚠️ Please select a business first');
+          return;
+        }
+
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            alert('Please sign in');
+            return;
+          }
+
+          // Transform org chart people data for API
+          const peopleToSave = orgChartPeople.map(person => ({
+            id: person.id,
+            personId: person.personId,
+            name: person.name,
+            title: person.title,
+            level: person.level,
+            positionOrder: 0,
+            responsibilities: person.responsibilities,
+            challenges: person.challenges,
+            needs: person.needs,
+            notes: person.notes,
+            isPlaceholder: person.isPlaceholder || false,
+          }));
+
+          // Transform teams data for API
+          const teamsToSave = teams.map(team => ({
+            id: team.id,
+            name: team.name,
+            description: '',
+            level: 0, // You may want to track level per team
+            positionOrder: team.order || 0,
+            memberIds: team.memberIds,
+          }));
+
+          // Transform meetings data for API
+          const meetingsToSave = meetings.map((meeting, index) => ({
+            id: meeting.id.startsWith('temp-') ? undefined : meeting.id,
+            title: meeting.title,
+            meeting_date: meeting.meeting_date,
+            notes: meetingNotes[meeting.id] || '',
+            attendees: meetingAttendees[meeting.id] || [],
+            order: index,
+          }));
+
+          const response = await fetch('/api/business/org-chart/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              business_id: business.id,
+              people: peopleToSave,
+              teams: teamsToSave,
+              meetings: meetingsToSave,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            setHasUnsavedChanges(false);
+            alert(`✅ Business profile saved!\n• ${result.savedPeopleCount} people\n• ${result.savedTeamsCount} teams\n• ${result.savedMeetingsCount} meetings`);
+          } else {
+            alert(`❌ Error: ${result.error}`);
+          }
+        } catch (error) {
+          console.error('Error saving org chart:', error);
+          alert('❌ Error saving business profile');
+        }
+      };
+    }
+  }, [saveOrgChartRef, business, orgChartPeople, teams, meetings, meetingNotes, meetingAttendees]);
+
+  const loadBusinessNotes = async () => {
+    if (!business?.id) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('business_notes')
+        .select('*')
+        .eq('business_id', business.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading notes:', error);
+        return;
+      }
+
+      setBusinessNotes(data || []);
+    } catch (error) {
+      console.error('Error loading notes:', error);
+    }
+  };
+
+  const loadBusinessFollowups = async () => {
+    if (!business?.id) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('business_followups')
+        .select('*')
+        .eq('business_id', business.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading followups:', error);
+        return;
+      }
+
+      setBusinessFollowups(data || []);
+    } catch (error) {
+      console.error('Error loading followups:', error);
+    }
+  };
 
   const loadPeople = async () => {
     setIsLoadingPeople(true);
@@ -1258,6 +1691,649 @@ function RightPanel({
     return levels;
   };
 
+  // Meetings view
+  if (workspaceView === 'meeting') {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Meetings List */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-gray-900">Meetings</h2>
+              {isAutoSaving && (
+                <span className="text-xs text-blue-600 animate-pulse">💾 Saving...</span>
+              )}
+              {!isAutoSaving && hasUnsavedChanges && (
+                <span className="text-xs text-orange-600">● Unsaved changes</span>
+              )}
+              {!isAutoSaving && !hasUnsavedChanges && meetings.length > 0 && (
+                <span className="text-xs text-green-600">✓ Saved</span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowNewMeetingForm(true)}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            >
+              + Meeting
+            </button>
+          </div>
+
+        {!business ? (
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-2">No business selected</p>
+            <p className="text-sm">Select a business to add meetings</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* New Meeting Form */}
+            {showNewMeetingForm && (
+              <div className="p-4 border-2 border-blue-300 rounded-lg bg-blue-50">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3">New Meeting</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Meeting Title
+                    </label>
+                    <input
+                      type="text"
+                      value={newMeetingTitle}
+                      onChange={(e) => setNewMeetingTitle(e.target.value)}
+                      placeholder="e.g., Quarterly Review"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newMeetingDate}
+                      onChange={(e) => setNewMeetingDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        setShowNewMeetingForm(false);
+                        setNewMeetingTitle('');
+                        setNewMeetingDate(new Date().toISOString().split('T')[0]);
+                      }}
+                      className="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!newMeetingTitle.trim()) {
+                          alert('Please enter a meeting title');
+                          return;
+                        }
+                        const newMeeting: Meeting = {
+                          id: `temp-${Date.now()}`,
+                          business_id: business.id,
+                          user_id: '',
+                          title: newMeetingTitle,
+                          meeting_date: newMeetingDate,
+                          location: null,
+                          goal: null,
+                          status: 'scheduled',
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        };
+                        setMeetings([...meetings, newMeeting]);
+                        setMeetingNotes({...meetingNotes, [newMeeting.id]: ''});
+                        setMeetingAttendees({...meetingAttendees, [newMeeting.id]: []});
+                        setShowNewMeetingForm(false);
+                        setNewMeetingTitle('');
+                        setNewMeetingDate(new Date().toISOString().split('T')[0]);
+                      }}
+                      disabled={!newMeetingTitle.trim()}
+                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Create Meeting
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Meeting Cards */}
+            {meetings.length === 0 && !showNewMeetingForm ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="mb-2">No meetings yet</p>
+                <p className="text-sm">Click "+ Meeting" to add your first meeting</p>
+              </div>
+            ) : (
+              meetings.map((mtg, index) => {
+                const isExpanded = expandedMeetings.has(mtg.id);
+                const isDragging = draggedMeetingId === mtg.id;
+                
+                return (
+                  <div 
+                    key={mtg.id} 
+                    className={`border border-gray-200 rounded-lg overflow-hidden transition-opacity ${isDragging ? 'opacity-50' : ''}`}
+                    draggable
+                    onDragStart={() => setDraggedMeetingId(mtg.id)}
+                    onDragEnd={() => setDraggedMeetingId(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (draggedMeetingId && draggedMeetingId !== mtg.id) {
+                        const draggedIndex = meetings.findIndex(m => m.id === draggedMeetingId);
+                        const targetIndex = index;
+                        const newMeetings = [...meetings];
+                        const [removed] = newMeetings.splice(draggedIndex, 1);
+                        newMeetings.splice(targetIndex, 0, removed);
+                        setMeetings(newMeetings);
+                      }
+                    }}
+                  >
+                    {/* Meeting Card Header - Clickable to expand/collapse */}
+                    <div 
+                      className="bg-gray-50 px-4 py-3 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        const newExpanded = new Set(expandedMeetings);
+                        if (isExpanded) {
+                          newExpanded.delete(mtg.id);
+                        } else {
+                          newExpanded.add(mtg.id);
+                        }
+                        setExpandedMeetings(newExpanded);
+                      }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs">{isExpanded ? '▼' : '▶'}</span>
+                          <div className="flex-1">
+                            {editingMeetingTitle === mtg.id ? (
+                              <input
+                                type="text"
+                                value={mtg.title}
+                                onChange={(e) => {
+                                  setMeetings(meetings.map(m => 
+                                    m.id === mtg.id ? {...m, title: e.target.value} : m
+                                  ));
+                                }}
+                                onBlur={() => setEditingMeetingTitle(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setEditingMeetingTitle(null);
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-semibold text-gray-900 border-b-2 border-blue-500 focus:outline-none bg-transparent"
+                                autoFocus
+                              />
+                            ) : (
+                              <h3 
+                                className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingMeetingTitle(mtg.id);
+                                }}
+                              >
+                                {mtg.title}
+                              </h3>
+                            )}
+                            {mtg.meeting_date && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                📅 {new Date(mtg.meeting_date).toLocaleDateString('en-US', { 
+                                  weekday: 'long', 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMeetings(meetings.filter(m => m.id !== mtg.id));
+                            const newNotes = {...meetingNotes};
+                            delete newNotes[mtg.id];
+                            setMeetingNotes(newNotes);
+                            const newAttendees = {...meetingAttendees};
+                            delete newAttendees[mtg.id];
+                            setMeetingAttendees(newAttendees);
+                            const newExpanded = new Set(expandedMeetings);
+                            newExpanded.delete(mtg.id);
+                            setExpandedMeetings(newExpanded);
+                          }}
+                          className="text-gray-400 hover:text-red-600 text-sm ml-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Meeting Details - Only shown when expanded */}
+                    {isExpanded && (
+                      <div className="p-4 space-y-4">
+                        {/* Attendee Selector */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Attendees
+                          </label>
+                          
+                          {/* Selected Attendees */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {(meetingAttendees[mtg.id] || []).map((personId) => {
+                              const person = allPeople.find(p => p.id === personId);
+                              if (!person) return null;
+                              return (
+                                <div key={personId} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                                  <span>{person.name}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMeetingAttendees({
+                                        ...meetingAttendees,
+                                        [mtg.id]: (meetingAttendees[mtg.id] || []).filter(id => id !== personId)
+                                      });
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 ml-1"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Add Attendee Button & Dropdown */}
+                          <div className="relative" ref={attendeeSelectorRef}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (allPeople.length === 0) {
+                                  loadPeople(); // Load contacts if not loaded yet
+                                }
+                                if (showAttendeeSelector === mtg.id) {
+                                  // Closing dropdown - clear all forms
+                                  setShowAttendeeSelector(null);
+                                  setAttendeeSearchQuery('');
+                                  setShowGuestForm(null);
+                                  setGuestName('');
+                                  setGuestCompany('');
+                                } else {
+                                  // Opening dropdown
+                                  setShowAttendeeSelector(mtg.id);
+                                }
+                              }}
+                              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
+                            >
+                              + Add Attendee
+                            </button>
+
+                            {/* Attendee Dropdown */}
+                            {showAttendeeSelector === mtg.id && (
+                              <div className="absolute z-10 mt-1 w-96 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden relative">
+                                {/* Search Input & Guest Button - Side by Side */}
+                                <div className="p-2 border-b border-gray-200 sticky top-0 bg-white flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Search contacts..."
+                                    value={attendeeSearchQuery}
+                                    onChange={(e) => setAttendeeSearchQuery(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowGuestForm(mtg.id);
+                                    }}
+                                    className="px-4 py-1.5 text-sm text-green-600 hover:text-green-700 border border-green-300 rounded-md hover:bg-green-50 transition-colors font-medium whitespace-nowrap"
+                                  >
+                                    + Guest
+                                  </button>
+                                </div>
+                                
+                                {/* Contact List */}
+                                <div className="max-h-60 overflow-y-auto">
+                                  {allPeople.length === 0 ? (
+                                    <div className="p-3 text-sm text-gray-500 italic">
+                                      {isLoadingPeople ? 'Loading contacts...' : 'No contacts in your rolodex yet'}
+                                    </div>
+                                  ) : (
+                                    (() => {
+                                      const filteredContacts = allPeople
+                                        .filter(person => {
+                                          // Filter out already added
+                                          if ((meetingAttendees[mtg.id] || []).includes(person.id)) return false;
+                                          // Filter by search query
+                                          if (!attendeeSearchQuery) return true;
+                                          const query = attendeeSearchQuery.toLowerCase();
+                                          return (
+                                            person.name.toLowerCase().includes(query) ||
+                                            person.company?.toLowerCase().includes(query) ||
+                                            person.role?.toLowerCase().includes(query)
+                                          );
+                                        });
+                                      
+                                      return filteredContacts.length === 0 ? (
+                                        <div className="p-3 text-sm text-gray-500 italic">
+                                          {attendeeSearchQuery ? 'No contacts match your search' : 'All contacts already added'}
+                                        </div>
+                                      ) : (
+                                        filteredContacts.map((person) => (
+                                          <button
+                                            key={person.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setMeetingAttendees({
+                                                ...meetingAttendees,
+                                                [mtg.id]: [...(meetingAttendees[mtg.id] || []), person.id]
+                                              });
+                                              setShowAttendeeSelector(null);
+                                              setAttendeeSearchQuery('');
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                          >
+                                            <div className="font-medium text-gray-900">{person.name}</div>
+                                            {person.role && person.company && (
+                                              <div className="text-xs text-gray-600">{person.role} at {person.company}</div>
+                                            )}
+                                          </button>
+                                        ))
+                                      );
+                                    })()
+                                  )}
+                                </div>
+                                
+                                {/* Guest Form - Overlays the contact list */}
+                                {showGuestForm === mtg.id && (
+                                  <div className="absolute top-0 left-0 right-0 bg-green-50 p-4 z-20 border border-green-300 rounded-md shadow-lg">
+                                    <p className="text-sm text-green-900 font-semibold mb-3">Add guest attendee</p>
+                                    <div className="space-y-3">
+                                      <input
+                                        type="text"
+                                        placeholder="Name (required)"
+                                        value={guestName}
+                                        onChange={(e) => setGuestName(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        autoFocus
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="Company (optional)"
+                                        value={guestCompany}
+                                        onChange={(e) => setGuestCompany(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowGuestForm(null);
+                                            setGuestName('');
+                                            setGuestCompany('');
+                                          }}
+                                          className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!guestName.trim()) {
+                                              alert('Please enter a name');
+                                              return;
+                                            }
+                                            
+                                            try {
+                                              const { data: { session } } = await supabase.auth.getSession();
+                                              if (!session) {
+                                                alert('Please sign in');
+                                                return;
+                                              }
+
+                                              // Create guest contact
+                                              const { data: newPerson, error } = await supabase
+                                                .from('people')
+                                                .insert({
+                                                  name: guestName,
+                                                  company: guestCompany || null,
+                                                  user_id: session.user.id,
+                                                })
+                                                .select()
+                                                .single();
+
+                                              if (error) throw error;
+
+                                              // Add to attendees
+                                              setMeetingAttendees({
+                                                ...meetingAttendees,
+                                                [mtg.id]: [...(meetingAttendees[mtg.id] || []), newPerson.id]
+                                              });
+                                              
+                                              // Reload people to include new guest
+                                              await loadPeople();
+                                              
+                                              // Close forms
+                                              setShowGuestForm(null);
+                                              setShowAttendeeSelector(null);
+                                              setGuestName('');
+                                              setGuestCompany('');
+                                              setAttendeeSearchQuery('');
+                                            } catch (error) {
+                                              console.error('Error adding guest:', error);
+                                              alert('Failed to add guest');
+                                            }
+                                          }}
+                                          disabled={!guestName.trim()}
+                                          className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          Add Guest
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Meeting Notes */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Notes (paste summaries & follow-ups from Granola)
+                          </label>
+                          <textarea
+                            value={meetingNotes[mtg.id] || ''}
+                            onChange={(e) => {
+                              setMeetingNotes({
+                                ...meetingNotes,
+                                [mtg.id]: e.target.value
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="Paste your meeting notes here...&#10;&#10;Formatting (indents, bullets, etc.) will be preserved."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                            style={{ whiteSpace: 'pre-wrap' }}
+                            rows={12}
+                          />
+                          <p className="text-xs text-gray-500 mt-2">
+                            💡 Formatting preserved - indents, bullets, and spacing maintained
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+        </div>
+
+        {/* Right: Ideation Panel */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-4 border-2 border-orange-300 rounded-lg bg-orange-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-orange-900">Ideation Notes</h3>
+              <span className="text-xs text-orange-600">💾 Auto-saved</span>
+            </div>
+            <p className="text-xs text-orange-700 mb-3">
+              Capture insights & ideas as you review meetings. Send them to different parts of your workflow.
+            </p>
+            
+            <textarea
+              value={ideationNotes}
+              onChange={(e) => setIdeationNotes(e.target.value)}
+              placeholder="Start typing your thoughts here..."
+              className="w-full px-3 py-2 border border-orange-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none bg-white"
+              style={{ whiteSpace: 'pre-wrap', minHeight: '480px' }}
+            />
+            <p className="text-xs text-orange-600 mt-1">
+              {ideationNotes.length} characters
+            </p>
+            
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-orange-900 mb-2">Send To:</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    // TODO: Send to A.I. for processing
+                    alert('A.I. processing coming soon!');
+                  }}
+                  className="px-3 py-2 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                >
+                  🤖 A.I.
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!business?.id) {
+                      alert('Please select a business first');
+                      return;
+                    }
+                    if (!ideationNotes.trim()) {
+                      alert('Please write something in the ideation notes first');
+                      return;
+                    }
+
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please sign in');
+                        return;
+                      }
+
+                      const response = await fetch('/api/business/followups/create', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`,
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          description: ideationNotes,
+                          priority: 'medium',
+                          status: 'pending',
+                        }),
+                      });
+
+                      const result = await response.json();
+
+                      if (result.success) {
+                        alert('✅ Follow-up created!');
+                        setIdeationNotes('');
+                        // Reload follow-ups if we're on the followups view
+                        loadBusinessFollowups();
+                      } else {
+                        alert(`❌ Error: ${result.error}`);
+                      }
+                    } catch (error) {
+                      console.error('Error creating follow-up:', error);
+                      alert('❌ Error creating follow-up');
+                    }
+                  }}
+                  className="px-3 py-2 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  📋 Follow Ups
+                </button>
+                <button
+                  onClick={() => {
+                    // TODO: Add to conversation starters
+                    alert('Conversation starters coming soon!');
+                  }}
+                  className="px-3 py-2 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  💬 Conversation
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!business?.id) {
+                      alert('Please select a business first');
+                      return;
+                    }
+                    if (!ideationNotes.trim()) {
+                      alert('Please write something in the ideation notes first');
+                      return;
+                    }
+
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        alert('Please sign in');
+                        return;
+                      }
+
+                      const response = await fetch('/api/business/notes/create', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`,
+                        },
+                        body: JSON.stringify({
+                          business_id: business.id,
+                          content: ideationNotes,
+                          source: 'ideation',
+                        }),
+                      });
+
+                      const result = await response.json();
+
+                      if (result.success) {
+                        alert('✅ Note saved to Notes & Context!');
+                        setIdeationNotes('');
+                        // Reload notes if we're on the conversations view
+                        loadBusinessNotes();
+                      } else {
+                        alert(`❌ Error: ${result.error}`);
+                      }
+                    } catch (error) {
+                      console.error('Error saving note:', error);
+                      alert('❌ Error saving note');
+                    }
+                  }}
+                  className="px-3 py-2 text-xs bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+                >
+                  📝 Notes
+                </button>
+              </div>
+              
+              <button
+                onClick={() => setIdeationNotes('')}
+                className="w-full mt-3 px-3 py-2 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Clear Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If viewing people assigned to this business, show them
   if (workspaceView === 'people') {
     return (
@@ -1569,19 +2645,10 @@ function RightPanel({
               </div>
             ) : (
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4">
                   <p className="text-sm text-gray-600">
                     Visualize the hierarchy and relationships at {business.name}
                   </p>
-                  <button
-                    onClick={async () => {
-                      // TODO: Implement save functionality
-                      alert('Save functionality coming soon! This will save:\n• Org chart positions\n• Teams & members\n• Goals/Challenges/Needs notes\n• All business context');
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Save Business Profile
-                  </button>
                 </div>
 
                 {/* Hierarchical Org Chart by Levels */}
@@ -2212,6 +3279,228 @@ function RightPanel({
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  // Follow Ups view
+  if (workspaceView === 'followups') {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Follow Ups</h2>
+        {!business ? (
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-2">No business selected</p>
+            <p className="text-sm">Select a business to see follow-ups</p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-600">
+                Track action items and next steps for {business.name}
+              </p>
+              <button
+                onClick={() => loadBusinessFollowups()}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+
+            {businessFollowups.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <p>No follow-ups yet</p>
+                <p className="text-sm mt-2">Use the Ideation panel to create follow-ups</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {businessFollowups.map((followup) => {
+                  const isExpanded = expandedFollowups.has(followup.id);
+                  const firstLine = followup.description.split('\n')[0].substring(0, 60);
+                  const preview = followup.description.length > 60 || followup.description.includes('\n')
+                    ? `${firstLine}${followup.description.length > 60 ? '...' : ''}`
+                    : followup.description;
+
+                  return (
+                    <div
+                      key={followup.id}
+                      className="border border-gray-200 rounded-lg bg-white hover:border-gray-300 transition-colors"
+                    >
+                      {/* Header - Always Visible */}
+                      <div
+                        onClick={() => {
+                          const newExpanded = new Set(expandedFollowups);
+                          if (isExpanded) {
+                            newExpanded.delete(followup.id);
+                          } else {
+                            newExpanded.add(followup.id);
+                          }
+                          setExpandedFollowups(newExpanded);
+                        }}
+                        className="p-4 cursor-pointer flex items-start justify-between"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs text-gray-500">
+                              {new Date(followup.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <Badge
+                              className={
+                                followup.priority === 'high'
+                                  ? 'bg-red-100 text-red-700 border-red-200'
+                                  : followup.priority === 'medium'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                  : 'bg-gray-100 text-gray-700 border-gray-200'
+                              }
+                            >
+                              {followup.priority}
+                            </Badge>
+                            <Badge
+                              className={
+                                followup.status === 'completed'
+                                  ? 'bg-green-100 text-green-700 border-green-200'
+                                  : followup.status === 'cancelled'
+                                  ? 'bg-gray-100 text-gray-500 border-gray-200'
+                                  : 'bg-blue-100 text-blue-700 border-blue-200'
+                              }
+                            >
+                              {followup.status}
+                            </Badge>
+                          </div>
+                          {!isExpanded && (
+                            <p className="text-sm text-gray-600 truncate">{preview}</p>
+                          )}
+                        </div>
+                        <span className={`ml-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                          ▶
+                        </span>
+                      </div>
+
+                      {/* Expanded Content */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4">
+                          <div className="pt-2 border-t border-gray-100">
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{followup.description}</p>
+                            {followup.due_date && (
+                              <p className="text-xs text-gray-500 mt-3">
+                                📅 Due: {new Date(followup.due_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Conversations view (Notes & Context)
+  if (workspaceView === 'conversations') {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Notes & Context</h2>
+        {!business ? (
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-2">No business selected</p>
+            <p className="text-sm">Select a business to see notes</p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-600">
+                Notes and context about {business.name}
+              </p>
+              <button
+                onClick={() => loadBusinessNotes()}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+
+            {businessNotes.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <p>No notes yet</p>
+                <p className="text-sm mt-2">Use the Ideation panel to create notes</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {businessNotes.map((note) => {
+                  const isExpanded = expandedNotes.has(note.id);
+                  const firstLine = note.content.split('\n')[0].substring(0, 80);
+                  const preview = note.content.length > 80 || note.content.includes('\n') 
+                    ? `${firstLine}${note.content.length > 80 ? '...' : ''}`
+                    : note.content;
+
+                  return (
+                    <div
+                      key={note.id}
+                      className="border border-gray-200 rounded-lg bg-white hover:border-gray-300 transition-colors"
+                    >
+                      {/* Header - Always Visible */}
+                      <div
+                        onClick={() => {
+                          const newExpanded = new Set(expandedNotes);
+                          if (isExpanded) {
+                            newExpanded.delete(note.id);
+                          } else {
+                            newExpanded.add(note.id);
+                          }
+                          setExpandedNotes(newExpanded);
+                        }}
+                        className="p-4 cursor-pointer flex items-start justify-between"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-gray-500">
+                              {new Date(note.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            {note.source && note.source !== 'manual' && (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                {note.source}
+                              </span>
+                            )}
+                          </div>
+                          {!isExpanded && (
+                            <p className="text-sm text-gray-600 truncate">{preview}</p>
+                          )}
+                        </div>
+                        <span className={`ml-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                          ▶
+                        </span>
+                      </div>
+
+                      {/* Expanded Content */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4">
+                          <div className="pt-2 border-t border-gray-100">
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.content}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
