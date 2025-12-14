@@ -70,7 +70,9 @@ export default function LeftPanel({
     
     if (savedOrder) {
       try {
-        setSectionOrder(JSON.parse(savedOrder));
+        const order = JSON.parse(savedOrder);
+        // Filter out 'pipeline' as it's now a top-level tab
+        setSectionOrder(order.filter((s: string) => s !== 'pipeline'));
       } catch (e) {
         console.error('Error parsing section order:', e);
       }
@@ -78,7 +80,11 @@ export default function LeftPanel({
     
     if (savedHidden) {
       try {
-        setHiddenSections(new Set(JSON.parse(savedHidden)));
+        const hiddenArray: string[] = JSON.parse(savedHidden);
+        const hidden = new Set(hiddenArray);
+        // Remove 'pipeline' from hidden sections too
+        hidden.delete('pipeline');
+        setHiddenSections(hidden);
       } catch (e) {
         console.error('Error parsing hidden sections:', e);
       }
