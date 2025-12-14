@@ -1,0 +1,24 @@
+refactor: extract 4 views from RightPanel (Phase 1/2)
+
+Phase 1 completion - extracted views:
+- LibraryView.tsx (12 lines) - fallback view
+- BusinessNotesView.tsx (120 lines) - Notes & Context display
+- BusinessFollowupsView.tsx (141 lines) - Follow-ups list
+- MeetingsView.tsx (732 lines) - Meetings with ideation panel
+
+Created comprehensive plan for Phase 2:
+- REFACTOR_PLAN_NEXT_SESSION.md (copy-paste instructions)
+- REFACTOR_CHECKLIST.md (progress tracking)
+
+Remaining for Phase 2:
+- PeopleView.tsx (840 lines) - 3 tabs with org chart
+- ConversationsView.tsx (760 lines) - AI strategy builder
+- Update RightPanel to router pattern
+- Remove Pipeline from LeftPanel
+
+Progress:
+- Original RightPanel: 3,420 lines (unchanged)
+- Extracted so far: 1,005 lines into 4 view files
+- Target: ~250 lines for main file (93% reduction)
+
+All code preserved exactly - pure extraction refactor.

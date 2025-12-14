@@ -1,0 +1,16 @@
+refactor: extract 4 views from RightPanel (checkpoint 1/2)
+
+Extracted views (pure refactoring, no logic changes):
+- LibraryView.tsx (12 lines) - fallback view
+- BusinessNotesView.tsx (120 lines) - Notes & Context display
+- BusinessFollowupsView.tsx (141 lines) - Follow-ups list
+- MeetingsView.tsx (732 lines) - Meetings management with ideation panel
+
+Remaining to extract:
+- PeopleView (~840 lines)
+- ConversationsView (~760 lines)
+
+Line count:
+- Original RightPanel: 3,420 lines (unchanged)
+- Extracted so far: 1,005 lines into separate files
+- Main file reduction: TBD after all views extracted
