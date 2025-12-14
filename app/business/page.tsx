@@ -1971,7 +1971,7 @@ function RightPanel({
                   <div 
                     key={mtg.id} 
                     className={`border border-gray-200 rounded-lg overflow-hidden transition-opacity ${isDragging ? 'opacity-50' : ''}`}
-                    draggable
+                    draggable={!isExpanded}
                     onDragStart={() => setDraggedMeetingId(mtg.id)}
                     onDragEnd={() => setDraggedMeetingId(null)}
                     onDragOver={(e) => e.preventDefault()}
@@ -4050,7 +4050,7 @@ function RightPanel({
                           situation: strategy.situation || '',
                           goal: strategy.goal || '',
                           contextSources: strategy.context_sources || [],
-                          attendeeIds: strategy.attendee_ids || []
+                          contextPeople: strategy.context_people || {}
                         });
                         
                         // Load clarifying Q&A if exists
@@ -4378,7 +4378,7 @@ function RightPanel({
                           situation: strategy.situation || '',
                           goal: strategy.goal || '',
                           contextSources: strategy.context_sources || [],
-                          attendeeIds: strategy.attendee_ids || []
+                          contextPeople: strategy.context_people || {}
                         });
                         
                         // Load clarifying Q&A if exists

@@ -329,6 +329,42 @@ export interface PersonBusinessNote {
   updated_at: string;
 }
 
+/**
+ * ConversationStrategy - AI-powered conversation roadmap
+ * DATABASE TABLE: conversation_strategies
+ * RELATED TABLES: businesses, conversation_steps
+ */
+export interface ConversationStrategy {
+  id: string;
+  business_id: string;
+  user_id: string;
+  title: string | null;
+  situation: string | null;
+  goal: string | null;
+  context_sources: string[]; // ["linkedin", "conversations", "meetings", "notes", "memories"]
+  attendee_ids: string[]; // Array of person IDs
+  clarifying_qa: Array<{question: string; answer: string}>; // Q&A from clarifying questions
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * ConversationStep - Individual step in conversation roadmap
+ * DATABASE TABLE: conversation_steps
+ * RELATED TABLES: conversation_strategies
+ */
+export interface ConversationStep {
+  id: string;
+  strategy_id: string;
+  step_order: number;
+  title: string | null;
+  description: string | null;
+  ai_suggestion: string | null;
+  user_refinement: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================================
 // UI STATE TYPES
 // These represent application state, not database models
@@ -458,7 +494,7 @@ export type { DragEndEvent } from '@dnd-kit/core';
  * WorkspaceView - Type of view to show in the right panel workspace
  * USED BY: Business page right panel
  */
-export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization' | 'pipeline' | 'followups' | 'conversations';
+export type WorkspaceView = 'business' | 'person' | 'people' | 'meeting' | 'library' | 'organization' | 'pipeline' | 'followups' | 'notes' | 'conversations';
 
 /**
  * PeopleViewMode - Type of view within the People section
