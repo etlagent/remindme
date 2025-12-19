@@ -2,6 +2,8 @@
 // DECIDE TO DO - TypeScript Types
 // ============================================
 
+import { Person } from '../types';
+
 // ============================================
 // HABIT TYPES
 // ============================================
@@ -273,6 +275,56 @@ export interface TaskFilters {
   priorities: ('high' | 'medium' | 'low')[];
   status: ('todo' | 'in_progress' | 'done' | 'carried_over')[];
   showHabits: boolean;
+}
+
+// ============================================
+// MEETING TYPES
+// ============================================
+
+export interface Meeting {
+  id: string;
+  user_id: string;
+  title: string;
+  meeting_date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes?: number;
+  location?: string;
+  meeting_type: 'internal' | 'client' | 'vendor' | 'interview' | 'other';
+  business_id?: string;
+  goal?: string;
+  key_message?: string;
+  preparation_notes?: string;
+  conversation_strategy_id?: string;
+  status: 'draft' | 'preparing' | 'ready' | 'completed';
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingAgendaItem {
+  id: string;
+  meeting_id: string;
+  title: string;
+  duration_minutes: number;
+  order_index: number;
+  notes?: string;
+  created_at: string;
+}
+
+export interface MeetingAttendee {
+  id: string;
+  meeting_id: string;
+  person_id: string;
+  is_required: boolean;
+  attendance_status: 'pending' | 'accepted' | 'declined' | 'tentative';
+  created_at: string;
+}
+
+export interface MeetingWithDetails extends Meeting {
+  agenda_items?: MeetingAgendaItem[];
+  attendees?: MeetingAttendee[];
+  attendee_details?: Person[];
 }
 
 // ============================================

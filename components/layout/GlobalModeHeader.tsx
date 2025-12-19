@@ -10,10 +10,16 @@ import { supabase } from '@/lib/supabase';
  * MODES:
  * - Relationship Builder (/) - Existing people/event management
  * - Business View (/business) - Business and meeting management
+ * - Decide To Do (/todo) - Task and habit management
+ * - Meetings (/meetings) - Meeting preparation and management
+ * - Projects (/projects) - Project tracking
  * 
  * USED BY:
  * - app/page.tsx
  * - app/business/page.tsx
+ * - app/todo/page.tsx
+ * - app/meetings/page.tsx
+ * - app/projects/page.tsx
  */
 export function GlobalModeHeader() {
   const pathname = usePathname();
@@ -38,6 +44,7 @@ export function GlobalModeHeader() {
   const isRelationshipMode = pathname === '/';
   const isBusinessMode = pathname.startsWith('/business');
   const isDecideMode = pathname.startsWith('/todo');
+  const isMeetingsMode = pathname.startsWith('/meetings');
   const isProjectsMode = pathname.startsWith('/projects');
 
   return (
@@ -73,6 +80,16 @@ export function GlobalModeHeader() {
           }`}
         >
           Decide To Do
+        </button>
+        <button
+          onClick={() => router.push('/meetings')}
+          className={`text-lg transition-colors ${
+            isMeetingsMode
+              ? 'text-orange-600 font-semibold'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Meetings
         </button>
         <button
           onClick={() => router.push('/projects')}
