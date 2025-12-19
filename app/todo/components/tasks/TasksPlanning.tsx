@@ -33,6 +33,14 @@ export function TasksPlanning() {
     });
   };
 
+  const handleTasksUnscheduled = (taskIds: string[]) => {
+    setScheduledTaskIds(prev => {
+      const newSet = new Set(prev);
+      taskIds.forEach(id => newSet.delete(id));
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -120,6 +128,7 @@ export function TasksPlanning() {
             startDate={selectedDate} 
             daysToShow={dayView}
             onTasksScheduled={handleTasksScheduled}
+            onTasksUnscheduled={handleTasksUnscheduled}
           />
         </div>
       </div>

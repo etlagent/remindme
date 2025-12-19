@@ -9,6 +9,7 @@ interface HabitRowProps {
   onToggleCheck: (habitId: string, date: string) => Promise<void>;
   onEditHabit?: (habit: Habit) => void;
   onDeleteHabit?: (habitId: string) => void;
+  onReorder?: (draggedId: string, targetId: string) => void;
 }
 
 export function HabitRow({
@@ -18,11 +19,17 @@ export function HabitRow({
   onToggleCheck,
   onEditHabit,
   onDeleteHabit,
+  onReorder,
 }: HabitRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(habit.name);
   const [isHovered, setIsHovered] = useState(false);
-  const today = new Date().toISOString().split('T')[0];
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Get today's date in local timezone
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== habit.name && onEditHabit) {
@@ -40,14 +47,60 @@ export function HabitRow({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('habitId', habit.id);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const draggedId = e.dataTransfer.getData('habitId');
+    if (draggedId && draggedId !== habit.id && onReorder) {
+      onReorder(draggedId, habit.id);
+    }
+  };
+
   return (
     <div 
-      className="flex items-center gap-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
+      draggable={!isEditing}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex items-center gap-2 py-2 transition-colors group ${
+        isDragging ? 'opacity-50' : ''
+      } ${
+        isDragOver ? 'bg-blue-50 dark:bg-blue-900/20 border-t-2 border-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: isEditing ? 'text' : 'grab' }}
     >
+      {/* Drag Handle */}
+      <div className="flex-shrink-0 px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+      
       {/* Habit Name */}
-      <div className="w-56 flex-shrink-0 px-4">
+      <div className="w-56 flex-shrink-0">
         {isEditing ? (
           <input
             type="text"

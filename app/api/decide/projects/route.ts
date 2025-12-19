@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('todo_projects')
+      .from('projects_main')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
@@ -81,11 +81,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('todo_projects')
+      .from('projects_main')
       .insert({
         user_id: user.id,
         name: name.trim(),
         description: description?.trim() || null,
+        status: 'active',
+        color: '#8B5CF6',
+        icon: '📁',
+        order_index: 0,
       })
       .select()
       .single();

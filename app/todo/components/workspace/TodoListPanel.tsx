@@ -10,6 +10,8 @@ interface TodoListPanelProps {
   onDeleteTodo: (id: string) => Promise<void>;
   onBreakdown?: (todo: WorkspaceTodo) => void;
   onClearAll: () => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  selectedProjectId?: string | null;
 }
 
 export function TodoListPanel({
@@ -19,10 +21,13 @@ export function TodoListPanel({
   onDeleteTodo,
   onBreakdown,
   onClearAll,
+  onRefresh,
+  selectedProjectId,
 }: TodoListPanelProps) {
   const [quickInput, setQuickInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleQuickAdd = async () => {
     if (!quickInput.trim()) return;
@@ -60,17 +65,72 @@ export function TodoListPanel({
     setEditText('');
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === todos.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(todos.map(t => t.id)));
+    }
+  };
+
+  const handlePushToTasks = async () => {
+    if (selectedIds.size === 0) return;
+
+    try {
+      // Update all selected tasks to 'ready' status so they appear in Master TODO List
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          onUpdateTodo(id, { status: 'ready' })
+        )
+      );
+
+      // Clear selection after pushing
+      setSelectedIds(new Set());
+      
+      // Refresh the workspace to remove pushed tasks from view
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('Error pushing tasks:', error);
+      alert('Failed to push tasks. Please try again.');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="pb-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            TODO List
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              TODO List
+            </h3>
+            {todos.length > 0 && (
+              <button
+                onClick={toggleSelectAll}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {selectedIds.size === todos.length ? 'Deselect All' : 'Select All'}
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {todos.length} {todos.length === 1 ? 'item' : 'items'}
+              {selectedIds.size > 0 && ` (${selectedIds.size} selected)`}
             </span>
             {todos.length > 0 && (
               <button
@@ -128,10 +188,23 @@ export function TodoListPanel({
                 className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  {/* Checkbox */}
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="w-5 h-5 rounded border-2 border-gray-300 dark:border-gray-600" />
-                  </div>
+                  {/* Selection Checkbox */}
+                  <button
+                    onClick={() => toggleSelect(todo.id)}
+                    className="flex-shrink-0 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  >
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                      selectedIds.has(todo.id)
+                        ? 'bg-blue-600 border-blue-600' 
+                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                    }`}>
+                      {selectedIds.has(todo.id) && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -237,13 +310,14 @@ export function TodoListPanel({
       {todos.length > 0 && (
         <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => alert('Push to Tasks coming in Phase 4!')}
-            className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg font-medium"
+            onClick={handlePushToTasks}
+            disabled={selectedIds.size === 0}
+            className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            Push to Tasks ({todos.length})
+            Push to Tasks ({selectedIds.size > 0 ? selectedIds.size : 'Select items'})
           </button>
         </div>
       )}

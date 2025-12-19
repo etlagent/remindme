@@ -105,6 +105,10 @@ export function useHabits() {
 
   const deleteHabit = useCallback(async (id: string) => {
     try {
+      if (!id || id === 'undefined' || id === 'null') {
+        throw new Error('Invalid habit ID');
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');

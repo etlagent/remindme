@@ -7,9 +7,10 @@ import { Project } from '@/lib/types/decide';
 interface ProjectsBrowserProps {
   onSelectProject: (project: Project | null) => void;
   selectedProjectId?: string;
+  hideCreateButton?: boolean;
 }
 
-export function ProjectsBrowser({ onSelectProject, selectedProjectId }: ProjectsBrowserProps) {
+export function ProjectsBrowser({ onSelectProject, selectedProjectId, hideCreateButton }: ProjectsBrowserProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -118,16 +119,18 @@ export function ProjectsBrowser({ onSelectProject, selectedProjectId }: Projects
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           Your Projects
         </h4>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-        >
-          + New Project
-        </button>
+        {!hideCreateButton && (
+          <button
+            onClick={() => setIsCreating(true)}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            + New Project
+          </button>
+        )}
       </div>
 
       {/* Create Project Form */}
-      {isCreating && (
+      {!hideCreateButton && isCreating && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Project Name

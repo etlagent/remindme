@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useHabits } from './hooks/useHabits';
 import { useHabitChecks } from './hooks/useHabitChecks';
 import { HabitGrid } from './HabitGrid';
@@ -17,8 +18,14 @@ export function HabitTracker() {
   const dateRange = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-    const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+    
+    // Use local date formatting to avoid timezone shifts
+    const start = new Date(year, month, 1);
+    const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    
+    const end = new Date(year, month + 1, 0);
+    const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+    
     return { startDate, endDate };
   }, [currentMonth]);
 
@@ -59,6 +66,45 @@ export function HabitTracker() {
     } catch (error) {
       console.error('Error deleting habit:', error);
       alert('Failed to delete habit. Please try again.');
+    }
+  };
+
+  const handleReorderHabit = async (draggedId: string, targetId: string) => {
+    try {
+      const draggedIndex = habits.findIndex(h => h.id === draggedId);
+      const targetIndex = habits.findIndex(h => h.id === targetId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      // Reorder locally first for immediate feedback
+      const newHabits = [...habits];
+      const [removed] = newHabits.splice(draggedIndex, 1);
+      newHabits.splice(targetIndex, 0, removed);
+
+      // Update order_index for all habits
+      const updates = newHabits.map((habit, index) => ({
+        id: habit.id,
+        order_index: index
+      }));
+
+      // Call API to persist the new order
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      await fetch('/api/decide/habits/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ habits: updates }),
+      });
+
+      // Refetch to get the latest order
+      // The useHabits hook will handle the state update
+    } catch (error) {
+      console.error('Error reordering habits:', error);
+      alert('Failed to reorder habit. Please try again.');
     }
   };
 
@@ -147,6 +193,7 @@ export function HabitTracker() {
             onToggleCheck={handleToggleCheck}
             onEditHabit={handleEditHabit}
             onDeleteHabit={handleDeleteHabit}
+            onReorderHabit={handleReorderHabit}
           />
 
           {/* Stats */}

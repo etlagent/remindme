@@ -65,6 +65,12 @@ export function ProjectsList({
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newName.trim()) {
+                e.preventDefault();
+                handleCreate();
+              }
+            }}
             placeholder="Project name..."
             className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:text-white mb-2"
             autoFocus

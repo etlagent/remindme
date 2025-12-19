@@ -51,8 +51,42 @@ export interface Project {
   user_id: string;
   name: string;
   description?: string;
+  status: 'active' | 'archived';
+  color?: string;
+  icon?: string;
+  order_index: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProjectResource {
+  id: string;
+  user_id: string;
+  project_id: string;
+  title: string;
+  content: string;
+  resource_type: 'chatgpt' | 'granola' | 'perplexity' | 'video' | 'notes' | 'library' | 'team' | 'general';
+  url?: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  user_id: string;
+  project_id: string;
+  text: string;
+  description?: string;
+  parent_id?: string;
+  order_index: number;
+  completed: boolean;
+  completed_at?: string;
+  pushed_to_workspace: boolean;
+  workspace_todo_id?: string;
+  created_at: string;
+  updated_at: string;
+  subtasks?: ProjectTask[];
 }
 
 // ============================================

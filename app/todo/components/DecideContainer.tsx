@@ -20,7 +20,7 @@ export function DecideContainer() {
           Decide To Do
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Track habits, plan tasks, and organize your day
+          You've only decided as much as you have done.
         </p>
       </div>
 

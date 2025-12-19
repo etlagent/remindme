@@ -9,6 +9,7 @@ interface HabitGridProps {
   onToggleCheck: (habitId: string, date: string) => Promise<void>;
   onEditHabit?: (habit: Habit) => void;
   onDeleteHabit?: (habitId: string) => void;
+  onReorderHabit?: (draggedId: string, targetId: string) => void;
 }
 
 export function HabitGrid({
@@ -18,6 +19,7 @@ export function HabitGrid({
   onToggleCheck,
   onEditHabit,
   onDeleteHabit,
+  onReorderHabit,
 }: HabitGridProps) {
   // Generate array of dates for the current month
   const dates = useMemo(() => {
@@ -28,7 +30,11 @@ export function HabitGrid({
     const dateArray: string[] = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      dateArray.push(date.toISOString().split('T')[0]);
+      // Use local date formatting to avoid timezone shifts
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      dateArray.push(`${yyyy}-${mm}-${dd}`);
     }
     
     return dateArray;
@@ -37,13 +43,26 @@ export function HabitGrid({
   // Generate day headers (1, 2, 3, ..., 31)
   const dayHeaders = useMemo(() => {
     return dates.map(date => {
-      const day = new Date(date).getDate();
-      const dayOfWeek = new Date(date).getDay();
+      // Parse date string directly to avoid timezone shifts
+      const [year, month, dayStr] = date.split('-').map(Number);
+      const day = dayStr;
+      // Create date object in local timezone for day of week calculation
+      const localDate = new Date(year, month - 1, dayStr);
+      const dayOfWeek = localDate.getDay();
       return { day, date, dayOfWeek };
     });
   }, [dates]);
 
-  const today = new Date().toISOString().split('T')[0];
+  // Get today's date in local timezone
+  const today = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    console.log('HabitGrid today:', todayStr, 'Current date object:', now);
+    return todayStr;
+  }, []);
 
   return (
     <div className="overflow-x-auto">
@@ -58,6 +77,10 @@ export function HabitGrid({
           {dayHeaders.map(({ day, date, dayOfWeek }) => {
             const isToday = date === today;
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            if (day === 14 || day === 15) {
+              console.log(`Day ${day}: date="${date}", today="${today}", isToday=${isToday}`);
+            }
             
             return (
               <div
@@ -101,6 +124,7 @@ export function HabitGrid({
               onToggleCheck={onToggleCheck}
               onEditHabit={onEditHabit}
               onDeleteHabit={onDeleteHabit}
+              onReorder={onReorderHabit}
             />
           ))
         )}

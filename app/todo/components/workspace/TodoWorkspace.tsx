@@ -13,17 +13,24 @@ export function TodoWorkspace() {
   const [breakdownTodo, setBreakdownTodo] = useState<WorkspaceTodo | null>(null);
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [activeSource, setActiveSource] = useState<SourceType>('paste');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const {
     todos,
     loading,
     error,
+    fetchTodos,
     createTodo,
     createBulkTodos,
     updateTodo,
     deleteTodo,
     clearWorkspace,
   } = useWorkspace();
+
+  // Filter todos by selected project
+  const filteredTodos = selectedProjectId 
+    ? todos.filter(todo => todo.project_id === selectedProjectId)
+    : todos;
 
   const handleAddTodos = async (texts: string[]) => {
     await createBulkTodos(texts, { ai_generated: false });
@@ -77,6 +84,8 @@ export function TodoWorkspace() {
                 onAddTodos={handleAddTodos}
                 activeSource={activeSource}
                 onChangeSource={setActiveSource}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={setSelectedProjectId}
               />
             </div>
           </div>
@@ -98,12 +107,14 @@ export function TodoWorkspace() {
         {/* Right Panel - TODO List */}
         <div className={`bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 min-h-[600px] ${isLeftCollapsed ? 'col-span-1 mx-auto max-w-2xl w-full' : ''}`}>
           <TodoListPanel
-            todos={todos}
+            todos={filteredTodos}
             onCreateTodo={createTodo}
             onUpdateTodo={updateTodo}
             onDeleteTodo={deleteTodo}
             onBreakdown={setBreakdownTodo}
             onClearAll={clearWorkspace}
+            onRefresh={fetchTodos}
+            selectedProjectId={selectedProjectId}
           />
         </div>
       </div>

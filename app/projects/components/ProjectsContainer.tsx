@@ -29,7 +29,16 @@ export function ProjectsContainer() {
 
       const result = await response.json();
       if (result.success) {
-        setProjects(result.data || []);
+        const updatedProjects = result.data || [];
+        setProjects(updatedProjects);
+        
+        // Update selectedProject if it exists to reflect any changes
+        if (selectedProject) {
+          const updatedSelected = updatedProjects.find((p: Project) => p.id === selectedProject.id);
+          if (updatedSelected) {
+            setSelectedProject(updatedSelected);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching projects:', error);

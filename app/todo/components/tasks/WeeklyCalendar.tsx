@@ -8,6 +8,7 @@ interface WeeklyCalendarProps {
   startDate: Date;
   daysToShow: number;
   onTasksScheduled?: (taskIds: string[]) => void;
+  onTasksUnscheduled?: (taskIds: string[]) => void;
 }
 
 interface ScheduledTask extends WorkspaceTodo {
@@ -15,7 +16,7 @@ interface ScheduledTask extends WorkspaceTodo {
   completed?: boolean;
 }
 
-export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTasksUnscheduled }: WeeklyCalendarProps) {
   const [scheduledTasks, setScheduledTasks] = useState<Map<string, ScheduledTask[]>>(new Map());
   const [loading, setLoading] = useState(false);
   const [pendingSaves, setPendingSaves] = useState<Map<string, string>>(new Map()); // tempId -> scheduled_for
@@ -36,7 +37,7 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      // Fetch all scheduled tasks from database
+      // Fetch all scheduled tasks from database (including completed ones)
       const response = await fetch('/api/decide/workspace', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -45,6 +46,8 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
 
       const result = await response.json();
       if (result.success && result.data) {
+        console.log('Fetched workspace data:', result.data.length, 'items');
+        
         const tasksMap = new Map<string, ScheduledTask[]>();
         
         result.data.forEach((todo: WorkspaceTodo) => {
@@ -52,9 +55,14 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
             const dateStr = todo.scheduled_for;
             const existing = tasksMap.get(dateStr) || [];
             tasksMap.set(dateStr, [...existing, { ...todo, scheduled_for: dateStr }]);
+            
+            if (todo.completed) {
+              console.log('Loaded completed task:', { id: todo.id, text: todo.text, completed: todo.completed });
+            }
           }
         });
 
+        console.log('Scheduled tasks map:', tasksMap.size, 'days with tasks');
         setScheduledTasks(tasksMap);
       }
     } catch (error) {
@@ -193,6 +201,8 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
     const task = scheduledTasks.get(dateStr)?.find(t => t.id === taskId);
     const newCompleted = !task?.completed;
     
+    console.log('Toggle complete:', { taskId, currentCompleted: task?.completed, newCompleted });
+    
     setScheduledTasks(prev => {
       const newMap = new Map(prev);
       const dayTasks = newMap.get(dateStr) || [];
@@ -205,6 +215,46 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
     // Save to database
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No session token for saving completed status');
+        return;
+      }
+
+      const response = await fetch(`/api/decide/workspace/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ completed: newCompleted }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to save completed status:', error);
+      } else {
+        console.log('Successfully saved completed status to database');
+      }
+    } catch (error) {
+      console.error('Error updating completed status:', error);
+    }
+  };
+
+  const handleRemoveTask = async (dateStr: string, taskId: string) => {
+    // Optimistically remove from UI
+    setScheduledTasks(prev => {
+      const newMap = new Map(prev);
+      const dayTasks = newMap.get(dateStr) || [];
+      newMap.set(dateStr, dayTasks.filter(t => t.id !== taskId));
+      return newMap;
+    });
+
+    // Notify parent that task was unscheduled (returns to Master TODO List)
+    onTasksUnscheduled?.([taskId]);
+
+    // Update database to clear scheduled_for
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
       await fetch(`/api/decide/workspace/${taskId}`, {
@@ -213,20 +263,11 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ completed: newCompleted }),
+        body: JSON.stringify({ scheduled_for: null }),
       });
     } catch (error) {
-      console.error('Error updating completed status:', error);
+      console.error('Error removing task from calendar:', error);
     }
-  };
-
-  const handleRemoveTask = (dateStr: string, taskId: string) => {
-    setScheduledTasks(prev => {
-      const newMap = new Map(prev);
-      const dayTasks = newMap.get(dateStr) || [];
-      newMap.set(dateStr, dayTasks.filter(t => t.id !== taskId));
-      return newMap;
-    });
   };
 
   const handleTaskDragStart = (e: React.DragEvent, task: ScheduledTask, fromDateStr: string) => {
@@ -340,8 +381,10 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
                     key={task.id}
                     draggable
                     onDragStart={(e) => handleTaskDragStart(e, task, dateStr)}
-                    className={`group relative p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 shadow-sm cursor-move transition-opacity ${
-                      task.completed ? 'opacity-50' : ''
+                    className={`group relative p-2 rounded border shadow-sm cursor-move transition-all ${
+                      task.completed 
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' 
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -361,8 +404,10 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled }: Week
                           )}
                         </div>
                       </button>
-                      <p className={`flex-1 text-xs text-gray-900 dark:text-gray-100 break-words pr-6 ${
-                        task.completed ? 'line-through' : ''
+                      <p className={`flex-1 text-xs break-words pr-6 ${
+                        task.completed 
+                          ? 'line-through text-gray-600 dark:text-gray-400' 
+                          : 'text-gray-900 dark:text-gray-100'
                       }`}>
                         {task.text}
                       </p>

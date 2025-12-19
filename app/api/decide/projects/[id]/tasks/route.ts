@@ -4,8 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// PUT /api/decide/projects/[id] - Update project
-export async function PUT(
+export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -17,48 +16,29 @@ export async function PUT(
     }
 
     const token = authHeader.replace('Bearer ', '');
-    
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { name, description } = body;
-
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description?.trim() || null;
-
     const { data, error } = await supabase
-      .from('projects_main')
-      .update(updateData)
-      .eq('id', params.id)
+      .from('projects_tasks')
+      .select('*')
+      .eq('project_id', params.id)
       .eq('user_id', user.id)
-      .select()
-      .single();
+      .order('order_index', { ascending: true });
 
     if (error) {
-      console.error('Error updating project:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    if (!data) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Error in PUT /api/decide/projects/[id]:', error);
+    console.error('Error in GET /api/decide/projects/[id]/tasks:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Internal server error' 
@@ -66,48 +46,75 @@ export async function PUT(
   }
 }
 
-// DELETE /api/decide/projects/[id] - Delete project
-export async function DELETE(
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const params = await context.params;
+    console.log('POST /api/decide/projects/[id]/tasks - params:', params);
+    console.log('params.id:', params?.id);
+    
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const token = authHeader.replace('Bearer ', '');
-    
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { error } = await supabase
-      .from('projects_main')
-      .delete()
-      .eq('id', params.id)
-      .eq('user_id', user.id);
+    const body = await request.json();
+    const { text, description, parent_id } = body;
+
+    if (!text || text.trim() === '') {
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+
+    if (!params?.id) {
+      console.error('No project ID in params');
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+    }
+
+    const { data: existingTasks } = await supabase
+      .from('projects_tasks')
+      .select('order_index')
+      .eq('project_id', params.id)
+      .eq('user_id', user.id)
+      .is('parent_id', parent_id || null)
+      .order('order_index', { ascending: false })
+      .limit(1);
+
+    const orderIndex = (existingTasks && existingTasks.length > 0) 
+      ? existingTasks[0].order_index + 1 
+      : 0;
+
+    const { data, error } = await supabase
+      .from('projects_tasks')
+      .insert({
+        user_id: user.id,
+        project_id: params.id,
+        text: text.trim(),
+        description: description?.trim() || null,
+        parent_id: parent_id || null,
+        order_index: orderIndex,
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error('Error deleting project:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Project deleted' });
+    return NextResponse.json({ success: true, data }, { status: 201 });
   } catch (error) {
-    console.error('Error in DELETE /api/decide/projects/[id]:', error);
+    console.error('Error in POST /api/decide/projects/[id]/tasks:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Internal server error' 

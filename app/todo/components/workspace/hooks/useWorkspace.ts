@@ -278,7 +278,8 @@ export function useWorkspace() {
   }, []);
 
   useEffect(() => {
-    fetchTodos();
+    // Only fetch 'draft' status todos for workspace
+    fetchTodos('draft');
   }, [fetchTodos]);
 
   return {

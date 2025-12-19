@@ -10,9 +10,11 @@ interface SourceBrowserProps {
   onAddTodos: (todos: string[]) => Promise<void>;
   activeSource: SourceType;
   onChangeSource: (source: SourceType) => void;
+  selectedProjectId?: string | null;
+  onSelectProject?: (projectId: string | null) => void;
 }
 
-export function SourceBrowser({ onAddTodos, activeSource, onChangeSource }: SourceBrowserProps) {
+export function SourceBrowser({ onAddTodos, activeSource, onChangeSource, selectedProjectId, onSelectProject }: SourceBrowserProps) {
   const [pasteText, setPasteText] = useState('');
   const [brainstormText, setBrainstormText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -145,21 +147,11 @@ export function SourceBrowser({ onAddTodos, activeSource, onChangeSource }: Sour
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto mt-4">
         {activeSource === 'projects' && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <div className="text-6xl mb-4">📁</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Projects Moved
-            </h3>
-            <p className="text-sm mb-4">
-              Projects now have their own dedicated section in the top navigation
-            </p>
-            <button
-              onClick={() => window.location.href = '/projects'}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              Go to Projects
-            </button>
-          </div>
+          <ProjectsBrowser 
+            onSelectProject={(project) => onSelectProject?.(project?.id || null)}
+            selectedProjectId={selectedProjectId || undefined}
+            hideCreateButton={true}
+          />
         )}
 
         {activeSource === 'paste' && (

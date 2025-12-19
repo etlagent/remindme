@@ -136,7 +136,11 @@ export function useHabitChecks({ startDate, endDate }: UseHabitChecksOptions) {
     for (let i = 0; i < 365; i++) {
       const checkDate = new Date(today);
       checkDate.setDate(checkDate.getDate() - i);
-      const dateStr = checkDate.toISOString().split('T')[0];
+      // Use local date formatting to avoid timezone shifts
+      const yyyy = checkDate.getFullYear();
+      const mm = String(checkDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(checkDate.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
       
       if (isChecked(habitId, dateStr)) {
         streak++;
