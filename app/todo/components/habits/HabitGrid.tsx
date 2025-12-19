@@ -109,7 +109,7 @@ export function HabitGrid({
       </div>
 
       {/* Habit Rows */}
-      <div className="space-y-1">
+      <div className="space-y-3">
         {habits.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <p className="text-sm">No habits yet. Add your first habit to start tracking!</p>

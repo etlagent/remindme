@@ -19,11 +19,13 @@ export function HabitCell({
       disabled={isFuture}
       className={`
         w-8 h-8 flex items-center justify-center
-        border rounded
+        rounded
         transition-all duration-150
-        ${isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
+        ${isToday ? 'border-2 border-blue-500' : 'border'}
         ${checked 
           ? 'bg-green-500 border-green-600 text-white hover:bg-green-600' 
+          : isToday
+          ? 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700'
           : 'bg-gray-50 border-gray-300 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700'
         }
         ${isFuture ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
