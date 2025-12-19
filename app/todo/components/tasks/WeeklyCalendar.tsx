@@ -66,6 +66,11 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
           }
         });
 
+        // Sort tasks by order_index within each day
+        tasksMap.forEach((tasks, dateStr) => {
+          tasksMap.set(dateStr, tasks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+        });
+
         console.log('Scheduled tasks map:', tasksMap.size, 'days with tasks');
         setScheduledTasks(tasksMap);
       }
@@ -374,6 +379,23 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
             const [removed] = newTasks.splice(draggedIndex, 1);
             newTasks.splice(targetIndex, 0, removed);
             newMap.set(toDateStr, newTasks);
+            
+            // Auto-save the new order in the background
+            supabase.auth.getSession().then(({ data }) => {
+              if (data.session?.access_token) {
+                // Update order_index for all tasks in this day
+                newTasks.forEach((t, index) => {
+                  fetch(`/api/decide/workspace/${t.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${data.session!.access_token}`,
+                    },
+                    body: JSON.stringify({ order_index: index }),
+                  }).catch(err => console.error('Error saving task order:', err));
+                });
+              }
+            });
           }
         } else {
           // Moving task between calendar days

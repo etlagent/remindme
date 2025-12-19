@@ -34,7 +34,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { text, order_index, status, estimated_minutes, scheduled_for, completed } = body;
+    const { text, order_index, status, estimated_minutes, scheduled_for, completed, group_color } = body;
 
     const updateData: any = {};
     if (text !== undefined) updateData.text = text.trim();
@@ -43,6 +43,7 @@ export async function PUT(
     if (estimated_minutes !== undefined) updateData.estimated_minutes = estimated_minutes;
     if (scheduled_for !== undefined) updateData.scheduled_for = scheduled_for;
     if (completed !== undefined) updateData.completed = completed;
+    if (group_color !== undefined) updateData.group_color = group_color;
 
     const { data, error } = await supabase
       .from('todo_workspace')
