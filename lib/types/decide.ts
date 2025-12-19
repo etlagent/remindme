@@ -106,6 +106,7 @@ export interface WorkspaceTodo {
   estimated_minutes?: number;
   scheduled_for?: string; // Date string for calendar scheduling
   completed?: boolean; // Track completion status
+  group_color?: string; // Color for visual grouping
   created_at: string;
   subtasks?: WorkspaceTodo[];
   source_id?: string;

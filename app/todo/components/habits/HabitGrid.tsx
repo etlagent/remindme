@@ -68,7 +68,10 @@ export function HabitGrid({
     <div className="overflow-x-auto">
       {/* Header with day numbers */}
       <div className="flex items-center gap-2 pb-2 border-b border-gray-300 dark:border-gray-600 mb-2">
-        <div className="w-56 flex-shrink-0 px-4">
+        {/* Drag handle spacing */}
+        <div className="flex-shrink-0 w-8"></div>
+        
+        <div className="w-56 flex-shrink-0">
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             Habit
           </span>
@@ -109,7 +112,7 @@ export function HabitGrid({
       </div>
 
       {/* Habit Rows */}
-      <div className="space-y-3">
+      <div className="space-y-0">
         {habits.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <p className="text-sm">No habits yet. Add your first habit to start tracking!</p>

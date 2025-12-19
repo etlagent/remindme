@@ -29,7 +29,7 @@ export function HabitTracker() {
     return { startDate, endDate };
   }, [currentMonth]);
 
-  const { habits, loading: habitsLoading, createHabit, updateHabit, deleteHabit } = useHabits();
+  const { habits, loading: habitsLoading, createHabit, updateHabit, deleteHabit, reorderHabits } = useHabits();
   const { 
     checks, 
     loading: checksLoading, 
@@ -76,32 +76,13 @@ export function HabitTracker() {
       
       if (draggedIndex === -1 || targetIndex === -1) return;
 
-      // Reorder locally first for immediate feedback
+      // Reorder the habits array
       const newHabits = [...habits];
       const [removed] = newHabits.splice(draggedIndex, 1);
       newHabits.splice(targetIndex, 0, removed);
 
-      // Update order_index for all habits
-      const updates = newHabits.map((habit, index) => ({
-        id: habit.id,
-        order_index: index
-      }));
-
-      // Call API to persist the new order
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      await fetch('/api/decide/habits/reorder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ habits: updates }),
-      });
-
-      // Refetch to get the latest order
-      // The useHabits hook will handle the state update
+      // Use the reorderHabits function from useHabits hook
+      await reorderHabits(newHabits);
     } catch (error) {
       console.error('Error reordering habits:', error);
       alert('Failed to reorder habit. Please try again.');

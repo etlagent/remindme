@@ -20,6 +20,10 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
   const [scheduledTasks, setScheduledTasks] = useState<Map<string, ScheduledTask[]>>(new Map());
   const [loading, setLoading] = useState(false);
   const [pendingSaves, setPendingSaves] = useState<Map<string, string>>(new Map()); // tempId -> scheduled_for
+  const [dragOverTask, setDragOverTask] = useState<{ dateStr: string; taskId: string } | null>(null);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   const calendarDays = Array.from({ length: daysToShow }, (_, i) => {
     const date = new Date(startDate);
@@ -271,48 +275,146 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
   };
 
   const handleTaskDragStart = (e: React.DragEvent, task: ScheduledTask, fromDateStr: string) => {
-    e.dataTransfer.setData('scheduledTask', JSON.stringify({ task, fromDateStr }));
+    // Check if task has a group color
+    const groupColor = (task as any).group_color;
+    
+    if (groupColor) {
+      // Find all tasks with the same group color
+      const groupedTasks: ScheduledTask[] = [];
+      scheduledTasks.forEach((dayTasks, dateStr) => {
+        dayTasks.forEach(t => {
+          if ((t as any).group_color === groupColor) {
+            groupedTasks.push({ ...t, scheduled_for: dateStr });
+          }
+        });
+      });
+      
+      e.dataTransfer.setData('groupedTasks', JSON.stringify({ tasks: groupedTasks, groupColor }));
+    } else {
+      e.dataTransfer.setData('scheduledTask', JSON.stringify({ task, fromDateStr }));
+    }
+    
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleTaskDrop = async (e: React.DragEvent, toDateStr: string) => {
+  const handleTaskDrop = async (e: React.DragEvent, toDateStr: string, targetTaskId?: string) => {
     e.preventDefault();
+    setDragOverTask(null);
+    
+    // Check for grouped tasks first
+    const groupedTasksData = e.dataTransfer.getData('groupedTasks');
+    if (groupedTasksData) {
+      const { tasks, groupColor } = JSON.parse(groupedTasksData);
+      
+      // Remove all grouped tasks from their current positions
+      setScheduledTasks(prev => {
+        const newMap = new Map(prev);
+        
+        // Remove grouped tasks from all days
+        newMap.forEach((dayTasks, dateStr) => {
+          newMap.set(dateStr, dayTasks.filter(t => (t as any).group_color !== groupColor));
+        });
+        
+        // Add grouped tasks to target day
+        const toDayTasks = newMap.get(toDateStr) || [];
+        if (targetTaskId) {
+          const targetIndex = toDayTasks.findIndex(t => t.id === targetTaskId);
+          const newTasks = [...toDayTasks];
+          tasks.forEach((task: ScheduledTask) => {
+            newTasks.splice(targetIndex, 0, { ...task, scheduled_for: toDateStr });
+          });
+          newMap.set(toDateStr, newTasks);
+        } else {
+          newMap.set(toDateStr, [...toDayTasks, ...tasks.map((t: ScheduledTask) => ({ ...t, scheduled_for: toDateStr }))]);
+        }
+        
+        return newMap;
+      });
+      
+      // Update database for all grouped tasks
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          await Promise.all(
+            tasks.map((task: ScheduledTask) =>
+              fetch(`/api/decide/workspace/${task.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ scheduled_for: toDateStr }),
+              })
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error updating grouped tasks:', error);
+      }
+      
+      return;
+    }
     
     const scheduledTaskData = e.dataTransfer.getData('scheduledTask');
     if (scheduledTaskData) {
-      // Moving task between calendar days
       const { task, fromDateStr } = JSON.parse(scheduledTaskData);
       
       // Optimistically update UI
       setScheduledTasks(prev => {
         const newMap = new Map(prev);
         
-        // Remove from old day
-        const fromDayTasks = newMap.get(fromDateStr) || [];
-        newMap.set(fromDateStr, fromDayTasks.filter(t => t.id !== task.id));
-        
-        // Add to new day
-        const toDayTasks = newMap.get(toDateStr) || [];
-        newMap.set(toDateStr, [...toDayTasks, { ...task, scheduled_for: toDateStr }]);
+        if (fromDateStr === toDateStr && targetTaskId) {
+          // Reordering within the same day
+          const dayTasks = newMap.get(toDateStr) || [];
+          const draggedIndex = dayTasks.findIndex(t => t.id === task.id);
+          const targetIndex = dayTasks.findIndex(t => t.id === targetTaskId);
+          
+          if (draggedIndex !== -1 && targetIndex !== -1) {
+            const newTasks = [...dayTasks];
+            const [removed] = newTasks.splice(draggedIndex, 1);
+            newTasks.splice(targetIndex, 0, removed);
+            newMap.set(toDateStr, newTasks);
+          }
+        } else {
+          // Moving task between calendar days
+          // Remove from old day
+          const fromDayTasks = newMap.get(fromDateStr) || [];
+          newMap.set(fromDateStr, fromDayTasks.filter(t => t.id !== task.id));
+          
+          // Add to new day
+          const toDayTasks = newMap.get(toDateStr) || [];
+          if (targetTaskId) {
+            // Insert at specific position
+            const targetIndex = toDayTasks.findIndex(t => t.id === targetTaskId);
+            const newTasks = [...toDayTasks];
+            newTasks.splice(targetIndex, 0, { ...task, scheduled_for: toDateStr });
+            newMap.set(toDateStr, newTasks);
+          } else {
+            // Add to end
+            newMap.set(toDateStr, [...toDayTasks, { ...task, scheduled_for: toDateStr }]);
+          }
+        }
         
         return newMap;
       });
 
-      // Save to database
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
+      // Save to database only if moving between days
+      if (fromDateStr !== toDateStr) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) return;
 
-        await fetch(`/api/decide/workspace/${task.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ scheduled_for: toDateStr }),
-        });
-      } catch (error) {
-        console.error('Error updating scheduled date:', error);
+          await fetch(`/api/decide/workspace/${task.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ scheduled_for: toDateStr }),
+          });
+        } catch (error) {
+          console.error('Error updating scheduled date:', error);
+        }
       }
     }
   };
@@ -330,11 +432,178 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
     return date.toDateString() === today.toDateString();
   };
 
+  const groupColors = [
+    { name: 'Blue', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800' },
+    { name: 'Purple', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800' },
+    { name: 'Pink', bg: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-800' },
+    { name: 'Orange', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800' },
+    { name: 'Yellow', bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800' },
+    { name: 'Teal', bg: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-800' },
+  ];
+
+  const handleToggleSelect = (taskId: string) => {
+    setSelectedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleApplyGroupColor = async (colorName: string) => {
+    const color = groupColors.find(c => c.name === colorName);
+    if (!color) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      // Update all selected tasks with the group color
+      const updates = Array.from(selectedTasks).map(taskId => 
+        fetch(`/api/decide/workspace/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ group_color: colorName }),
+        })
+      );
+
+      await Promise.all(updates);
+
+      // Update UI
+      setScheduledTasks(prev => {
+        const newMap = new Map(prev);
+        newMap.forEach((tasks, dateStr) => {
+          newMap.set(dateStr, tasks.map(task => 
+            selectedTasks.has(task.id) ? { ...task, group_color: colorName } : task
+          ));
+        });
+        return newMap;
+      });
+
+      setShowColorPicker(false);
+      setSelectedTasks(new Set());
+      setMultiSelectMode(false);
+    } catch (error) {
+      console.error('Error applying group color:', error);
+    }
+  };
+
+  const handleBulkMove = (e: React.DragEvent, toDateStr: string) => {
+    if (selectedTasks.size === 0) return;
+
+    setScheduledTasks(prev => {
+      const newMap = new Map(prev);
+      const tasksToMove: ScheduledTask[] = [];
+
+      // Find and remove selected tasks from their current days
+      newMap.forEach((tasks, dateStr) => {
+        const remaining: ScheduledTask[] = [];
+        tasks.forEach(task => {
+          if (selectedTasks.has(task.id)) {
+            tasksToMove.push({ ...task, scheduled_for: toDateStr });
+          } else {
+            remaining.push(task);
+          }
+        });
+        newMap.set(dateStr, remaining);
+      });
+
+      // Add to target day
+      const toDayTasks = newMap.get(toDateStr) || [];
+      newMap.set(toDateStr, [...toDayTasks, ...tasksToMove]);
+
+      return newMap;
+    });
+
+    // Update database
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) {
+        Array.from(selectedTasks).forEach(taskId => {
+          fetch(`/api/decide/workspace/${taskId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.session!.access_token}`,
+            },
+            body: JSON.stringify({ scheduled_for: toDateStr }),
+          }).catch(err => console.error('Error moving task:', err));
+        });
+      }
+    });
+
+    setSelectedTasks(new Set());
+    setMultiSelectMode(false);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 min-h-[600px]">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-        {formatDate(startDate)} - {daysToShow} {daysToShow === 1 ? 'day' : 'days'}
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {formatDate(startDate)} - {daysToShow} {daysToShow === 1 ? 'day' : 'days'}
+        </h3>
+        
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setMultiSelectMode(!multiSelectMode);
+              if (multiSelectMode) {
+                setSelectedTasks(new Set());
+              }
+            }}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              multiSelectMode
+                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Multi-Select
+          </button>
+          
+          <button
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            disabled={selectedTasks.size === 0}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              selectedTasks.size === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                : 'bg-orange-500 text-white hover:bg-orange-600'
+            }`}
+          >
+            Group
+          </button>
+        </div>
+      </div>
+
+      {/* Color Picker Popup */}
+      {showColorPicker && selectedTasks.size > 0 && (
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            Choose a color for {selectedTasks.size} selected task{selectedTasks.size > 1 ? 's' : ''}:
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {groupColors.map((color) => (
+              <button
+                key={color.name}
+                onClick={() => handleApplyGroupColor(color.name)}
+                className={`px-4 py-2 text-sm rounded-md border-2 transition-all ${color.bg} ${color.border} hover:scale-105`}
+              >
+                {color.name}
+              </button>
+            ))}
+            <button
+              onClick={() => handleApplyGroupColor('')}
+              className="px-4 py-2 text-sm rounded-md border-2 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:scale-105"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${Math.min(daysToShow, 7)}, minmax(0, 1fr))` }}>
         {calendarDays.map((day) => {
@@ -350,9 +619,16 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Check if it's a task being moved between days
+                // Check for bulk move
+                if (multiSelectMode && selectedTasks.size > 0) {
+                  handleBulkMove(e, dateStr);
+                  return;
+                }
+                
+                // Check if it's grouped tasks or individual task being moved
+                const groupedTasksData = e.dataTransfer.getData('groupedTasks');
                 const scheduledTaskData = e.dataTransfer.getData('scheduledTask');
-                if (scheduledTaskData) {
+                if (groupedTasksData || scheduledTaskData) {
                   handleTaskDrop(e, dateStr);
                 } else {
                   handleDrop(e, day);
@@ -376,34 +652,84 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
 
               {/* Tasks for this day */}
               <div className="space-y-2">
-                {dayTasks.map((task) => (
+                {dayTasks.map((task) => {
+                  const groupColor = groupColors.find(c => c.name === (task as any).group_color);
+                  const isSelected = selectedTasks.has(task.id);
+                  
+                  return (
                   <div
                     key={task.id}
                     draggable
                     onDragStart={(e) => handleTaskDragStart(e, task, dateStr)}
-                    className={`group relative p-2 rounded border shadow-sm cursor-move transition-all ${
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverTask({ dateStr, taskId: task.id });
+                    }}
+                    onDragLeave={(e) => {
+                      e.stopPropagation();
+                      setDragOverTask(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTaskDrop(e, dateStr, task.id);
+                    }}
+                    className={`group relative p-2 rounded border shadow-sm transition-all ${
+                      multiSelectMode ? 'cursor-pointer' : 'cursor-move'
+                    } ${
+                      isSelected
+                        ? 'ring-2 ring-orange-500 ring-offset-1'
+                        : ''
+                    } ${
+                      dragOverTask?.dateStr === dateStr && dragOverTask?.taskId === task.id
+                        ? 'border-blue-500 border-t-2 bg-blue-50 dark:bg-blue-900/20'
+                        : ''
+                    } ${
                       task.completed 
                         ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' 
+                        : groupColor
+                        ? `${groupColor.bg} ${groupColor.border}`
                         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                     }`}
+                    onClick={(e) => {
+                      if (multiSelectMode) {
+                        e.stopPropagation();
+                        handleToggleSelect(task.id);
+                      }
+                    }}
                   >
                     <div className="flex items-start gap-2">
-                      <button
-                        onClick={() => handleToggleComplete(dateStr, task.id)}
-                        className="flex-shrink-0 mt-0.5"
-                      >
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                          task.completed 
-                            ? 'bg-green-500 border-green-500' 
-                            : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
-                        }`}>
-                          {task.completed && (
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
+                      {multiSelectMode ? (
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className={`w-4 h-4 rounded border-2 transition-colors ${
+                            isSelected
+                              ? 'bg-orange-500 border-orange-500'
+                              : 'border-gray-300 dark:border-gray-600'
+                          }`}>
+                          </div>
                         </div>
-                      </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleComplete(dateStr, task.id);
+                          }}
+                          className="flex-shrink-0 mt-0.5"
+                        >
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                            task.completed 
+                              ? 'bg-green-500 border-green-500' 
+                              : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
+                          }`}>
+                            {task.completed && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      )}
                       <p className={`flex-1 text-xs break-words pr-6 ${
                         task.completed 
                           ? 'line-through text-gray-600 dark:text-gray-400' 
@@ -430,7 +756,8 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
                       </svg>
                     </button>
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Empty State */}
                 {dayTasks.length === 0 && (
