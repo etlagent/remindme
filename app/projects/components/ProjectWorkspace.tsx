@@ -5,13 +5,21 @@ import { supabase } from '@/lib/supabase';
 import { Project } from '@/lib/types/decide';
 import { ResourcesTab } from './ResourcesTab';
 import { TasksTab } from './TasksTab';
+import OverviewTab from '@/components/product-brief/OverviewTab';
+import MVPScopeTab from '@/components/product-brief/MVPScopeTab';
+import TechnicalSpecsTab from '@/components/product-brief/TechnicalSpecsTab';
+import RoadmapTab from '@/components/product-brief/RoadmapTab';
+import ResourcesCostsTab from '@/components/product-brief/ResourcesCostsTab';
+import KnownsUnknownsTab from '@/components/product-brief/KnownsUnknownsTab';
+import BusinessCaseTab from '@/components/product-brief/BusinessCaseTab';
+import TeamTimelineTab from '@/components/product-brief/TeamTimelineTab';
 
 interface ProjectWorkspaceProps {
   project: Project;
   onUpdateProject: () => void;
 }
 
-type TabType = 'resources' | 'tasks';
+type TabType = 'tasks' | 'resources' | 'overview' | 'mvp-scope' | 'technical' | 'roadmap' | 'resources-costs' | 'knowns-unknowns' | 'business' | 'team';
 
 export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<TabType>('tasks');
@@ -116,10 +124,10 @@ export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceP
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <div className="flex gap-4 px-6">
+        <div className="flex flex-wrap gap-0 px-6">
           <button
             onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'tasks'
                 ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -129,13 +137,93 @@ export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceP
           </button>
           <button
             onClick={() => setActiveTab('resources')}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'resources'
-                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             Resources
+          </button>
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('knowns-unknowns')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'knowns-unknowns'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Knowns & Unknowns
+          </button>
+          <button
+            onClick={() => setActiveTab('mvp-scope')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'mvp-scope'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            MVP Scope
+          </button>
+          <button
+            onClick={() => setActiveTab('technical')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'technical'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Technical Specs
+          </button>
+          <button
+            onClick={() => setActiveTab('roadmap')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'roadmap'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Roadmap
+          </button>
+          <button
+            onClick={() => setActiveTab('resources-costs')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'resources-costs'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Resources & Costs
+          </button>
+          <button
+            onClick={() => setActiveTab('business')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'business'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Business Case
+          </button>
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'team'
+                ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Team & Timeline
           </button>
         </div>
       </div>
@@ -144,6 +232,14 @@ export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceP
       <div className="p-6">
         {activeTab === 'tasks' && <TasksTab projectId={project.id} />}
         {activeTab === 'resources' && <ResourcesTab projectId={project.id} />}
+        {activeTab === 'overview' && <OverviewTab />}
+        {activeTab === 'mvp-scope' && <MVPScopeTab />}
+        {activeTab === 'technical' && <TechnicalSpecsTab />}
+        {activeTab === 'roadmap' && <RoadmapTab />}
+        {activeTab === 'resources-costs' && <ResourcesCostsTab />}
+        {activeTab === 'knowns-unknowns' && <KnownsUnknownsTab />}
+        {activeTab === 'business' && <BusinessCaseTab />}
+        {activeTab === 'team' && <TeamTimelineTab />}
       </div>
     </div>
   );
