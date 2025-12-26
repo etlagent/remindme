@@ -86,8 +86,18 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
             { id: "default-4", title: "", value: "Edit & Save (30 seconds): Review AI-organized data, add notes, save to library" },
             { id: "default-5", title: "", value: "Follow-Up (ongoing): Get reminders, search past conversations, build relationships" }
           ])
-          setDifferentiators(data.differentiator_custom_fields || [])
-          setCompetitors(data.competitors || [])
+          setDifferentiators(data.differentiator_custom_fields && data.differentiator_custom_fields.length > 0 ? data.differentiator_custom_fields : [
+            { id: "diff-1", title: "", value: "Speed: 1 minute vs. 15 minutes (CRM manual entry)" },
+            { id: "diff-2", title: "", value: "Voice-First: Capture in-the-moment vs. later desk work" },
+            { id: "diff-3", title: "", value: "AI Organization: Zero manual field filling" },
+            { id: "diff-4", title: "", value: "Relationship Intelligence: Not just contact storage—actionable insights" }
+          ])
+          setCompetitors(data.competitors && data.competitors.length > 0 ? data.competitors : [
+            { id: "comp-1", name: "Manual CRM (Salesforce, HubSpot)", failure: "Too slow for networking contexts" },
+            { id: "comp-2", name: "Note apps (Apple Notes, Notion)", failure: "Unstructured, no intelligence" },
+            { id: "comp-3", name: "LinkedIn", failure: "Profile info only, no conversation memory" },
+            { id: "comp-4", name: "Business cards", failure: "Physical clutter, no digital workflow" }
+          ])
         } else {
           // No data exists yet for this project - reset to empty with default journey steps
           setProductName("")
@@ -109,8 +119,18 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
             { id: "default-4", title: "", value: "Edit & Save (30 seconds): Review AI-organized data, add notes, save to library" },
             { id: "default-5", title: "", value: "Follow-Up (ongoing): Get reminders, search past conversations, build relationships" }
           ])
-          setDifferentiators([])
-          setCompetitors([])
+          setDifferentiators([
+            { id: "diff-1", title: "", value: "Speed: 1 minute vs. 15 minutes (CRM manual entry)" },
+            { id: "diff-2", title: "", value: "Voice-First: Capture in-the-moment vs. later desk work" },
+            { id: "diff-3", title: "", value: "AI Organization: Zero manual field filling" },
+            { id: "diff-4", title: "", value: "Relationship Intelligence: Not just contact storage—actionable insights" }
+          ])
+          setCompetitors([
+            { id: "comp-1", name: "Manual CRM (Salesforce, HubSpot)", failure: "Too slow for networking contexts" },
+            { id: "comp-2", name: "Note apps (Apple Notes, Notion)", failure: "Unstructured, no intelligence" },
+            { id: "comp-3", name: "LinkedIn", failure: "Profile info only, no conversation memory" },
+            { id: "comp-4", name: "Business cards", failure: "Physical clutter, no digital workflow" }
+          ])
         }
       } catch (error) {
         console.error('Error loading overview:', error)
@@ -184,7 +204,7 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
     textareas.forEach((textarea) => {
       autoResizeTextarea(textarea as HTMLTextAreaElement)
     })
-  }, [elevatorPitch, theProblem, marketSize, whatBuilding, execSummaryFields, problemFields, buildingFields])
+  }, [elevatorPitch, theProblem, marketSize, whatBuilding, execSummaryFields, problemFields, buildingFields, journeySteps, differentiators, competitors])
 
   const autoResizeTextarea = (element: HTMLTextAreaElement) => {
     element.style.height = 'auto'
@@ -214,6 +234,60 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
 
   const handleDragEnd = () => {
     setDraggedIndex(null)
+  }
+
+  // Drag and drop handlers for differentiators
+  const [draggedDiffIndex, setDraggedDiffIndex] = useState<number | null>(null)
+
+  const handleDiffDragStart = (index: number) => {
+    setDraggedDiffIndex(index)
+  }
+
+  const handleDiffDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+  }
+
+  const handleDiffDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedDiffIndex === null || draggedDiffIndex === dropIndex) return
+
+    const newDiffs = [...differentiators]
+    const [draggedItem] = newDiffs.splice(draggedDiffIndex, 1)
+    newDiffs.splice(dropIndex, 0, draggedItem)
+    
+    setDifferentiators(newDiffs)
+    setDraggedDiffIndex(null)
+  }
+
+  const handleDiffDragEnd = () => {
+    setDraggedDiffIndex(null)
+  }
+
+  // Drag and drop handlers for competitors
+  const [draggedCompIndex, setDraggedCompIndex] = useState<number | null>(null)
+
+  const handleCompDragStart = (index: number) => {
+    setDraggedCompIndex(index)
+  }
+
+  const handleCompDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+  }
+
+  const handleCompDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedCompIndex === null || draggedCompIndex === dropIndex) return
+
+    const newComps = [...competitors]
+    const [draggedItem] = newComps.splice(draggedCompIndex, 1)
+    newComps.splice(dropIndex, 0, draggedItem)
+    
+    setCompetitors(newComps)
+    setDraggedCompIndex(null)
+  }
+
+  const handleCompDragEnd = () => {
+    setDraggedCompIndex(null)
   }
 
   // Helper functions
@@ -490,14 +564,16 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
               {journeySteps.map((field, index) => (
                 <div 
                   key={field.id} 
-                  draggable
-                  onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={(e) => handleDrop(e, index)}
-                  onDragEnd={handleDragEnd}
                   className={`relative flex items-start gap-2 ${draggedIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div className="cursor-move mt-2 text-gray-400 hover:text-gray-600">
+                  <div 
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragEnd={handleDragEnd}
+                    className="cursor-move mt-2 text-gray-400 hover:text-gray-600"
+                  >
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -534,40 +610,37 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
               </Button>
             </div>
             <div className="space-y-2">
-              {[
-                "Speed: 1 minute vs. 15 minutes (CRM manual entry)",
-                "Voice-First: Capture in-the-moment vs. later desk work",
-                "AI Organization: Zero manual field filling",
-                "Relationship Intelligence: Not just contact storage—actionable insights"
-              ].map((diff, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <Badge className="bg-purple-100 text-purple-700 mt-1">✓</Badge>
-                  <textarea 
-                    rows={2}
-                    defaultValue={diff}
-                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                    className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
-                    placeholder={`Differentiator ${index + 1}`}
-                  />
-                </div>
-              ))}
-              {differentiators.map((field) => (
-                <div key={field.id} className="relative flex items-start gap-2 bg-purple-50 p-3 rounded-lg border border-purple-200">
-                  <Badge className="bg-purple-100 text-purple-700 mt-1">✓</Badge>
-                  <textarea 
-                    rows={2}
-                    value={field.value}
-                    onChange={(e) => updateFieldValue(field.id, e.target.value, setDifferentiators)}
-                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                    className="flex-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
-                    placeholder="Additional differentiator..."
-                  />
-                  <button
-                    onClick={() => removeField(field.id, setDifferentiators)}
-                    className="text-gray-400 hover:text-red-600 transition-colors"
+              {differentiators.map((field, index) => (
+                <div 
+                  key={field.id} 
+                  onDragOver={(e) => handleDiffDragOver(e, index)}
+                  onDrop={(e) => handleDiffDrop(e, index)}
+                  className={`relative flex items-start gap-2 ${draggedDiffIndex === index ? 'opacity-50' : ''}`}
+                >
+                  <div 
+                    draggable
+                    onDragStart={() => handleDiffDragStart(index)}
+                    onDragEnd={handleDiffDragEnd}
+                    className="cursor-move mt-2 text-gray-400 hover:text-gray-600"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 relative">
+                    <button
+                      onClick={() => removeField(field.id, setDifferentiators)}
+                      className="absolute top-2 right-8 z-10 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <textarea 
+                      rows={2}
+                      value={field.value}
+                      onChange={(e) => updateFieldValue(field.id, e.target.value, setDifferentiators)}
+                      onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                      className="w-full px-4 py-2 pr-14 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
+                      placeholder="Describe this differentiator..."
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -582,62 +655,59 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
           <Button 
             onClick={addCompetitor}
             size="sm"
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            variant="outline"
+            className="h-7 text-xs"
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-3 h-3 mr-1" />
             Add Competitor
           </Button>
         </div>
         <div className="space-y-3">
-          {[
-            { name: "Manual CRM (Salesforce, HubSpot)", failure: "Too slow for networking contexts" },
-            { name: "Note apps (Apple Notes, Notion)", failure: "Unstructured, no intelligence" },
-            { name: "LinkedIn", failure: "Profile info only, no conversation memory" },
-            { name: "Business cards", failure: "Physical clutter, no digital workflow" }
-          ].map((solution, index) => (
-            <div key={index} className="grid grid-cols-2 gap-3">
-              <input 
-                type="text"
-                defaultValue={solution.name}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Solution name"
-              />
-              <input 
-                type="text"
-                defaultValue={solution.failure}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Why it fails"
-              />
-            </div>
-          ))}
-          
-          {/* Dynamic Competitors */}
-          {competitors.map((comp) => (
-            <div key={comp.id} className="relative grid grid-cols-2 gap-3 bg-purple-50 p-3 rounded-lg border border-purple-200">
-              <button
-                onClick={() => removeCompetitor(comp.id)}
-                className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-gray-400 hover:text-red-600 transition-colors shadow-sm"
+          {competitors.map((comp, index) => (
+            <div 
+              key={comp.id} 
+              onDragOver={(e) => handleCompDragOver(e, index)}
+              onDrop={(e) => handleCompDrop(e, index)}
+              className={`flex items-start gap-2 ${draggedCompIndex === index ? 'opacity-50' : ''}`}
+            >
+              <div 
+                draggable
+                onDragStart={() => handleCompDragStart(index)}
+                onDragEnd={handleCompDragEnd}
+                className="cursor-move mt-2 text-gray-400 hover:text-gray-600"
               >
-                <X className="w-4 h-4" />
-              </button>
-              <input 
-                type="text"
-                value={comp.name}
-                onChange={(e) => setCompetitors(competitors.map(c => 
-                  c.id === comp.id ? { ...c, name: e.target.value } : c
-                ))}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Competitor name"
-              />
-              <input 
-                type="text"
-                value={comp.failure}
-                onChange={(e) => setCompetitors(competitors.map(c => 
-                  c.id === comp.id ? { ...c, failure: e.target.value } : c
-                ))}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Why it fails"
-              />
+                <GripVertical className="w-4 h-4" />
+              </div>
+              <div className="flex-1 relative border border-gray-200 rounded-lg p-3">
+                <button
+                  onClick={() => removeCompetitor(comp.id)}
+                  className="absolute -top-2 -right-2 z-10 bg-white rounded-full p-1 text-gray-400 hover:text-red-600 transition-colors shadow-sm border border-gray-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <textarea 
+                    rows={1}
+                    value={comp.name}
+                    onChange={(e) => setCompetitors(competitors.map(c => 
+                      c.id === comp.id ? { ...c, name: e.target.value } : c
+                    ))}
+                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words resize-none overflow-hidden"
+                    placeholder="Solution name"
+                  />
+                  <textarea 
+                    rows={1}
+                    value={comp.failure}
+                    onChange={(e) => setCompetitors(competitors.map(c => 
+                      c.id === comp.id ? { ...c, failure: e.target.value } : c
+                    ))}
+                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words resize-none overflow-hidden"
+                    placeholder="Why it fails"
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
