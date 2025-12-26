@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Plus, X } from "lucide-react"
+import { Plus, X, GripVertical } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 interface CustomField {
   id: string
@@ -12,15 +13,210 @@ interface CustomField {
   value: string
 }
 
-export default function OverviewTab() {
+interface OverviewTabProps {
+  projectId: string
+}
+
+export default function OverviewTab({ projectId }: OverviewTabProps) {
+  // Executive Summary state
+  const [productName, setProductName] = useState("")
+  const [tagline, setTagline] = useState("")
+  const [version, setVersion] = useState("")
+  const [elevatorPitch, setElevatorPitch] = useState("")
   const [execSummaryFields, setExecSummaryFields] = useState<CustomField[]>([])
+  
+  // Problem Statement state
+  const [theProblem, setTheProblem] = useState("")
+  const [whoPrimary, setWhoPrimary] = useState("")
+  const [whoSecondary, setWhoSecondary] = useState("")
+  const [marketSize, setMarketSize] = useState("")
   const [problemFields, setProblemFields] = useState<CustomField[]>([])
+  
+  // Our Solution state
+  const [whatBuilding, setWhatBuilding] = useState("")
   const [buildingFields, setBuildingFields] = useState<CustomField[]>([])
   const [journeySteps, setJourneySteps] = useState<CustomField[]>([])
   const [differentiators, setDifferentiators] = useState<CustomField[]>([])
   const [competitors, setCompetitors] = useState<Array<{id: string, name: string, failure: string}>>([])
+  
+  const [isLoading, setIsLoading] = useState(true)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
-  // Helper functions for each section
+  // Load data when projectId changes
+  useEffect(() => {
+    const loadOverviewData = async () => {
+      setIsLoading(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          setIsLoading(false)
+          return
+        }
+
+        const response = await fetch(`/api/decide/projects/${projectId}/overview`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        const result = await response.json()
+        if (result.success && result.data) {
+          const data = result.data
+          
+          // Populate all fields
+          setProductName(data.product_name || "")
+          setTagline(data.tagline || "")
+          setVersion(data.version || "")
+          setElevatorPitch(data.elevator_pitch || "")
+          setExecSummaryFields(data.exec_summary_custom_fields || [])
+          
+          setTheProblem(data.the_problem || "")
+          setWhoPrimary(data.who_has_problem_primary || "")
+          setWhoSecondary(data.who_has_problem_secondary || "")
+          setMarketSize(data.market_size || "")
+          setProblemFields(data.problem_custom_fields || [])
+          
+          setWhatBuilding(data.what_building || "")
+          setBuildingFields(data.building_custom_fields || [])
+          setJourneySteps(data.journey_custom_steps && data.journey_custom_steps.length > 0 ? data.journey_custom_steps : [
+            { id: "default-1", title: "", value: "Capture (15 seconds): User records voice note or types quick thoughts after meeting someone" },
+            { id: "default-2", title: "", value: "AI Organizes (5 seconds): GPT-4 extracts person details, keywords, companies, follow-ups" },
+            { id: "default-3", title: "", value: "Enrich (optional): Paste LinkedIn profile for automatic background parsing" },
+            { id: "default-4", title: "", value: "Edit & Save (30 seconds): Review AI-organized data, add notes, save to library" },
+            { id: "default-5", title: "", value: "Follow-Up (ongoing): Get reminders, search past conversations, build relationships" }
+          ])
+          setDifferentiators(data.differentiator_custom_fields || [])
+          setCompetitors(data.competitors || [])
+        } else {
+          // No data exists yet for this project - reset to empty with default journey steps
+          setProductName("")
+          setTagline("")
+          setVersion("")
+          setElevatorPitch("")
+          setExecSummaryFields([])
+          setTheProblem("")
+          setWhoPrimary("")
+          setWhoSecondary("")
+          setMarketSize("")
+          setProblemFields([])
+          setWhatBuilding("")
+          setBuildingFields([])
+          setJourneySteps([
+            { id: "default-1", title: "", value: "Capture (15 seconds): User records voice note or types quick thoughts after meeting someone" },
+            { id: "default-2", title: "", value: "AI Organizes (5 seconds): GPT-4 extracts person details, keywords, companies, follow-ups" },
+            { id: "default-3", title: "", value: "Enrich (optional): Paste LinkedIn profile for automatic background parsing" },
+            { id: "default-4", title: "", value: "Edit & Save (30 seconds): Review AI-organized data, add notes, save to library" },
+            { id: "default-5", title: "", value: "Follow-Up (ongoing): Get reminders, search past conversations, build relationships" }
+          ])
+          setDifferentiators([])
+          setCompetitors([])
+        }
+      } catch (error) {
+        console.error('Error loading overview:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadOverviewData()
+  }, [projectId])
+
+  // Auto-save with debouncing
+  const autoSave = () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) return
+
+        const overviewData = {
+          product_name: productName,
+          tagline,
+          version,
+          elevator_pitch: elevatorPitch,
+          exec_summary_custom_fields: execSummaryFields,
+          
+          the_problem: theProblem,
+          who_has_problem_primary: whoPrimary,
+          who_has_problem_secondary: whoSecondary,
+          market_size: marketSize,
+          problem_custom_fields: problemFields,
+          
+          what_building: whatBuilding,
+          building_custom_fields: buildingFields,
+          journey_custom_steps: journeySteps,
+          differentiator_custom_fields: differentiators,
+          competitors,
+        }
+
+        await fetch(`/api/decide/projects/${projectId}/overview`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(overviewData),
+        })
+      } catch (error) {
+        console.error('Error auto-saving overview:', error)
+      }
+    }, 1000) // 1 second debounce
+  }
+
+  // Trigger auto-save when any state changes
+  useEffect(() => {
+    if (!isLoading) {
+      autoSave()
+    }
+  }, [
+    productName, tagline, version, elevatorPitch, execSummaryFields,
+    theProblem, whoPrimary, whoSecondary, marketSize, problemFields,
+    whatBuilding, buildingFields, journeySteps, differentiators, competitors
+  ])
+
+  // Auto-resize textareas based on content
+  useEffect(() => {
+    const textareas = document.querySelectorAll('textarea')
+    textareas.forEach((textarea) => {
+      autoResizeTextarea(textarea as HTMLTextAreaElement)
+    })
+  }, [elevatorPitch, theProblem, marketSize, whatBuilding, execSummaryFields, problemFields, buildingFields])
+
+  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto'
+    element.style.height = element.scrollHeight + 'px'
+  }
+
+  // Drag and drop handlers for journey steps
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === dropIndex) return
+
+    const newSteps = [...journeySteps]
+    const [draggedItem] = newSteps.splice(draggedIndex, 1)
+    newSteps.splice(dropIndex, 0, draggedItem)
+    
+    setJourneySteps(newSteps)
+    setDraggedIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+  }
+
+  // Helper functions
   const addField = (setter: React.Dispatch<React.SetStateAction<CustomField[]>>) => {
     setter(prev => [...prev, { id: Date.now().toString(), title: "", value: "" }])
   }
@@ -45,6 +241,12 @@ export default function OverviewTab() {
     setCompetitors(competitors.filter(comp => comp.id !== id))
   }
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-12">
+      <div className="text-gray-500">Loading...</div>
+    </div>
+  }
+
   return (
     <div className="space-y-6">
       {/* Executive Summary */}
@@ -65,7 +267,8 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
             <input 
               type="text"
-              defaultValue="RemindMe"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Enter product name"
             />
@@ -74,7 +277,8 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Tagline</label>
             <input 
               type="text"
-              defaultValue="AI-powered personal memory assistant for professional networking"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="One compelling sentence"
             />
@@ -83,7 +287,8 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Version</label>
             <input 
               type="text"
-              defaultValue="MVP v1.0"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="e.g., MVP v1.0, POC, Pre-Seed Pitch"
             />
@@ -92,7 +297,9 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Elevator Pitch (2-3 sentences)</label>
             <textarea 
               rows={3}
-              defaultValue="Capture conversations via voice/text, AI organizes them into actionable relationship intelligence. RemindMe helps professionals remember people, conversations, and important moments without manual data entry."
+              value={elevatorPitch}
+              onChange={(e) => setElevatorPitch(e.target.value)}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="What you're building + Who it's for + Why it matters"
             />
@@ -146,7 +353,9 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">The Problem</label>
             <textarea 
               rows={4}
-              defaultValue="Professionals meet 20-50+ people at conferences, networking events, and meetings monthly. 80% of valuable connections are lost within 2 weeks due to poor note-taking. Existing CRM tools require manual data entry (15-20 min per contact). LinkedIn connections accumulate but relationship context disappears."
+              value={theProblem}
+              onChange={(e) => setTheProblem(e.target.value)}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="What pain point are you solving? How big is the pain? Why hasn't this been solved yet?"
             />
@@ -156,13 +365,15 @@ export default function OverviewTab() {
             <div className="space-y-2">
               <input 
                 type="text"
-                defaultValue="Primary: Founders, VCs, business development professionals, sales leaders"
+                value={whoPrimary}
+                onChange={(e) => setWhoPrimary(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Primary Audience"
               />
               <input 
                 type="text"
-                defaultValue="Secondary: Consultants, recruiters, event organizers, community builders"
+                value={whoSecondary}
+                onChange={(e) => setWhoSecondary(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Secondary Audiences"
               />
@@ -172,7 +383,9 @@ export default function OverviewTab() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Market Size</label>
             <textarea 
               rows={2}
-              defaultValue="Professional networking events: $15B+ industry. CRM market: $60B+. 150M+ knowledge workers in US alone who attend networking events."
+              value={marketSize}
+              onChange={(e) => setMarketSize(e.target.value)}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="TAM/SAM/SOM or qualitative description"
             />
@@ -227,7 +440,9 @@ export default function OverviewTab() {
             </div>
             <textarea 
               rows={3}
-              defaultValue="RemindMe is an AI-first relationship intelligence platform that turns unstructured conversation notes into organized, actionable contact profiles—with zero manual data entry."
+              value={whatBuilding}
+              onChange={(e) => setWhatBuilding(e.target.value)}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Core product description in 2-3 sentences"
             />
@@ -272,36 +487,35 @@ export default function OverviewTab() {
               </Button>
             </div>
             <div className="space-y-2">
-              {[
-                "Capture (15 seconds): User records voice note or types quick thoughts after meeting someone",
-                "AI Organizes (5 seconds): GPT-4 extracts person details, keywords, companies, follow-ups",
-                "Enrich (optional): Paste LinkedIn profile for automatic background parsing",
-                "Edit & Save (30 seconds): Review AI-organized data, add notes, save to library",
-                "Follow-Up (ongoing): Get reminders, search past conversations, build relationships"
-              ].map((step, index) => (
-                <input 
-                  key={index}
-                  type="text"
-                  defaultValue={step}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder={`Step ${index + 1}`}
-                />
-              ))}
-              {journeySteps.map((field) => (
-                <div key={field.id} className="relative bg-purple-50 p-3 rounded-lg border border-purple-200">
-                  <button
-                    onClick={() => removeField(field.id, setJourneySteps)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                  <input 
-                    type="text"
-                    value={field.value}
-                    onChange={(e) => updateFieldValue(field.id, e.target.value, setJourneySteps)}
-                    className="w-full px-3 py-1.5 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="Additional step..."
-                  />
+              {journeySteps.map((field, index) => (
+                <div 
+                  key={field.id} 
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative flex items-start gap-2 ${draggedIndex === index ? 'opacity-50' : ''}`}
+                >
+                  <div className="cursor-move mt-2 text-gray-400 hover:text-gray-600">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 relative">
+                    <button
+                      onClick={() => removeField(field.id, setJourneySteps)}
+                      className="absolute top-2 right-8 z-10 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <textarea 
+                      rows={2}
+                      value={field.value}
+                      onChange={(e) => updateFieldValue(field.id, e.target.value, setJourneySteps)}
+                      onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                      className="w-full px-4 py-2 pr-14 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
+                      placeholder="Describe this step..."
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -328,10 +542,11 @@ export default function OverviewTab() {
               ].map((diff, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <Badge className="bg-purple-100 text-purple-700 mt-1">✓</Badge>
-                  <input 
-                    type="text"
+                  <textarea 
+                    rows={2}
                     defaultValue={diff}
-                    className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                    className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
                     placeholder={`Differentiator ${index + 1}`}
                   />
                 </div>
@@ -339,11 +554,12 @@ export default function OverviewTab() {
               {differentiators.map((field) => (
                 <div key={field.id} className="relative flex items-start gap-2 bg-purple-50 p-3 rounded-lg border border-purple-200">
                   <Badge className="bg-purple-100 text-purple-700 mt-1">✓</Badge>
-                  <input 
-                    type="text"
+                  <textarea 
+                    rows={2}
                     value={field.value}
                     onChange={(e) => updateFieldValue(field.id, e.target.value, setDifferentiators)}
-                    className="flex-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                    className="flex-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-pre-wrap break-words"
                     placeholder="Additional differentiator..."
                   />
                   <button

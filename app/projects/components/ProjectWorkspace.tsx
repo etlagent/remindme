@@ -232,7 +232,7 @@ export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceP
       <div className="p-6">
         {activeTab === 'tasks' && <TasksTab projectId={project.id} />}
         {activeTab === 'resources' && <ResourcesTab projectId={project.id} />}
-        {activeTab === 'overview' && <OverviewTab />}
+        {activeTab === 'overview' && <OverviewTab projectId={project.id} />}
         {activeTab === 'mvp-scope' && <MVPScopeTab />}
         {activeTab === 'technical' && <TechnicalSpecsTab />}
         {activeTab === 'roadmap' && <RoadmapTab />}
