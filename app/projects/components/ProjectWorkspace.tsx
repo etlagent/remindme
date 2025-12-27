@@ -237,7 +237,7 @@ export function ProjectWorkspace({ project, onUpdateProject }: ProjectWorkspaceP
         {activeTab === 'technical' && <TechnicalSpecsTab />}
         {activeTab === 'roadmap' && <RoadmapTab />}
         {activeTab === 'resources-costs' && <ResourcesCostsTab />}
-        {activeTab === 'knowns-unknowns' && <KnownsUnknownsTab />}
+        {activeTab === 'knowns-unknowns' && <KnownsUnknownsTab projectId={project.id} />}
         {activeTab === 'business' && <BusinessCaseTab />}
         {activeTab === 'team' && <TeamTimelineTab />}
       </div>

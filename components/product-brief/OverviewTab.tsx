@@ -564,16 +564,14 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
               {journeySteps.map((field, index) => (
                 <div 
                   key={field.id} 
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={(e) => handleDrop(e, index)}
-                  className={`relative flex items-start gap-2 ${draggedIndex === index ? 'opacity-50' : ''}`}
+                  onDragEnd={handleDragEnd}
+                  className={`relative flex items-start gap-2 cursor-move ${draggedIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div 
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragEnd={handleDragEnd}
-                    className="cursor-move mt-2 text-gray-400 hover:text-gray-600"
-                  >
+                  <div className="mt-2 text-gray-400 hover:text-gray-600">
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -584,6 +582,7 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
                       <X className="w-4 h-4" />
                     </button>
                     <textarea 
+                      draggable={false}
                       rows={2}
                       value={field.value}
                       onChange={(e) => updateFieldValue(field.id, e.target.value, setJourneySteps)}
@@ -613,16 +612,14 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
               {differentiators.map((field, index) => (
                 <div 
                   key={field.id} 
+                  draggable
+                  onDragStart={() => handleDiffDragStart(index)}
                   onDragOver={(e) => handleDiffDragOver(e, index)}
                   onDrop={(e) => handleDiffDrop(e, index)}
-                  className={`relative flex items-start gap-2 ${draggedDiffIndex === index ? 'opacity-50' : ''}`}
+                  onDragEnd={handleDiffDragEnd}
+                  className={`relative flex items-start gap-2 cursor-move ${draggedDiffIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div 
-                    draggable
-                    onDragStart={() => handleDiffDragStart(index)}
-                    onDragEnd={handleDiffDragEnd}
-                    className="cursor-move mt-2 text-gray-400 hover:text-gray-600"
-                  >
+                  <div className="mt-2 text-gray-400 hover:text-gray-600">
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -633,6 +630,7 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
                       <X className="w-4 h-4" />
                     </button>
                     <textarea 
+                      draggable={false}
                       rows={2}
                       value={field.value}
                       onChange={(e) => updateFieldValue(field.id, e.target.value, setDifferentiators)}
@@ -687,6 +685,7 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
                 </button>
                 <div className="grid grid-cols-2 gap-3">
                   <textarea 
+                    draggable={false}
                     rows={1}
                     value={comp.name}
                     onChange={(e) => setCompetitors(competitors.map(c => 
@@ -697,6 +696,7 @@ export default function OverviewTab({ projectId }: OverviewTabProps) {
                     placeholder="Solution name"
                   />
                   <textarea 
+                    draggable={false}
                     rows={1}
                     value={comp.failure}
                     onChange={(e) => setCompetitors(competitors.map(c => 
