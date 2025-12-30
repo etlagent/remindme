@@ -6,7 +6,8 @@ import MeetingDetailsSection from './MeetingCardExpanded/MeetingDetailsSection';
 import GoalMessageSection from './MeetingCardExpanded/GoalMessageSection';
 import AgendaSection from './MeetingCardExpanded/AgendaSection';
 import AttendeesSection from './MeetingCardExpanded/AttendeesSection';
-import ConversationStrategySection from './MeetingCardExpanded/ConversationStrategySection';
+import ContextBuilder from './MeetingCardExpanded/ContextBuilder';
+import ConversationStrategySectionV2 from './MeetingCardExpanded/ConversationStrategySectionV2';
 import PreparationNotesSection from './MeetingCardExpanded/PreparationNotesSection';
 
 interface MeetingCardExpandedProps {
@@ -21,6 +22,13 @@ export default function MeetingCardExpanded({
   onDelete
 }: MeetingCardExpandedProps) {
   const [leftColumnCollapsed, setLeftColumnCollapsed] = useState(false);
+  const [meetingType, setMeetingType] = useState('qualification');
+  const [contextFields, setContextFields] = useState<Array<{ id: string; label: string; value: string; placeholder: string }>>([]);
+
+  const handleContextChange = (newMeetingType: string, newContextFields: Array<{ id: string; label: string; value: string; placeholder: string }>) => {
+    setMeetingType(newMeetingType);
+    setContextFields(newContextFields);
+  };
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 p-6">
@@ -61,7 +69,7 @@ export default function MeetingCardExpanded({
         )}
         
         {/* Right Column - Preparation Sections (2/3 width or full width when left is collapsed) */}
-        <div className={`${leftColumnCollapsed ? 'flex-1' : 'flex-1'} space-y-6 border-l-2 border-purple-500 pl-6`}>
+        <div className={`${leftColumnCollapsed ? 'flex-1' : 'flex-1'} space-y-6 border-l-2 border-purple-500 pl-6 overflow-x-hidden`}>
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             The Ability to Pull in any conversations or meetings from with the business, from relationships, Notes etc.
           </div>
@@ -70,7 +78,16 @@ export default function MeetingCardExpanded({
           
           <AgendaSection meetingId={meeting.id} />
           
-          <ConversationStrategySection meetingId={meeting.id} />
+          <ContextBuilder 
+            meetingId={meeting.id} 
+            onContextChange={handleContextChange}
+          />
+          
+          <ConversationStrategySectionV2 
+            meetingId={meeting.id}
+            meetingType={meetingType}
+            contextFields={contextFields}
+          />
           
           <PreparationNotesSection meeting={meeting} onUpdate={onUpdate} />
         </div>
