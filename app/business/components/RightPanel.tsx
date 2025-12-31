@@ -563,8 +563,15 @@ export default function RightPanel({
       person.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       person.role?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Tag filter (this would come from person tags in real implementation)
-    const matchesFilter = selectedFilter === 'all'; // TODO: implement tag filtering
+    // Relationship circle filter
+    if (selectedFilter === 'inner_circle' || selectedFilter === 'professional' || 
+        selectedFilter === 'genuine_interest' || selectedFilter === 'acquaintance' || 
+        selectedFilter === 'brief_encounter' || selectedFilter === 'not_met') {
+      return matchesSearch && person.relationship_circle === selectedFilter;
+    }
+    
+    // Tag filter (business, personal, projects)
+    const matchesFilter = selectedFilter === 'all'; // TODO: implement tag filtering for business/personal/projects
     
     return matchesSearch && matchesFilter;
   });

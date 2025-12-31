@@ -15,7 +15,6 @@ export default function MeetingDetailsSection({
   const [formData, setFormData] = useState({
     title: meeting.title,
     meeting_date: meeting.meeting_date,
-    start_time: meeting.start_time,
     location: meeting.location || '',
     business_id: meeting.business_id || ''
   });
@@ -51,19 +50,6 @@ export default function MeetingDetailsSection({
             value={formData.meeting_date?.split('T')[0] || ''}
             onChange={(e) => setFormData({ ...formData, meeting_date: e.target.value })}
             onBlur={(e) => handleBlur('meeting_date', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Start Time
-          </label>
-          <input
-            type="time"
-            value={formData.start_time || ''}
-            onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-            onBlur={(e) => handleBlur('start_time', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

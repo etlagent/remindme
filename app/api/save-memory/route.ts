@@ -112,6 +112,9 @@ export async function POST(request: Request) {
               inspiration_level: personData.inspiration_level || null,
               relationship_potential: personData.relationship_potential || null,
               relationship_notes: personData.relationship_notes || null,
+              relationship_circle: personData.relationship_circle || null,
+              interaction_details: personData.interaction_details || [],
+              interests: personData.interests || [],
             })
             .eq("id", personId)
             .eq("user_id", userId)
@@ -140,6 +143,9 @@ export async function POST(request: Request) {
               inspiration_level: personData.inspiration_level || null,
               relationship_potential: personData.relationship_potential || null,
               relationship_notes: personData.relationship_notes || null,
+              relationship_circle: personData.relationship_circle || null,
+              interaction_details: personData.interaction_details || [],
+              interests: personData.interests || [],
             })
             .select()
             .single();

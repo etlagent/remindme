@@ -16,10 +16,12 @@ interface PersonInfoCardProps {
   personCompany: string;
   personRole: string;
   personLocation: string;
+  personInterests: string;
   onPersonNameChange: (value: string) => void;
   onPersonCompanyChange: (value: string) => void;
   onPersonRoleChange: (value: string) => void;
   onPersonLocationChange: (value: string) => void;
+  onPersonInterestsChange: (value: string) => void;
   onClear: () => void;
 }
 
@@ -28,10 +30,12 @@ export function PersonInfoCard({
   personCompany,
   personRole,
   personLocation,
+  personInterests,
   onPersonNameChange,
   onPersonCompanyChange,
   onPersonRoleChange,
   onPersonLocationChange,
+  onPersonInterestsChange,
   onClear,
 }: PersonInfoCardProps) {
   return (
@@ -91,6 +95,15 @@ export function PersonInfoCard({
           value={personLocation}
           onChange={(e) => onPersonLocationChange(e.target.value)}
           className="w-full text-base text-gray-700 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
+        />
+        
+        {/* Interests / What they do */}
+        <input
+          type="text"
+          placeholder="Interests / What they do (e.g., Painter, Musician, Rock climber)"
+          value={personInterests}
+          onChange={(e) => onPersonInterestsChange(e.target.value)}
+          className="w-full text-base text-gray-600 border-0 p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 italic"
         />
       </div>
     </div>

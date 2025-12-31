@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { business_id, situation, goal, context_sources, clarifying_qa } = body;
+    const { business_id, meeting_id, meeting_type, situation, goal, context_sources, clarifying_qa, attendee_ids } = body;
 
-    if (!business_id) {
-      return NextResponse.json({ error: 'Business ID is required' }, { status: 400 });
+    if (!business_id && !meeting_id) {
+      return NextResponse.json({ error: 'Either business_id or meeting_id is required' }, { status: 400 });
     }
 
     // Gather context based on selected sources
@@ -45,30 +45,59 @@ export async function POST(request: NextRequest) {
       business: null,
       meetings: [],
       notes: [],
-      people: []
+      people: [],
+      attendees: []
     };
 
-    // Get business details
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('id', business_id)
-      .single();
-    
-    contextData.business = business;
+    // Get business details if business_id provided
+    if (business_id) {
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', business_id)
+        .single();
+      
+      contextData.business = business;
+    }
+
+    // Get meeting details if meeting_id provided
+    if (meeting_id) {
+      const { data: meeting } = await supabase
+        .from('meetings')
+        .select('*, businesses(*)')
+        .eq('id', meeting_id)
+        .single();
+      
+      if (meeting) {
+        contextData.meeting = meeting;
+        if (meeting.businesses) {
+          contextData.business = meeting.businesses;
+        }
+      }
+    }
+
+    // Get attendee LinkedIn data if attendees context source is selected
+    if (context_sources.includes('attendees') && attendee_ids && attendee_ids.length > 0) {
+      const { data: attendees } = await supabase
+        .from('people')
+        .select('*')
+        .in('id', attendee_ids);
+      
+      contextData.attendees = attendees || [];
+    }
 
     // Gather context from selected sources
-    if (context_sources.includes('meetings')) {
+    if (context_sources.includes('meetings') && business_id) {
       const { data: meetings } = await supabase
         .from('meetings')
         .select('*, meeting_notes(*)')
         .eq('business_id', business_id)
-        .order('date', { ascending: false })
+        .order('meeting_date', { ascending: false })
         .limit(5);
       contextData.meetings = meetings || [];
     }
 
-    if (context_sources.includes('notes')) {
+    if (context_sources.includes('notes') && business_id) {
       const { data: notes } = await supabase
         .from('business_notes')
         .select('*')
@@ -78,7 +107,7 @@ export async function POST(request: NextRequest) {
       contextData.notes = notes || [];
     }
 
-    if (context_sources.includes('linkedin') || context_sources.includes('conversations') || context_sources.includes('memories')) {
+    if ((context_sources.includes('linkedin') || context_sources.includes('conversations') || context_sources.includes('memories')) && business_id) {
       const { data: people } = await supabase
         .from('people')
         .select('*')
@@ -90,11 +119,13 @@ export async function POST(request: NextRequest) {
     const contextString = buildContextString(contextData, context_sources);
 
     // Call OpenAI to generate strategy
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
+    console.log('\n========================================');
+    console.log('🤖 GENERATE STRATEGY - API CALL');
+    console.log('========================================');
+    
+    const messages = [
+      {
+        role: "system",
           content: `You are an expert conversation strategist helping a business professional plan strategic conversations.
 
 Your task is to break down a conversation goal into 3-5 logical, sequential steps. Each step should build on the previous one, creating a clear roadmap.
@@ -143,12 +174,23 @@ ${clarifying_qa.map((qa: any) => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n\
 
 Generate exactly 3-5 strategic conversation steps that create a clear roadmap from where they are now to achieving the goal.`
         }
-      ],
+    ];
+    
+    console.log('\n📤 REQUEST TO OPENAI:');
+    console.log(JSON.stringify(messages, null, 2));
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages,
       temperature: 0.7,
       response_format: { type: "json_object" }
     });
 
     const aiResponse = completion.choices[0].message.content;
+    
+    console.log('\n📥 RESPONSE FROM OPENAI:');
+    console.log(aiResponse);
+    console.log('========================================\n');
     let steps = [];
     
     try {
@@ -171,22 +213,41 @@ Generate exactly 3-5 strategic conversation steps that create a clear roadmap fr
     }
 
     // Save strategy to database
+    const strategyData: any = {
+      user_id: user.id,
+      situation,
+      goal,
+      context_sources,
+      clarifying_qa: clarifying_qa || []
+    };
+
+    // Set either business_id or meeting_id
+    if (business_id) {
+      strategyData.business_id = business_id;
+    } else if (meeting_id) {
+      strategyData.meeting_id = meeting_id;
+      if (meeting_type) {
+        strategyData.meeting_type = meeting_type;
+      }
+      if (attendee_ids) {
+        strategyData.attendee_ids = attendee_ids;
+      }
+    }
+
     const { data: strategy, error: strategyError } = await supabase
       .from('conversation_strategies')
-      .insert({
-        business_id,
-        user_id: user.id,
-        situation,
-        goal,
-        context_sources,
-        clarifying_qa: clarifying_qa || []
-      })
+      .insert(strategyData)
       .select()
       .single();
 
     if (strategyError) {
       console.error('Error saving strategy:', strategyError);
-      return NextResponse.json({ error: 'Failed to save strategy' }, { status: 500 });
+      console.error('Strategy data attempted:', strategyData);
+      return NextResponse.json({ 
+        error: 'Failed to save strategy', 
+        details: strategyError.message || strategyError,
+        data: strategyData 
+      }, { status: 500 });
     }
 
     // Save steps to database
@@ -230,10 +291,36 @@ Generate exactly 3-5 strategic conversation steps that create a clear roadmap fr
 function buildContextString(contextData: any, sources: string[]): string {
   let context = '';
 
+  if (contextData.meeting) {
+    context += `Meeting: ${contextData.meeting.title}\n`;
+    context += `Date: ${contextData.meeting.meeting_date || 'Not scheduled'}\n`;
+    context += `Goal: ${contextData.meeting.goal || 'N/A'}\n\n`;
+  }
+
   if (contextData.business) {
     context += `Business: ${contextData.business.name}\n`;
     context += `Industry: ${contextData.business.industry || 'N/A'}\n`;
     context += `Stage: ${contextData.business.stage || 'N/A'}\n\n`;
+  }
+
+  if (sources.includes('attendees') && contextData.attendees.length > 0) {
+    context += 'Meeting Attendees:\n';
+    contextData.attendees.forEach((person: any) => {
+      context += `- ${person.name}`;
+      if (person.title) context += ` (${person.title})`;
+      if (person.company) context += ` at ${person.company}`;
+      context += '\n';
+      
+      if (person.linkedin_keywords && person.linkedin_keywords.length > 0) {
+        context += `  Keywords: ${person.linkedin_keywords.join(', ')}\n`;
+      }
+      
+      if (person.linkedin_text) {
+        const summary = person.linkedin_text.substring(0, 300);
+        context += `  Profile: ${summary}...\n`;
+      }
+    });
+    context += '\n';
   }
 
   if (sources.includes('meetings') && contextData.meetings.length > 0) {

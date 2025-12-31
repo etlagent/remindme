@@ -29,6 +29,12 @@ export default function ConversationStrategySectionV2({
   const [currentStrategyId, setCurrentStrategyId] = useState<string | null>(null);
   const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
   const [clarifyingAnswers, setClarifyingAnswers] = useState<{[key: number]: string}>({});
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [savedStrategies, setSavedStrategies] = useState<any[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchAttendees();
@@ -71,6 +77,144 @@ export default function ConversationStrategySectionV2({
       .filter(field => field.value.trim())
       .map(field => `${field.label}: ${field.value}`)
       .join('\n\n');
+  };
+
+  const handleSaveStrategy = async (name?: string) => {
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please log in to save strategy');
+        return;
+      }
+
+      const templateName = name || `Untitled ${Date.now()}`;
+      const stepsData = conversationSteps.map(step => ({
+        step_order: step.step_order,
+        description: step.description,
+        ai_suggestion: step.ai_suggestion
+      }));
+
+      // 1. Save to template table (meeting_conversation_strategies)
+      const templateData = {
+        name: templateName,
+        meeting_type: meetingType,
+        steps: stepsData
+      };
+
+      const templateResponse = await fetch('/api/conversation-strategies/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(templateData),
+      });
+
+      const templateResult = await templateResponse.json();
+      
+      if (!templateResult.success) {
+        alert(`Failed to save template: ${templateResult.error}`);
+        return;
+      }
+
+      // 2. Update per-meeting strategy (conversation_strategies + conversation_steps)
+      if (currentStrategyId) {
+        // Update existing strategy steps
+        const { error: deleteError } = await supabase
+          .from('conversation_steps')
+          .delete()
+          .eq('strategy_id', currentStrategyId);
+
+        if (deleteError) throw deleteError;
+
+        const { error: insertError } = await supabase
+          .from('conversation_steps')
+          .insert(
+            conversationSteps.map((step, index) => ({
+              strategy_id: currentStrategyId,
+              step_order: index + 1,
+              description: step.description,
+              ai_suggestion: step.ai_suggestion
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
+      
+      setShowSaveDialog(false);
+      setSaveName('');
+      alert('Strategy saved successfully!');
+    } catch (error) {
+      console.error('Error saving strategy:', error);
+      alert('Failed to save strategy');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLoadStrategy = async (strategyId: string) => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please log in to load strategy');
+        return;
+      }
+
+      const response = await fetch(`/api/conversation-strategies/${strategyId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.strategy) {
+        const loadedData = result.strategy;
+        
+        // Convert loaded steps back to conversationSteps format
+        const steps: ConversationStep[] = loadedData.steps.map((step: any, index: number) => ({
+          id: `step_${index}_${Date.now()}`,
+          step_order: step.step_order || index + 1,
+          description: step.description || '',
+          ai_suggestion: step.ai_suggestion || null
+        }));
+        
+        setConversationSteps(steps);
+        setShowLoadDialog(false);
+      } else {
+        alert(`Failed to load: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error loading strategy:', error);
+      alert('Failed to load strategy');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchSavedStrategies = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/conversation-strategies/list', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSavedStrategies(result.strategies || []);
+      }
+    } catch (error) {
+      console.error('Error fetching saved strategies:', error);
+    }
   };
 
   const handleGenerateQuestions = async () => {
@@ -183,18 +327,37 @@ export default function ConversationStrategySectionV2({
     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">💬 Conversation Strategy</h3>
-        {hasSteps && (
-          <button
-            onClick={() => {
-              setClarifyingQuestions([]);
-              setClarifyingAnswers({});
-              setConversationSteps([]);
-            }}
-            className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
-          >
-            + New Strategy
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {hasSteps && (
+            <>
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  fetchSavedStrategies();
+                  setShowLoadDialog(true);
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-green-600 hover:text-green-700 border border-green-300 rounded-md hover:bg-green-50"
+              >
+                Load
+              </button>
+              <button
+                onClick={() => {
+                  setClarifyingQuestions([]);
+                  setClarifyingAnswers({});
+                  setConversationSteps([]);
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
+              >
+                + New Strategy
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {hasSteps ? (
@@ -342,6 +505,87 @@ export default function ConversationStrategySectionV2({
               {isGenerating ? '⏳ Analyzing Context...' : '🤖 Generate Strategy'}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Save Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">Save Strategy</h3>
+            <p className="text-sm text-gray-600 mb-4">Give this strategy a name to easily find it later.</p>
+            
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="e.g., Enterprise Discovery Flow, Partnership Pitch"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              autoFocus
+            />
+            
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowSaveDialog(false);
+                  setSaveName('');
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveStrategy(saveName)}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300"
+                disabled={isSaving || !saveName.trim()}
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load Dialog */}
+      {showLoadDialog && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">Load Strategy</h3>
+            <p className="text-sm text-gray-600 mb-4">Select a saved strategy to load.</p>
+            
+            <div className="max-h-96 overflow-y-auto mb-4">
+              {savedStrategies.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No saved strategies yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {savedStrategies.map((strategy) => (
+                    <button
+                      key={strategy.id}
+                      onClick={() => handleLoadStrategy(strategy.id)}
+                      className="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 hover:border-blue-300"
+                      disabled={isLoading}
+                    >
+                      <div className="font-medium text-sm">{strategy.name}</div>
+                      {strategy.meeting_type && (
+                        <div className="text-xs text-gray-500 mt-1">{strategy.meeting_type}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowLoadDialog(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

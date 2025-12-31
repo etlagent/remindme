@@ -14,56 +14,14 @@ interface KnownsUnknownsTabProps {
 export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps) {
   const [isLoading, setIsLoading] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Knowns state
-  const [knowns, setKnowns] = useState<Array<{id: string, value: string}>>([
-    { id: "known-1", value: "AI (GPT-4) can accurately extract structured data from conversational notes with 80%+ accuracy" },
-    { id: "known-2", value: "Voice capture is technically feasible using Web Speech API and OpenAI Whisper" },
-    { id: "known-3", value: "LinkedIn profile parsing works reliably for extracting background info" },
-    { id: "known-4", value: "Target users (founders, VCs, BD professionals) actively attend 2+ networking events per month" },
-    { id: "known-5", value: "Current CRM solutions are too slow/manual for in-the-moment networking contexts" },
-    { id: "known-6", value: "Users prefer mobile-friendly web app over native app for MVP (lower barrier)" }
-  ])
-
-  // Unknowns state
-  const [userBehaviorQuestions, setUserBehaviorQuestions] = useState<Array<{id: string, value: string}>>([
-    { id: "ub-1", value: "Will users actually capture notes immediately after meetings, or wait until later?" },
-    { id: "ub-2", value: "Do users prefer voice or text input? What's the split?" },
-    { id: "ub-3", value: "How many contacts does the average user need to capture per month?" },
-    { id: "ub-4", value: "What's the acceptable capture time? (We assume < 90 seconds)" }
-  ])
-
-  const [technicalQuestions, setTechnicalQuestions] = useState<Array<{id: string, value: string}>>([
-    { id: "tech-1", value: "Can we maintain 80%+ AI accuracy across different conversation styles?" },
-    { id: "tech-2", value: "What's the OpenAI API cost at scale? (Need to validate unit economics)" },
-    { id: "tech-3", value: "How well does voice transcription work in noisy conference environments?" },
-    { id: "tech-4", value: "Database performance with 10K+ users and millions of memories?" }
-  ])
-
-  const [businessQuestions, setBusinessQuestions] = useState<Array<{id: string, value: string}>>([
-    { id: "biz-1", value: "What pricing model works best? (Freemium vs. paid-only vs. usage-based)" },
-    { id: "biz-2", value: "Will users pay $10-20/month for this? What's the willingness to pay?" },
-    { id: "biz-3", value: "Is this a B2C product or does it need B2B/team features to scale?" },
-    { id: "biz-4", value: "What's the viral coefficient? Will users refer others organically?" }
-  ])
-
-  // Risks state
-  const [risks, setRisks] = useState<Array<{id: string, risk: string, impact: string, likelihood: string, mitigation: string}>>([
-    { id: "risk-1", risk: "AI accuracy drops below 80% in production", impact: "High", likelihood: "Medium", mitigation: "Build feedback loop for users to correct AI. Fine-tune model with real data. Offer manual edit mode as fallback." },
-    { id: "risk-2", risk: "OpenAI API costs become prohibitive at scale", impact: "High", likelihood: "Medium", mitigation: "Implement caching for similar queries. Consider cheaper models for non-critical features. Explore self-hosted alternatives." },
-    { id: "risk-3", risk: "Users don't adopt voice capture (too awkward in public)", impact: "Medium", likelihood: "Medium", mitigation: "Make text input equally fast. Add 'quick capture' shortcuts. Focus on post-event capture rather than during-event." },
-    { id: "risk-4", risk: "Competitors (Clay, Folk) add similar AI features", impact: "High", likelihood: "High", mitigation: "Move fast to build brand with early users. Focus on superior UX (speed). Add unique features (relationship insights)." },
-    { id: "risk-5", risk: "LinkedIn blocks profile scraping", impact: "Low", likelihood: "Low", mitigation: "We only parse user-pasted content, not automated scraping. Add manual profile entry as fallback." },
-    { id: "risk-6", risk: "Privacy concerns prevent user adoption", impact: "High", likelihood: "Low", mitigation: "Build trust with transparency. Allow users to delete data. SOC 2 compliance. Clear privacy policy." }
-  ])
-
-  // Assumptions to test state
-  const [assumptions, setAssumptions] = useState<Array<{id: string, value: string, tested: boolean}>>([
-    { id: "assumption-1", value: "Users will capture notes within 24 hours of meeting someone", tested: false },
-    { id: "assumption-2", value: "80%+ of captured data is accurate enough to be useful", tested: false },
-    { id: "assumption-3", value: "Users return 3x/week to add new contacts (indicates habit formation)", tested: false },
-    { id: "assumption-4", value: "Average session time is < 3 minutes (quick capture, not deep CRM work)", tested: false },
-    { id: "assumption-5", value: "Users are willing to paste LinkedIn profiles manually (not too much friction)", tested: false }
-  ])
+  
+  // State - start with empty arrays, load from database
+  const [knowns, setKnowns] = useState<Array<{id: string, value: string}>>([])
+  const [userBehaviorQuestions, setUserBehaviorQuestions] = useState<Array<{id: string, value: string}>>([])
+  const [technicalQuestions, setTechnicalQuestions] = useState<Array<{id: string, value: string}>>([])
+  const [businessQuestions, setBusinessQuestions] = useState<Array<{id: string, value: string}>>([])
+  const [risks, setRisks] = useState<Array<{id: string, risk: string, impact: string, likelihood: string, mitigation: string}>>([])
+  const [assumptions, setAssumptions] = useState<Array<{id: string, value: string, tested: boolean}>>([])
 
   const [draggedAssumptionIndex, setDraggedAssumptionIndex] = useState<number | null>(null)
   const [draggedRiskIndex, setDraggedRiskIndex] = useState<number | null>(null)
@@ -93,52 +51,24 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
         if (result.success && result.data) {
           const data = result.data
           
-          // Populate all fields with defaults if empty
-          setKnowns(data.knowns && data.knowns.length > 0 ? data.knowns : [
-            { id: "known-1", value: "AI (GPT-4) can accurately extract structured data from conversational notes with 80%+ accuracy" },
-            { id: "known-2", value: "Voice capture is technically feasible using Web Speech API and OpenAI Whisper" },
-            { id: "known-3", value: "LinkedIn profile parsing works reliably for extracting background info" },
-            { id: "known-4", value: "Target users (founders, VCs, BD professionals) actively attend 2+ networking events per month" },
-            { id: "known-5", value: "Current CRM solutions are too slow/manual for in-the-moment networking contexts" },
-            { id: "known-6", value: "Users prefer mobile-friendly web app over native app for MVP (lower barrier)" }
+          // Load data from database or start with one example per section
+          setKnowns(data.knowns ?? [
+            { id: "example-1", value: "Example: Budget approved and materials are in stock" }
           ])
-          
-          setUserBehaviorQuestions(data.user_behavior_questions && data.user_behavior_questions.length > 0 ? data.user_behavior_questions : [
-            { id: "ub-1", value: "Will users actually capture notes immediately after meetings, or wait until later?" },
-            { id: "ub-2", value: "Do users prefer voice or text input? What's the split?" },
-            { id: "ub-3", value: "How many contacts does the average user need to capture per month?" },
-            { id: "ub-4", value: "What's the acceptable capture time? (We assume < 90 seconds)" }
+          setUserBehaviorQuestions(data.user_behavior_questions ?? [
+            { id: "example-1", value: "Example: Will the timeline work with contractor availability?" }
           ])
-          
-          setTechnicalQuestions(data.technical_questions && data.technical_questions.length > 0 ? data.technical_questions : [
-            { id: "tech-1", value: "Can we maintain 80%+ AI accuracy across different conversation styles?" },
-            { id: "tech-2", value: "What's the OpenAI API cost at scale? (Need to validate unit economics)" },
-            { id: "tech-3", value: "How well does voice transcription work in noisy conference environments?" },
-            { id: "tech-4", value: "Database performance with 10K+ users and millions of memories?" }
+          setTechnicalQuestions(data.technical_questions ?? [
+            { id: "example-1", value: "Example: Can the existing plumbing support the new fixtures?" }
           ])
-          
-          setBusinessQuestions(data.business_questions && data.business_questions.length > 0 ? data.business_questions : [
-            { id: "biz-1", value: "What pricing model works best? (Freemium vs. paid-only vs. usage-based)" },
-            { id: "biz-2", value: "Will users pay $10-20/month for this? What's the willingness to pay?" },
-            { id: "biz-3", value: "Is this a B2C product or does it need B2B/team features to scale?" },
-            { id: "biz-4", value: "What's the viral coefficient? Will users refer others organically?" }
+          setBusinessQuestions(data.business_questions ?? [
+            { id: "example-1", value: "Example: What's the total budget including unexpected costs?" }
           ])
-          
-          setRisks(data.risks && data.risks.length > 0 ? data.risks : [
-            { id: "risk-1", risk: "AI accuracy drops below 80% in production", impact: "High", likelihood: "Medium", mitigation: "Build feedback loop for users to correct AI. Fine-tune model with real data. Offer manual edit mode as fallback." },
-            { id: "risk-2", risk: "OpenAI API costs become prohibitive at scale", impact: "High", likelihood: "Medium", mitigation: "Implement caching for similar queries. Consider cheaper models for non-critical features. Explore self-hosted alternatives." },
-            { id: "risk-3", risk: "Users don't adopt voice capture (too awkward in public)", impact: "Medium", likelihood: "Medium", mitigation: "Make text input equally fast. Add 'quick capture' shortcuts. Focus on post-event capture rather than during-event." },
-            { id: "risk-4", risk: "Competitors (Clay, Folk) add similar AI features", impact: "High", likelihood: "High", mitigation: "Move fast to build brand with early users. Focus on superior UX (speed). Add unique features (relationship insights)." },
-            { id: "risk-5", risk: "LinkedIn blocks profile scraping", impact: "Low", likelihood: "Low", mitigation: "We only parse user-pasted content, not automated scraping. Add manual profile entry as fallback." },
-            { id: "risk-6", risk: "Privacy concerns prevent user adoption", impact: "High", likelihood: "Low", mitigation: "Build trust with transparency. Allow users to delete data. SOC 2 compliance. Clear privacy policy." }
+          setRisks(data.risks ?? [
+            { id: "example-1", risk: "Example: Delays due to material shortages", impact: "Medium", likelihood: "Medium", mitigation: "Order materials early and have backup suppliers" }
           ])
-          
-          setAssumptions(data.assumptions_to_test && data.assumptions_to_test.length > 0 ? data.assumptions_to_test : [
-            { id: "assumption-1", value: "Users will capture notes within 24 hours of meeting someone", tested: false },
-            { id: "assumption-2", value: "80%+ of captured data is accurate enough to be useful", tested: false },
-            { id: "assumption-3", value: "Users return 3x/week to add new contacts (indicates habit formation)", tested: false },
-            { id: "assumption-4", value: "Average session time is < 3 minutes (quick capture, not deep CRM work)", tested: false },
-            { id: "assumption-5", value: "Users are willing to paste LinkedIn profiles manually (not too much friction)", tested: false }
+          setAssumptions(data.assumptions_to_test ?? [
+            { id: "example-1", value: "Example: Contractor can complete work within 2 weeks", tested: false }
           ])
         }
       } catch (error) {
@@ -193,6 +123,19 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
       autoSave()
     }
   }, [knowns, userBehaviorQuestions, technicalQuestions, businessQuestions, risks, assumptions])
+
+  // Auto-resize textareas based on content
+  useEffect(() => {
+    const textareas = document.querySelectorAll('textarea')
+    textareas.forEach((textarea) => {
+      autoResizeTextarea(textarea as HTMLTextAreaElement)
+    })
+  }, [knowns, userBehaviorQuestions, technicalQuestions, businessQuestions, risks, assumptions])
+
+  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto'
+    element.style.height = element.scrollHeight + 'px'
+  }
 
   const addItem = (setter: React.Dispatch<React.SetStateAction<Array<{id: string, value: string}>>>) => {
     setter(prev => [...prev, { id: Date.now().toString(), value: "" }])
@@ -385,6 +328,23 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
   const handleKnownDragEnd = () => {
     setDraggedKnownIndex(null)
   }
+
+  // Handle Enter key to blur textarea
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      e.currentTarget.blur()
+    }
+  }
+
+  // Handle input Enter key to blur
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.currentTarget.blur()
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Knowns */}
@@ -408,14 +368,16 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
           {knowns.map((known, index) => (
             <div 
               key={known.id} 
-              draggable
-              onDragStart={() => handleKnownDragStart(index)}
               onDragOver={(e) => handleKnownDragOver(e, index)}
               onDrop={(e) => handleKnownDrop(e, index)}
-              onDragEnd={handleKnownDragEnd}
-              className={`relative flex items-start gap-2 cursor-move ${draggedKnownIndex === index ? 'opacity-50' : ''}`}
+              className={`relative flex items-start gap-2 ${draggedKnownIndex === index ? 'opacity-50' : ''}`}
             >
-              <div className="text-gray-400 hover:text-gray-600 mt-2">
+              <div 
+                draggable
+                onDragStart={() => handleKnownDragStart(index)}
+                onDragEnd={handleKnownDragEnd}
+                className="text-gray-400 hover:text-gray-600 mt-2 cursor-move"
+              >
                 <GripVertical className="w-4 h-4" />
               </div>
               <div className="flex-1 relative">
@@ -428,7 +390,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                 <textarea 
                   draggable={false}
                   value={known.value}
-                  onChange={(e) => updateItem(known.id, e.target.value, setKnowns)}
+                  onChange={(e) => {
+                    updateItem(known.id, e.target.value, setKnowns)
+                    autoResizeTextarea(e.target)
+                  }}
+                  onKeyDown={handleTextareaKeyDown}
+                  onMouseDown={(e) => e.stopPropagation()}
                   rows={2}
                   className="w-full px-4 py-2 pr-8 bg-green-50 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   placeholder="Enter a validated assumption..."
@@ -464,14 +431,16 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
               {userBehaviorQuestions.map((q, index) => (
                 <div 
                   key={q.id} 
-                  draggable
-                  onDragStart={() => handleUBDragStart(index)}
                   onDragOver={(e) => handleUBDragOver(e, index)}
                   onDrop={(e) => handleUBDrop(e, index)}
-                  onDragEnd={handleUBDragEnd}
-                  className={`relative flex items-start gap-2 cursor-move ${draggedUBIndex === index ? 'opacity-50' : ''}`}
+                  className={`relative flex items-start gap-2 ${draggedUBIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div className="text-gray-400 hover:text-gray-600 mt-2">
+                  <div 
+                    draggable
+                    onDragStart={() => handleUBDragStart(index)}
+                    onDragEnd={handleUBDragEnd}
+                    className="text-gray-400 hover:text-gray-600 mt-2 cursor-move"
+                  >
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -484,7 +453,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                     <textarea 
                       draggable={false}
                       value={q.value}
-                      onChange={(e) => updateItem(q.id, e.target.value, setUserBehaviorQuestions)}
+                      onChange={(e) => {
+                        updateItem(q.id, e.target.value, setUserBehaviorQuestions)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onKeyDown={handleTextareaKeyDown}
+                      onMouseDown={(e) => e.stopPropagation()}
                       rows={2}
                       className="w-full px-4 py-2 pr-8 bg-yellow-50 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                       placeholder="Enter a question..."
@@ -512,14 +486,16 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
               {technicalQuestions.map((q, index) => (
                 <div 
                   key={q.id} 
-                  draggable
-                  onDragStart={() => handleTechDragStart(index)}
                   onDragOver={(e) => handleTechDragOver(e, index)}
                   onDrop={(e) => handleTechDrop(e, index)}
-                  onDragEnd={handleTechDragEnd}
-                  className={`relative flex items-start gap-2 cursor-move ${draggedTechIndex === index ? 'opacity-50' : ''}`}
+                  className={`relative flex items-start gap-2 ${draggedTechIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div className="text-gray-400 hover:text-gray-600 mt-2">
+                  <div 
+                    draggable
+                    onDragStart={() => handleTechDragStart(index)}
+                    onDragEnd={handleTechDragEnd}
+                    className="text-gray-400 hover:text-gray-600 mt-2 cursor-move"
+                  >
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -532,7 +508,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                     <textarea 
                       draggable={false}
                       value={q.value}
-                      onChange={(e) => updateItem(q.id, e.target.value, setTechnicalQuestions)}
+                      onChange={(e) => {
+                        updateItem(q.id, e.target.value, setTechnicalQuestions)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onKeyDown={handleTextareaKeyDown}
+                      onMouseDown={(e) => e.stopPropagation()}
                       rows={2}
                       className="w-full px-4 py-2 pr-8 bg-yellow-50 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                       placeholder="Enter a question..."
@@ -560,14 +541,16 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
               {businessQuestions.map((q, index) => (
                 <div 
                   key={q.id} 
-                  draggable
-                  onDragStart={() => handleBizDragStart(index)}
                   onDragOver={(e) => handleBizDragOver(e, index)}
                   onDrop={(e) => handleBizDrop(e, index)}
-                  onDragEnd={handleBizDragEnd}
-                  className={`relative flex items-start gap-2 cursor-move ${draggedBizIndex === index ? 'opacity-50' : ''}`}
+                  className={`relative flex items-start gap-2 ${draggedBizIndex === index ? 'opacity-50' : ''}`}
                 >
-                  <div className="text-gray-400 hover:text-gray-600 mt-2">
+                  <div 
+                    draggable
+                    onDragStart={() => handleBizDragStart(index)}
+                    onDragEnd={handleBizDragEnd}
+                    className="text-gray-400 hover:text-gray-600 mt-2 cursor-move"
+                  >
                     <GripVertical className="w-4 h-4" />
                   </div>
                   <div className="flex-1 relative">
@@ -580,7 +563,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                     <textarea 
                       draggable={false}
                       value={q.value}
-                      onChange={(e) => updateItem(q.id, e.target.value, setBusinessQuestions)}
+                      onChange={(e) => {
+                        updateItem(q.id, e.target.value, setBusinessQuestions)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onKeyDown={handleTextareaKeyDown}
+                      onMouseDown={(e) => e.stopPropagation()}
                       rows={2}
                       className="w-full px-4 py-2 pr-8 bg-yellow-50 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                       placeholder="Enter a question..."
@@ -626,15 +614,17 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
               {risks.map((item, index) => (
                 <tr 
                   key={item.id} 
-                  draggable
-                  onDragStart={() => handleRiskDragStart(index)}
                   onDragOver={(e) => handleRiskDragOver(e, index)}
                   onDrop={(e) => handleRiskDrop(e, index)}
-                  onDragEnd={handleRiskDragEnd}
-                  className={`hover:bg-gray-50 cursor-move ${draggedRiskIndex === index ? 'opacity-50' : ''}`}
+                  className={`hover:bg-gray-50 ${draggedRiskIndex === index ? 'opacity-50' : ''}`}
                 >
                   <td className="py-3 px-2">
-                    <div className="text-gray-400 hover:text-gray-600">
+                    <div 
+                      draggable
+                      onDragStart={() => handleRiskDragStart(index)}
+                      onDragEnd={handleRiskDragEnd}
+                      className="text-gray-400 hover:text-gray-600 cursor-move"
+                    >
                       <GripVertical className="w-4 h-4" />
                     </div>
                   </td>
@@ -642,7 +632,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                     <textarea 
                       draggable={false}
                       value={item.risk}
-                      onChange={(e) => updateRisk(item.id, 'risk', e.target.value)}
+                      onChange={(e) => {
+                        updateRisk(item.id, 'risk', e.target.value)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onKeyDown={handleTextareaKeyDown}
+                      onMouseDown={(e) => e.stopPropagation()}
                       rows={2}
                       className="w-full px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none overflow-hidden"
                       placeholder="Describe the risk..."
@@ -676,7 +671,12 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                     <textarea 
                       draggable={false}
                       value={item.mitigation}
-                      onChange={(e) => updateRisk(item.id, 'mitigation', e.target.value)}
+                      onChange={(e) => {
+                        updateRisk(item.id, 'mitigation', e.target.value)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onKeyDown={handleTextareaKeyDown}
+                      onMouseDown={(e) => e.stopPropagation()}
                       rows={2}
                       className="w-full px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none overflow-hidden"
                       placeholder="Mitigation strategy..."
@@ -715,14 +715,16 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
           {assumptions.map((assumption, index) => (
             <div 
               key={assumption.id}
-              draggable
-              onDragStart={() => handleAssumptionDragStart(index)}
               onDragOver={(e) => handleAssumptionDragOver(e, index)}
               onDrop={(e) => handleAssumptionDrop(e, index)}
-              onDragEnd={handleAssumptionDragEnd}
-              className={`flex items-center gap-2 cursor-move ${draggedAssumptionIndex === index ? 'opacity-50' : ''}`}
+              className={`flex items-center gap-2 ${draggedAssumptionIndex === index ? 'opacity-50' : ''}`}
             >
-              <div className="text-gray-400 hover:text-gray-600 mt-3">
+              <div 
+                draggable
+                onDragStart={() => handleAssumptionDragStart(index)}
+                onDragEnd={handleAssumptionDragEnd}
+                className="text-gray-400 hover:text-gray-600 mt-3 cursor-move"
+              >
                 <GripVertical className="w-4 h-4" />
               </div>
               <div className="flex items-center gap-3 p-3 bg-white rounded-lg flex-1 relative">
@@ -737,6 +739,8 @@ export default function KnownsUnknownsTab({ projectId }: KnownsUnknownsTabProps)
                   type="text"
                   value={assumption.value}
                   onChange={(e) => updateAssumption(assumption.id, e.target.value)}
+                  onKeyDown={handleInputKeyDown}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="flex-1 px-4 py-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="Enter assumption to test..."
                 />

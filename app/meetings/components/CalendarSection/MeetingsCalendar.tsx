@@ -207,11 +207,6 @@ export default function MeetingsCalendar({
                           <div className="text-sm font-medium text-gray-900 dark:text-white truncate pr-6">
                             {meeting.title}
                           </div>
-                          {meeting.start_time && (
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              {meeting.start_time}
-                            </div>
-                          )}
                         </div>
                         <button
                           onClick={async (e) => {

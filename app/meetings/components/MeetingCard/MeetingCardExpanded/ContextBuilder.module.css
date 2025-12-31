@@ -1,0 +1,31 @@
+/* Custom scrollbar styling for horizontal scroll */
+.scrollContainer {
+  display: flex;
+  gap: 1rem;
+  overflow-x: scroll;
+  overflow-y: visible;
+  padding-bottom: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Show scrollbar on all browsers */
+.scrollContainer::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scrollContainer::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

@@ -86,14 +86,9 @@ export async function PUT(
 
     if (body.title !== undefined) updateData.title = body.title;
     if (body.meeting_date !== undefined) updateData.meeting_date = body.meeting_date;
-    if (body.start_time !== undefined) updateData.start_time = body.start_time;
-    if (body.end_time !== undefined) updateData.end_time = body.end_time;
-    if (body.duration_minutes !== undefined) updateData.duration_minutes = body.duration_minutes;
     if (body.location !== undefined) updateData.location = body.location;
-    if (body.meeting_type !== undefined) updateData.meeting_type = body.meeting_type;
     if (body.business_id !== undefined) updateData.business_id = body.business_id;
     if (body.goal !== undefined) updateData.goal = body.goal;
-    if (body.key_message !== undefined) updateData.key_message = body.key_message;
     if (body.preparation_notes !== undefined) updateData.preparation_notes = body.preparation_notes;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.order_index !== undefined) updateData.order_index = body.order_index;

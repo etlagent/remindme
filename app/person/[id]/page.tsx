@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Plus, Edit2, Save, X, Calendar, Briefcase, Linkedin } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Save, X, Calendar, Briefcase, Linkedin, Users } from "lucide-react";
+import { RelationshipCircleSelector } from "@/components/capture/RelationshipCircleSelector";
+import { InteractionDetailsLog } from "@/components/capture/InteractionDetailsLog";
+import { InteractionDetail } from "@/lib/types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -24,6 +27,9 @@ export default function PersonDetailPage() {
   const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const [editedSummary, setEditedSummary] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [relationshipCircle, setRelationshipCircle] = useState<string | null>(null);
+  const [interactionDetails, setInteractionDetails] = useState<InteractionDetail[]>([]);
 
   useEffect(() => {
     loadPersonData();
@@ -41,6 +47,8 @@ export default function PersonDetailPage() {
         .single();
 
       setPerson(personData);
+      setRelationshipCircle(personData?.relationship_circle || null);
+      setInteractionDetails(personData?.interaction_details || []);
 
       // Load business profile
       const { data: businessData } = await supabase
@@ -204,6 +212,12 @@ export default function PersonDetailPage() {
                     Relationship: {person.relationship_potential}
                   </Badge>
                 )}
+                {person.relationship_circle && (
+                  <Badge className="bg-blue-100 text-blue-700">
+                    <Users className="h-3 w-3 mr-1" />
+                    {person.relationship_circle.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -217,7 +231,106 @@ export default function PersonDetailPage() {
           </div>
         </Card>
 
-        {/* Memory Timeline */}
+        {/* Relationship Circle & Interaction Details */}
+        <Card className="p-6 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Relationship & Interactions</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingDetails(!editingDetails)}
+            >
+              {editingDetails ? (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </>
+              )}
+            </Button>
+          </div>
+
+          {editingDetails ? (
+            <div className="space-y-6">
+              <RelationshipCircleSelector
+                value={relationshipCircle}
+                onChange={setRelationshipCircle}
+              />
+              <InteractionDetailsLog
+                details={interactionDetails}
+                onChange={setInteractionDetails}
+              />
+              <Button
+                onClick={async () => {
+                  try {
+                    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+                    await supabase
+                      .from('people')
+                      .update({
+                        relationship_circle: relationshipCircle,
+                        interaction_details: interactionDetails
+                      })
+                      .eq('id', personId);
+                    
+                    await loadPersonData();
+                    setEditingDetails(false);
+                  } catch (error) {
+                    console.error('Error saving:', error);
+                    alert('Failed to save changes');
+                  }
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Display Circle */}
+              {person.relationship_circle && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Relationship Circle</h3>
+                  <Badge className="bg-blue-100 text-blue-700">
+                    {person.relationship_circle.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Display Interaction Details */}
+              {person.interaction_details && person.interaction_details.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Interaction History</h3>
+                  <div className="space-y-2">
+                    {person.interaction_details.map((detail: InteractionDetail, index: number) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded border border-gray-200">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(detail.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          {detail.location && (
+                            <>
+                              <span className="text-gray-400">•</span>
+                              <span>{detail.location}</span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{detail.details}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No interaction details logged yet.</p>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* Memory Timeline */
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-800">
             Memory Timeline ({memories.length})

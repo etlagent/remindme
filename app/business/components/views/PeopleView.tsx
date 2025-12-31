@@ -84,6 +84,8 @@ interface PeopleViewProps {
 }
 
 export default function PeopleView(props: PeopleViewProps) {
+  const [sortBy, setSortBy] = useState<'name' | 'date-added' | 'company'>('date-added');
+  
   const {
     business,
     allPeople,
@@ -149,6 +151,20 @@ export default function PeopleView(props: PeopleViewProps) {
     allBusinesses,
     filteredPeople
   } = props;
+
+  // Sort filtered people based on selected sort option
+  const sortedPeople = [...filteredPeople].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'company':
+        return (a.company || '').localeCompare(b.company || '');
+      case 'date-added':
+      default:
+        // Most recent first
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    }
+  });
 
   return (
       <div>
@@ -300,48 +316,106 @@ export default function PeopleView(props: PeopleViewProps) {
               </div>
             )}
 
-            {/* Search Bar */}
-            <div className="mb-4">
+            {/* Search and Sort Bar */}
+            <div className="mb-4 flex gap-2">
               <input
                 type="text"
                 placeholder="Search people by name, company, or role..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'date-added' | 'company')}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="date-added">Sort: Recently Added</option>
+                <option value="name">Sort: Name (A-Z)</option>
+                <option value="company">Sort: Company</option>
+              </select>
             </div>
 
             {/* Filter Tags - Matching existing UI */}
-            <div className="flex flex-wrap gap-2 mb-4">
-        <Badge 
-          variant={selectedFilter === 'all' ? 'default' : 'outline'}
-          className="cursor-pointer hover:bg-blue-100"
-          onClick={() => setSelectedFilter('all')}
-        >
-          All
-        </Badge>
-        <Badge 
-          variant={selectedFilter === 'business' ? 'default' : 'outline'}
-          className="cursor-pointer hover:bg-gray-100"
-          onClick={() => setSelectedFilter('business')}
-        >
-          Business
-        </Badge>
-        <Badge 
-          variant={selectedFilter === 'personal' ? 'default' : 'outline'}
-          className="cursor-pointer hover:bg-gray-100"
-          onClick={() => setSelectedFilter('personal')}
-        >
-          Personal
-        </Badge>
-        <Badge 
-          variant={selectedFilter === 'projects' ? 'default' : 'outline'}
-          className="cursor-pointer hover:bg-gray-100"
-          onClick={() => setSelectedFilter('projects')}
-        >
-          Projects
-        </Badge>
-      </div>
+            <div className="space-y-3 mb-4">
+              <div className="flex flex-wrap gap-2">
+                <Badge 
+                  variant={selectedFilter === 'all' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-blue-100"
+                  onClick={() => setSelectedFilter('all')}
+                >
+                  All
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'business' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => setSelectedFilter('business')}
+                >
+                  Business
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'personal' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => setSelectedFilter('personal')}
+                >
+                  Personal
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'projects' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => setSelectedFilter('projects')}
+                >
+                  Projects
+                </Badge>
+              </div>
+              
+              {/* Relationship Circle Filters */}
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs text-gray-500 self-center mr-2">Relationship:</span>
+                <Badge 
+                  variant={selectedFilter === 'inner_circle' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-pink-100 border-pink-300"
+                  onClick={() => setSelectedFilter('inner_circle')}
+                >
+                  ❤️ Inner Circle
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'professional' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-blue-100 border-blue-300"
+                  onClick={() => setSelectedFilter('professional')}
+                >
+                  💼 Professional
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'genuine_interest' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-purple-100 border-purple-300"
+                  onClick={() => setSelectedFilter('genuine_interest')}
+                >
+                  👥 Genuine Interest
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'acquaintance' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-green-100 border-green-300"
+                  onClick={() => setSelectedFilter('acquaintance')}
+                >
+                  🙋 Acquaintance
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'brief_encounter' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-yellow-100 border-yellow-300"
+                  onClick={() => setSelectedFilter('brief_encounter')}
+                >
+                  ☕ Brief Encounter
+                </Badge>
+                <Badge 
+                  variant={selectedFilter === 'not_met' ? 'default' : 'outline'}
+                  className="cursor-pointer hover:bg-gray-100 border-gray-300"
+                  onClick={() => setSelectedFilter('not_met')}
+                >
+                  👁️ Not Met Yet
+                </Badge>
+              </div>
+            </div>
 
       {/* Tabs - Matching existing UI */}
       <Tabs defaultValue="people" className="w-full">
@@ -357,7 +431,7 @@ export default function PeopleView(props: PeopleViewProps) {
             <div className="text-center py-12 text-gray-500">
               <p>Loading your people...</p>
             </div>
-          ) : filteredPeople.length === 0 ? (
+          ) : sortedPeople.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               {allPeople.length === 0 ? (
                 <>
@@ -372,7 +446,7 @@ export default function PeopleView(props: PeopleViewProps) {
               )}
             </div>
           ) : (
-            filteredPeople.map((person) => (
+            sortedPeople.map((person) => (
               <div
                 key={person.id}
                 className={`p-4 border rounded-lg cursor-pointer transition-all ${

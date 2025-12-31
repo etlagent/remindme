@@ -13,6 +13,7 @@ import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "./sections/CollapsibleSection";
+import { RelationshipCircleSection } from "./sections/RelationshipCircleSection";
 import { ContextSection } from "./sections/ContextSection";
 import { LinkedInSection } from "./sections/LinkedInSection";
 import { ConversationsSection } from "./sections/ConversationsSection";
@@ -77,10 +78,16 @@ interface SectionManagerProps {
   onToggleRecording?: () => void;
   // Person ID for research
   personId?: string;
+  // Relationship Circle props
+  relationshipCircle?: string | null;
+  setRelationshipCircle?: (value: string | null) => void;
+  interactionDetails?: any[];
+  setInteractionDetails?: (details: any[]) => void;
 }
 
 // Component mapping
 const SECTION_COMPONENTS = {
+  relationship_circle: RelationshipCircleSection,
   context: ContextSection,
   linkedin: LinkedInSection,
   conversations: ConversationsSection,
@@ -179,7 +186,19 @@ export function SectionManager({
   onToggleRecording,
   // Person ID
   personId,
+  // Relationship Circle props
+  relationshipCircle,
+  setRelationshipCircle,
+  interactionDetails,
+  setInteractionDetails,
 }: SectionManagerProps) {
+  // Fix hydration error - only enable drag and drop after mount
+  const [mounted, setMounted] = React.useState(false);
+  
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Setup drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -304,16 +323,30 @@ export function SectionManager({
           </div>
         )}
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={visibleSections.map((s: SectionConfig) => s.id)}
-            strategy={verticalListSortingStrategy}
-          >
-              {visibleSections.map((section: SectionConfig) => {
+        {!mounted ? (
+          // Render without drag-and-drop on server/initial render
+          <div className="space-y-2">
+            {visibleSections.map((section: SectionConfig) => {
+                // Special handling for Relationship Circle section
+                if (section.id === 'relationship_circle') {
+                  return (
+                    <SortableSection
+                      key={section.id}
+                      section={section}
+                      isExpanded={expandedSections[section.id] || false}
+                      onToggle={() => onToggleSection(section.id)}
+                      badge={getBadge(section.id)}
+                    >
+                      <RelationshipCircleSection
+                        relationshipCircle={relationshipCircle!}
+                        setRelationshipCircle={setRelationshipCircle!}
+                        interactionDetails={interactionDetails!}
+                        setInteractionDetails={setInteractionDetails!}
+                      />
+                    </SortableSection>
+                  );
+                }
+
                 // Special handling for Context section with different props
                 if (section.id === 'context') {
                   return (
@@ -353,7 +386,7 @@ export function SectionManager({
                 // Get component for non-context sections
                 const SectionComponent = SECTION_COMPONENTS[section.id as keyof typeof SECTION_COMPONENTS];
                 
-                if (!SectionComponent || section.id === 'context') {
+                if (!SectionComponent || section.id === 'context' || section.id === 'relationship_circle') {
                   console.warn(`Section component not found for: ${section.id}`);
                   return null;
                 }
@@ -377,19 +410,128 @@ export function SectionManager({
                 }
 
                 return (
-                  <SortableSection
-                    key={section.id}
-                    section={section}
-                    isExpanded={expandedSections[section.id] || false}
-                    onToggle={() => onToggleSection(section.id)}
-                    badge={getBadge(section.id)}
-                  >
-                    <Component {...componentProps} />
-                  </SortableSection>
+                  <div key={section.id} className="pb-4 border-b border-gray-200">
+                    <CollapsibleSection
+                      title={section.title}
+                      isExpanded={expandedSections[section.id] || false}
+                      onToggle={() => onToggleSection(section.id)}
+                      badge={getBadge(section.id)}
+                    >
+                      <Component {...componentProps} />
+                    </CollapsibleSection>
+                  </div>
                 );
               })}
-          </SortableContext>
-        </DndContext>
+          </div>
+        ) : (
+          // Render with drag-and-drop after mount
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={visibleSections.map((s: SectionConfig) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+                {visibleSections.map((section: SectionConfig) => {
+                  // Special handling for Relationship Circle section
+                  if (section.id === 'relationship_circle') {
+                    return (
+                      <SortableSection
+                        key={section.id}
+                        section={section}
+                        isExpanded={expandedSections[section.id] || false}
+                        onToggle={() => onToggleSection(section.id)}
+                        badge={getBadge(section.id)}
+                      >
+                        <RelationshipCircleSection
+                          relationshipCircle={relationshipCircle!}
+                          setRelationshipCircle={setRelationshipCircle!}
+                          interactionDetails={interactionDetails!}
+                          setInteractionDetails={setInteractionDetails!}
+                        />
+                      </SortableSection>
+                    );
+                  }
+
+                  // Special handling for Context section with different props
+                  if (section.id === 'context') {
+                    return (
+                      <SortableSection
+                        key={section.id}
+                        section={section}
+                        isExpanded={expandedSections[section.id] || false}
+                        onToggle={() => onToggleSection(section.id)}
+                        badge={getBadge(section.id)}
+                      >
+                        <ContextSection
+                          contextType={contextType!}
+                          setContextType={setContextType!}
+                          persistentEvent={persistentEvent!}
+                          setPersistentEvent={setPersistentEvent!}
+                          showEventInput={showEventInput!}
+                          setShowEventInput={setShowEventInput!}
+                          showSessionFields={showSessionFields!}
+                          setShowSessionFields={setShowSessionFields!}
+                          sectionName={sectionName!}
+                          setSectionName={setSectionName!}
+                          panelParticipants={panelParticipants!}
+                          setPanelParticipants={setPanelParticipants!}
+                          linkedInUrls={linkedInUrls!}
+                          setLinkedInUrls={setLinkedInUrls!}
+                          companyLinkedInUrls={companyLinkedInUrls!}
+                          setCompanyLinkedInUrls={setCompanyLinkedInUrls!}
+                          linkedInProfilePaste={linkedInProfilePaste!}
+                          setLinkedInProfilePaste={setLinkedInProfilePaste!}
+                          handleParseLinkedInProfile={handleParseLinkedInProfile!}
+                          isParsing={isParsing!}
+                        />
+                      </SortableSection>
+                    );
+                  }
+
+                  // Get component for non-context sections
+                  const SectionComponent = SECTION_COMPONENTS[section.id as keyof typeof SECTION_COMPONENTS];
+                  
+                  if (!SectionComponent || section.id === 'context' || section.id === 'relationship_circle') {
+                    console.warn(`Section component not found for: ${section.id}`);
+                    return null;
+                  }
+
+                  // Render standard sections with standard props
+                  const Component = SectionComponent as React.ComponentType<any>;
+                  
+                  // Build props - add personId for research section
+                  const componentProps: any = {
+                    editedPreview,
+                    setEditedPreview,
+                    personName,
+                    personCompany,
+                    personRole,
+                    personLocation,
+                  };
+                  
+                  if (section.id === 'research') {
+                    componentProps.personId = personId;
+                    componentProps.onCountChange = setResearchCount;
+                  }
+
+                  return (
+                    <SortableSection
+                      key={section.id}
+                      section={section}
+                      isExpanded={expandedSections[section.id] || false}
+                      onToggle={() => onToggleSection(section.id)}
+                      badge={getBadge(section.id)}
+                    >
+                      <Component {...componentProps} />
+                    </SortableSection>
+                  );
+                })}
+            </SortableContext>
+          </DndContext>
+        )}
       </Card>
 
       {/* Action Buttons - Always visible at bottom */}

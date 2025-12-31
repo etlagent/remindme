@@ -34,18 +34,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { business_id, situation, goal, context_sources } = body;
+    const { business_id, meeting_id, situation, goal, context_sources } = body;
 
-    if (!business_id) {
-      return NextResponse.json({ error: 'Business ID is required' }, { status: 400 });
+    if (!business_id && !meeting_id) {
+      return NextResponse.json({ error: 'Either business_id or meeting_id is required' }, { status: 400 });
     }
 
     // Gather context to assess what's available
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('name, industry, stage')
-      .eq('id', business_id)
-      .single();
+    let business = null;
+    
+    if (business_id) {
+      const { data } = await supabase
+        .from('businesses')
+        .select('name, industry, stage')
+        .eq('id', business_id)
+        .single();
+      business = data;
+    } else if (meeting_id) {
+      const { data: meeting } = await supabase
+        .from('meetings')
+        .select('*, businesses(name, industry, stage)')
+        .eq('id', meeting_id)
+        .single();
+      
+      if (meeting?.businesses) {
+        business = meeting.businesses;
+      }
+    }
 
     // Get counts of available context
     let contextAvailable: any = {
@@ -79,11 +94,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Call OpenAI to generate clarifying questions (or skip if we have enough)
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
+    console.log('\n========================================');
+    console.log('🤖 GENERATE QUESTIONS - API CALL');
+    console.log('========================================');
+    
+    const messages = [
+      {
+        role: "system",
           content: `You are an expert conversation strategist. Use this framework to assess what you need to create an effective conversation strategy.
 
 REQUIRED FRAMEWORK FOR EFFECTIVE STRATEGY:
@@ -127,12 +144,23 @@ Available Context Data:
 
 Using the framework, assess what you have vs. what you need. Return JSON with questions array (empty if you have enough, or 2-3 questions if critical info is missing).`
         }
-      ],
+    ];
+    
+    console.log('\n📤 REQUEST TO OPENAI:');
+    console.log(JSON.stringify(messages, null, 2));
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages,
       temperature: 0.7,
       response_format: { type: "json_object" }
     });
 
     const aiResponse = completion.choices[0].message.content;
+    
+    console.log('\n📥 RESPONSE FROM OPENAI:');
+    console.log(aiResponse);
+    console.log('========================================\n');
     let questions = [];
     
     try {

@@ -40,9 +40,21 @@ export interface Person {
   inspiration_level: 'low' | 'medium' | 'high' | null;
   relationship_potential: 'no' | 'maybe' | 'yes' | null;
   relationship_notes: string | null;
+  relationship_circle: 'inner_circle' | 'professional' | 'genuine_interest' | 'acquaintance' | 'brief_encounter' | 'not_met' | null;
+  interaction_details: InteractionDetail[];
   created_at: string;
   updated_at?: string;
   display_order: number | null;
+}
+
+/**
+ * InteractionDetail - Single interaction log entry for a person
+ * STORED AS: JSON array in people.interaction_details
+ */
+export interface InteractionDetail {
+  date: string;
+  details: string;
+  location?: string;
 }
 
 /**

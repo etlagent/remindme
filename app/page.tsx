@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AuthButton } from "@/components/AuthButton";
 import { PersonInfoCard } from "@/components/capture/PersonInfoCard";
+import { RelationshipCircleSelector } from "@/components/capture/RelationshipCircleSelector";
+import { InteractionDetailsLog } from "@/components/capture/InteractionDetailsLog";
 import { GlobalModeHeader } from "@/components/layout/GlobalModeHeader";
 import { DirectSaveButton } from "@/components/capture/DirectSaveButton";
 import { SectionManager, SectionConfig } from "@/components/capture/SectionManager";
@@ -17,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { InteractionDetail } from "@/lib/types";
 
 type Section = "all" | "personal" | "business" | "projects" | "relationships" | "todos" | "events" | "trips";
 
@@ -245,6 +248,9 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [personRole, setPersonRole] = useState("");
   const [personLocation, setPersonLocation] = useState("");
+  const [personInterests, setPersonInterests] = useState("");
+  const [relationshipCircle, setRelationshipCircle] = useState<string | null>(null);
+  const [interactionDetails, setInteractionDetails] = useState<InteractionDetail[]>([]);
   const [loadedPersonId, setLoadedPersonId] = useState<string | null>(null); // Track if editing existing person
   const [loadedMemoryIds, setLoadedMemoryIds] = useState<string[]>([]); // Track existing memory IDs to avoid re-saving
   const [additionalFields, setAdditionalFields] = useState<Array<{id: string, value: string}>>([]);
@@ -252,12 +258,13 @@ export default function Home() {
   
   // Section configuration - user can modify visibility and order
   const defaultSectionConfig: SectionConfig[] = [
-    { id: 'context', title: 'Context & Social Media', component: null as any, visible: true, order: 0 },
-    { id: 'linkedin', title: 'LinkedIn Profile', component: null as any, visible: true, order: 1 },
-    { id: 'conversations', title: 'Conversations', component: null as any, visible: true, order: 2 },
-    { id: 'followups', title: 'Follow-ups', component: null as any, visible: true, order: 3 },
-    { id: 'memories', title: 'Memories', component: null as any, visible: true, order: 4 },
-    { id: 'research', title: 'Research', component: null as any, visible: true, order: 5 },
+    { id: 'relationship_circle', title: 'Relationship & Details', component: null as any, visible: true, order: 0 },
+    { id: 'context', title: 'Context & Social Media', component: null as any, visible: true, order: 1 },
+    { id: 'linkedin', title: 'LinkedIn Profile', component: null as any, visible: true, order: 2 },
+    { id: 'conversations', title: 'Conversations', component: null as any, visible: true, order: 3 },
+    { id: 'followups', title: 'Follow-ups', component: null as any, visible: true, order: 4 },
+    { id: 'memories', title: 'Memories', component: null as any, visible: true, order: 5 },
+    { id: 'research', title: 'Research', component: null as any, visible: true, order: 6 },
   ];
   
   const [sectionConfig, setSectionConfig] = useState<SectionConfig[]>(defaultSectionConfig);
@@ -277,6 +284,7 @@ export default function Home() {
   
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    relationship_circle: false,
     context: false,
     linkedin: false,
     conversations: false,
@@ -294,6 +302,8 @@ export default function Home() {
   const [people, setPeople] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [followUps, setFollowUps] = useState<any[]>([]);
+  const [relationshipFilter, setRelationshipFilter] = useState<string>('all');
+  const [sortPeopleBy, setSortPeopleBy] = useState<'name' | 'date-added' | 'company'>('date-added');
   const recognitionRef = useRef<any>(null);
   const isProcessingRef = useRef(false);
 
@@ -484,6 +494,10 @@ export default function Home() {
       setPersonName(person.name || '');
       setPersonCompany(person.company || '');
       setPersonRole(person.role || '');
+      setPersonLocation(person.location || '');
+      setPersonInterests(person.interests ? person.interests.join(', ') : '');
+      setRelationshipCircle(person.relationship_circle || null);
+      setInteractionDetails(person.interaction_details || []);
       setLinkedInUrls(person.linkedin_url || '');
       setCompanyLinkedInUrls(person.company_linkedin_url || '');
 
@@ -866,6 +880,7 @@ export default function Home() {
             company: personCompany,
             role: personRole,
             location: personLocation,
+            interests: personInterests ? personInterests.split(',').map(i => i.trim()).filter(Boolean) : [],
           }],
           conversations: [],
           follow_ups: [],
@@ -893,10 +908,13 @@ export default function Home() {
         return;
       }
       
-      // Ensure LinkedIn URLs are in the person data
+      // Ensure LinkedIn URLs, relationship data, and interests are in the person data
       if (finalData.people && finalData.people.length > 0) {
         finalData.people[0].linkedin_url = linkedInUrls;
         finalData.people[0].company_linkedin_url = companyLinkedInUrls;
+        finalData.people[0].relationship_circle = relationshipCircle;
+        finalData.people[0].interaction_details = interactionDetails;
+        finalData.people[0].interests = personInterests ? personInterests.split(',').map((i: string) => i.trim()).filter(Boolean) : [];
       }
       
       // Filter out existing items - only send NEW ones to avoid duplicates
@@ -1243,10 +1261,12 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               personCompany={personCompany}
               personRole={personRole}
               personLocation={personLocation}
+              personInterests={personInterests}
               onPersonNameChange={setPersonName}
               onPersonCompanyChange={setPersonCompany}
               onPersonRoleChange={setPersonRole}
               onPersonLocationChange={setPersonLocation}
+              onPersonInterestsChange={setPersonInterests}
               onClear={() => {
                 setCaptureText("");
                 setAiPreview(null);
@@ -1256,6 +1276,9 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
                 setPersonCompany("");
                 setPersonRole("");
                 setPersonLocation("");
+                setPersonInterests("");
+                setRelationshipCircle(null);
+                setInteractionDetails([]);
                 setAdditionalFields([]);
                 setShowAdditionalDetails(false);
                 setLinkedInProfilePaste("");
@@ -1309,6 +1332,10 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
               isRecording={isRecording}
               onToggleRecording={handleMicClick}
               personId={loadedPersonId || undefined}
+              relationshipCircle={relationshipCircle}
+              setRelationshipCircle={setRelationshipCircle}
+              interactionDetails={interactionDetails}
+              setInteractionDetails={setInteractionDetails}
             />
 
             {/* Action Buttons - Disabled, using Save to Rolodex instead */}
@@ -1361,18 +1388,105 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
               {/* People Tab */}
               <TabsContent value="people" className="space-y-4 mt-4">
+                {/* Search and Sort */}
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search people..."
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <select
+                    value={sortPeopleBy}
+                    onChange={(e) => setSortPeopleBy(e.target.value as 'name' | 'date-added' | 'company')}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="date-added">Recently Added</option>
+                    <option value="name">Name (A-Z)</option>
+                    <option value="company">Company</option>
+                  </select>
+                </div>
+
+                {/* Relationship Circle Filters */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="text-xs text-gray-500 self-center">Relationship:</span>
+                  <Badge 
+                    variant={relationshipFilter === 'all' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => setRelationshipFilter('all')}
+                  >
+                    All
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'inner_circle' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-pink-100 border-pink-300"
+                    onClick={() => setRelationshipFilter('inner_circle')}
+                  >
+                    ❤️ Inner Circle
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'professional' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-blue-100 border-blue-300"
+                    onClick={() => setRelationshipFilter('professional')}
+                  >
+                    💼 Professional
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'genuine_interest' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-purple-100 border-purple-300"
+                    onClick={() => setRelationshipFilter('genuine_interest')}
+                  >
+                    👥 Genuine Interest
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'acquaintance' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-green-100 border-green-300"
+                    onClick={() => setRelationshipFilter('acquaintance')}
+                  >
+                    🙋 Acquaintance
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'brief_encounter' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-yellow-100 border-yellow-300"
+                    onClick={() => setRelationshipFilter('brief_encounter')}
+                  >
+                    ☕ Brief Encounter
+                  </Badge>
+                  <Badge 
+                    variant={relationshipFilter === 'not_met' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-gray-100 border-gray-300"
+                    onClick={() => setRelationshipFilter('not_met')}
+                  >
+                    👁️ Not Met Yet
+                  </Badge>
+                </div>
+
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
                   onDragEnd={handlePeopleDragEnd}
                 >
                   <SortableContext
-                    items={people.map(p => p.id)}
+                    items={people
+                      .filter(p => relationshipFilter === 'all' || p.relationship_circle === relationshipFilter)
+                      .map(p => p.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {people.map((person) => (
-                      <SortablePersonCard key={person.id} person={person} onLoad={loadPersonIntoForm} onDelete={handleDeletePerson} />
-                    ))}
+                    {people
+                      .filter(p => relationshipFilter === 'all' || p.relationship_circle === relationshipFilter)
+                      .sort((a, b) => {
+                        switch (sortPeopleBy) {
+                          case 'name':
+                            return a.name.localeCompare(b.name);
+                          case 'company':
+                            return (a.company || '').localeCompare(b.company || '');
+                          case 'date-added':
+                          default:
+                            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                        }
+                      })
+                      .map((person) => (
+                        <SortablePersonCard key={person.id} person={person} onLoad={loadPersonIntoForm} onDelete={handleDeletePerson} />
+                      ))}
                   </SortableContext>
                 </DndContext>
               </TabsContent>
