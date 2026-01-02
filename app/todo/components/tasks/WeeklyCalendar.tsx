@@ -130,6 +130,21 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
         
         if (result.success && result.data) {
           console.log('Task created successfully:', result.data);
+          
+          // Mark the original project task as pushed
+          const updateResponse = await fetch(`/api/decide/projects/${projectId}/tasks/${projectTaskId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              pushed_to_workspace: true,
+              workspace_todo_id: result.data.id,
+            }),
+          });
+          console.log('Marked project task as pushed');
+          
           // Add to UI
           const scheduledTask: ScheduledTask = {
             ...result.data,

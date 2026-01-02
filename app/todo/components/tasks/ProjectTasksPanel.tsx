@@ -61,7 +61,8 @@ export function ProjectTasksPanel() {
             .from('projects_tasks')
             .select('*', { count: 'exact', head: true })
             .eq('project_id', project.id)
-            .eq('completed', false);
+            .eq('completed', false)
+            .eq('pushed_to_workspace', false);
 
           console.log(`ProjectTasksPanel: Project "${project.name}" incomplete task count:`, count, countError);
 
@@ -91,6 +92,7 @@ export function ProjectTasksPanel() {
         .select('*')
         .eq('project_id', projectId)
         .eq('completed', false)
+        .eq('pushed_to_workspace', false)
         .order('created_at', { ascending: true });
 
       console.log('ProjectTasksPanel: Tasks for project:', { projectId, data, error });
