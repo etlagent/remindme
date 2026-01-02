@@ -8,6 +8,7 @@ export function TasksPlanning() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dayView, setDayView] = useState<number>(3);
   const [scheduledTaskIds, setScheduledTaskIds] = useState<Set<string>>(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handlePrevious = () => {
     const newDate = new Date(selectedDate);
@@ -119,7 +120,10 @@ export function TasksPlanning() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Master TODO List */}
         <div className="lg:col-span-1">
-          <MasterTodoList excludeIds={scheduledTaskIds} />
+          <MasterTodoList 
+            excludeIds={scheduledTaskIds} 
+            refreshKey={refreshKey}
+          />
         </div>
 
         {/* Right: Calendar */}
@@ -129,6 +133,7 @@ export function TasksPlanning() {
             daysToShow={dayView}
             onTasksScheduled={handleTasksScheduled}
             onTasksUnscheduled={handleTasksUnscheduled}
+            onProjectTaskScheduled={() => setRefreshKey(prev => prev + 1)}
           />
         </div>
       </div>

@@ -111,6 +111,7 @@ export interface WorkspaceTodo {
   group_color?: string; // Color for visual grouping
   created_at: string;
   subtasks?: WorkspaceTodo[];
+  source_type?: string; // Source type (e.g., 'project', 'meeting')
   source_id?: string;
 }
 

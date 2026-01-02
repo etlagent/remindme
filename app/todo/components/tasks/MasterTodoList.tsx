@@ -8,9 +8,10 @@ import { ProjectTasksPanel } from './ProjectTasksPanel';
 
 interface MasterTodoListProps {
   excludeIds?: Set<string>;
+  refreshKey?: number;
 }
 
-export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
+export function MasterTodoList({ excludeIds, refreshKey }: MasterTodoListProps) {
   const [todos, setTodos] = useState<WorkspaceTodo[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickInput, setQuickInput] = useState('');
@@ -411,7 +412,7 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
       {filter === 'meetings' ? (
         <MeetingTasksPanel />
       ) : filter === 'projects' ? (
-        <ProjectTasksPanel />
+        <ProjectTasksPanel key={refreshKey} />
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

@@ -15,6 +15,8 @@ interface ProjectTask {
   text: string;
   completed: boolean;
   project_id: string;
+  parent_id?: string | null;
+  subtasks?: ProjectTask[];
 }
 
 export function ProjectTasksPanel() {
@@ -84,6 +86,32 @@ export function ProjectTasksPanel() {
     }
   };
 
+  const buildTaskHierarchy = (flatTasks: ProjectTask[]): ProjectTask[] => {
+    const taskMap = new Map<string, ProjectTask>();
+    const rootTasks: ProjectTask[] = [];
+
+    // First pass: create map of all tasks with empty subtasks arrays
+    flatTasks.forEach(task => {
+      taskMap.set(task.id, { ...task, subtasks: [] });
+    });
+
+    // Second pass: build hierarchy
+    flatTasks.forEach(task => {
+      const taskWithSubtasks = taskMap.get(task.id)!;
+      if (task.parent_id) {
+        const parent = taskMap.get(task.parent_id);
+        if (parent) {
+          parent.subtasks = parent.subtasks || [];
+          parent.subtasks.push(taskWithSubtasks);
+        }
+      } else {
+        rootTasks.push(taskWithSubtasks);
+      }
+    });
+
+    return rootTasks;
+  };
+
   const fetchTasks = async (projectId: string) => {
     setLoadingTasks(true);
     try {
@@ -96,7 +124,10 @@ export function ProjectTasksPanel() {
         .order('created_at', { ascending: true });
 
       console.log('ProjectTasksPanel: Tasks for project:', { projectId, data, error });
-      setTasks(data || []);
+      
+      // Build hierarchy from flat list
+      const hierarchicalTasks = buildTaskHierarchy(data || []);
+      setTasks(hierarchicalTasks);
     } catch (error) {
       console.error('Error fetching project tasks:', error);
     } finally {
@@ -110,9 +141,33 @@ export function ProjectTasksPanel() {
       setSelectedProjectId(null);
       setTasks([]);
     } else {
+      // Expand new project
       setSelectedProjectId(projectId);
       fetchTasks(projectId);
     }
+  };
+
+  const renderTaskHierarchy = (taskList: ProjectTask[], depth: number = 0): React.ReactNode => {
+    return taskList.map((task) => (
+      <div key={task.id} style={{ marginLeft: `${depth * 16}px` }}>
+        <div
+          className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-move mb-2"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('projectTaskId', task.id);
+            e.dataTransfer.setData('projectTaskText', task.text);
+            e.dataTransfer.setData('projectId', task.project_id);
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-gray-700 dark:text-gray-300">
+              {task.text}
+            </span>
+          </div>
+        </div>
+        {task.subtasks && task.subtasks.length > 0 && renderTaskHierarchy(task.subtasks, depth + 1)}
+      </div>
+    ));
   };
 
   if (loading) {
@@ -173,24 +228,7 @@ export function ProjectTasksPanel() {
                 ) : tasks.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400 py-4">No incomplete tasks</p>
                 ) : (
-                  tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm cursor-move"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('projectTaskId', task.id);
-                        e.dataTransfer.setData('projectTaskText', task.text);
-                        e.dataTransfer.setData('projectId', task.project_id);
-                      }}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-gray-700 dark:text-gray-300">
-                          {task.text}
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                  <>{renderTaskHierarchy(tasks)}</>
                 )}
               </div>
             )}

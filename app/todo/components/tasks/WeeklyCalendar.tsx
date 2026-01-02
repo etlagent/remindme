@@ -9,6 +9,7 @@ interface WeeklyCalendarProps {
   daysToShow: number;
   onTasksScheduled?: (taskIds: string[]) => void;
   onTasksUnscheduled?: (taskIds: string[]) => void;
+  onProjectTaskScheduled?: () => void;
 }
 
 interface ScheduledTask extends WorkspaceTodo {
@@ -16,7 +17,7 @@ interface ScheduledTask extends WorkspaceTodo {
   completed?: boolean;
 }
 
-export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTasksUnscheduled }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTasksUnscheduled, onProjectTaskScheduled }: WeeklyCalendarProps) {
   const [scheduledTasks, setScheduledTasks] = useState<Map<string, ScheduledTask[]>>(new Map());
   const [loading, setLoading] = useState(false);
   const [pendingSaves, setPendingSaves] = useState<Map<string, string>>(new Map()); // tempId -> scheduled_for
@@ -144,6 +145,11 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
             }),
           });
           console.log('Marked project task as pushed');
+          
+          // Trigger refresh of project tasks panel
+          if (onProjectTaskScheduled) {
+            onProjectTaskScheduled();
+          }
           
           // Add to UI
           const scheduledTask: ScheduledTask = {
@@ -364,6 +370,9 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
   };
 
   const handleRemoveTask = async (dateStr: string, taskId: string) => {
+    // Get task details before removing from UI
+    const taskToRemove = scheduledTasks.get(dateStr)?.find(t => t.id === taskId);
+    
     // Optimistically remove from UI
     setScheduledTasks(prev => {
       const newMap = new Map(prev);
@@ -388,6 +397,57 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
         },
         body: JSON.stringify({ scheduled_for: null }),
       });
+      
+      // If this was a project task, unmark it as pushed in projects_tasks
+      console.log('Checking if task to remove is a project task:', { 
+        source_type: taskToRemove?.source_type, 
+        source_id: taskToRemove?.source_id,
+        taskId 
+      });
+      
+      if (taskToRemove?.source_type === 'project' && taskToRemove?.source_id) {
+        console.log('This is a project task, attempting to unmark it');
+        
+        // Get the linked project task ID from the workspace entry
+        // We need to query projects_tasks to find the task that has this workspace_todo_id
+        const { data: projectTasks, error: queryError } = await supabase
+          .from('projects_tasks')
+          .select('id')
+          .eq('workspace_todo_id', taskId)
+          .single();
+        
+        console.log('Query for project task:', { projectTasks, queryError });
+        
+        if (projectTasks) {
+          console.log('Found project task, unmarking as pushed:', projectTasks.id);
+          
+          // Unmark the project task
+          const updateResponse = await fetch(`/api/decide/projects/${taskToRemove.source_id}/tasks/${projectTasks.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              pushed_to_workspace: false,
+              workspace_todo_id: null,
+            }),
+          });
+          
+          const updateResult = await updateResponse.json();
+          console.log('Update project task result:', updateResult);
+          
+          // Trigger refresh of ProjectTasksPanel
+          if (onProjectTaskScheduled) {
+            console.log('Triggering ProjectTasksPanel refresh');
+            onProjectTaskScheduled();
+          } else {
+            console.warn('onProjectTaskScheduled callback not available');
+          }
+        } else {
+          console.warn('Could not find project task with workspace_todo_id:', taskId);
+        }
+      }
     } catch (error) {
       console.error('Error removing task from calendar:', error);
     }
