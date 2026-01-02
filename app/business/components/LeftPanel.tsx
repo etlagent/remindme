@@ -253,37 +253,32 @@ export default function LeftPanel({
             value={businessSearch}
             onChange={(e) => {
               setBusinessSearch(e.target.value);
-              setShowBusinessDropdown(true);
             }}
-            onFocus={() => setShowBusinessDropdown(true)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           
-          {showBusinessDropdown && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-              {filteredBusinesses.map((biz) => (
-                <div
-                  key={biz.id}
-                  onClick={() => {
-                    onBusinessSelect(biz);
-                    setBusinessSearch('');
-                    setShowBusinessDropdown(false);
-                  }}
-                  className="p-3 cursor-pointer transition-colors hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="font-medium text-sm">{biz.name}</div>
-                  {biz.industry && (
-                    <div className="text-xs text-gray-600">{biz.industry}</div>
-                  )}
-                </div>
-              ))}
-              {filteredBusinesses.length === 0 && (
-                <div className="p-4 text-sm text-gray-500 text-center">
-                  {businessSearch ? 'No businesses found' : 'No businesses yet'}
-                </div>
-              )}
-            </div>
-          )}
+          <div className="mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            {filteredBusinesses.map((biz) => (
+              <div
+                key={biz.id}
+                onClick={() => {
+                  onBusinessSelect(biz);
+                  setBusinessSearch('');
+                }}
+                className="p-3 cursor-pointer transition-colors hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="font-medium text-sm">{biz.name}</div>
+                {biz.industry && (
+                  <div className="text-xs text-gray-600">{biz.industry}</div>
+                )}
+              </div>
+            ))}
+            {filteredBusinesses.length === 0 && (
+              <div className="p-4 text-sm text-gray-500 text-center">
+                {businessSearch ? 'No businesses found' : 'No businesses yet'}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       )}
