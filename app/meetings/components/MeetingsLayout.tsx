@@ -111,7 +111,7 @@ export default function MeetingsLayout({
             setExpandedMeetingId(meetingId);
             const element = document.getElementById(`meeting-${meetingId}`);
             if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              element.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
           }}
           onUpdateMeeting={onUpdateMeeting}

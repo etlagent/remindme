@@ -307,6 +307,16 @@ export interface Meeting {
   preparation_notes?: string;
   meeting_summary?: string;
   conversation_strategy_id?: string;
+  previous_meeting_id?: string;
+  strategy_text?: string;
+  action_items?: string;
+  action_items_data?: Array<{
+    id: string;
+    text: string;
+    indent: number;
+    isHeader: boolean;
+    completed: boolean;
+  }>;
   status: 'draft' | 'preparing' | 'ready' | 'completed';
   order_index: number;
   created_at: string;

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ProjectsBrowser } from './sources/ProjectsBrowser';
+import { MeetingsBrowser } from './sources/MeetingsBrowser';
 import { Project } from '@/lib/types/decide';
 
 type SourceType = 'projects' | 'paste' | 'brainstorm' | 'meetings' | 'notes' | 'conversations';
@@ -23,7 +24,7 @@ export function SourceBrowser({ onAddTodos, activeSource, onChangeSource, select
     { id: 'projects' as SourceType, label: 'Projects', icon: '📁' },
     { id: 'paste' as SourceType, label: 'Paste', icon: '📋' },
     { id: 'brainstorm' as SourceType, label: 'Brainstorm', icon: '💡' },
-    { id: 'meetings' as SourceType, label: 'Meetings', icon: '📅', badge: 'Soon' },
+    { id: 'meetings' as SourceType, label: 'Meetings', icon: '📅' },
     { id: 'notes' as SourceType, label: 'Notes', icon: '📝', badge: 'Soon' },
     { id: 'conversations' as SourceType, label: 'Conversations', icon: '💬', badge: 'Soon' },
   ];
@@ -279,7 +280,11 @@ Ideas:
           </div>
         )}
 
-        {(activeSource === 'meetings' || activeSource === 'notes' || activeSource === 'conversations') && (
+        {activeSource === 'meetings' && (
+          <MeetingsBrowser onAddTodos={onAddTodos} />
+        )}
+
+        {(activeSource === 'notes' || activeSource === 'conversations') && (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <div className="text-6xl mb-4">{sources.find(s => s.id === activeSource)?.icon}</div>
             <p className="text-lg font-medium mb-2">

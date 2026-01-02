@@ -29,7 +29,7 @@ export default function AttendeesSection({ meetingId }: AttendeesSectionProps) {
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [expandedAttendeeId, setExpandedAttendeeId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'interests' | 'company' | 'tech'>('interests');
   const [attendeeResearch, setAttendeeResearch] = useState<Record<string, ResearchResult[]>>({});

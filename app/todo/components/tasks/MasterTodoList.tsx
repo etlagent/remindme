@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { WorkspaceTodo, Project } from '@/lib/types/decide';
+import { MeetingTasksPanel } from './MeetingTasksPanel';
+import { ProjectTasksPanel } from './ProjectTasksPanel';
 
 interface MasterTodoListProps {
   excludeIds?: Set<string>;
@@ -14,14 +16,29 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
   const [quickInput, setQuickInput] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'ready' | 'projects'>('ready');
+  const [filter, setFilter] = useState<'all' | 'ready' | 'projects' | 'meetings'>(() => {
+    // Check if user was just working with meetings source
+    if (typeof window !== 'undefined') {
+      const lastSource = sessionStorage.getItem('todo_last_source');
+      if (lastSource === 'meetings') {
+        sessionStorage.removeItem('todo_last_source'); // Clear after reading
+        return 'meetings';
+      }
+    }
+    return 'ready';
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     fetchProjects();
-    fetchTodos();
+  }, []);
+
+  useEffect(() => {
+    if (filter !== 'meetings' && filter !== 'projects') {
+      fetchTodos();
+    }
   }, [excludeIds, filter]);
 
   const fetchProjects = async () => {
@@ -44,13 +61,16 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
     }
   };
 
+
   const fetchTodos = async () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      const response = await fetch('/api/decide/workspace', {
+      const url = '/api/decide/workspace';
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -66,11 +86,6 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
           // Only show tasks with status='ready' (or NULL for backwards compatibility)
           unscheduledTasks = unscheduledTasks.filter((todo: WorkspaceTodo) => 
             todo.status === 'ready' || todo.status === null
-          );
-        } else if (filter === 'projects') {
-          // For projects view, only show tasks that have a project_id
-          unscheduledTasks = unscheduledTasks.filter((todo: WorkspaceTodo) => 
-            todo.project_id
           );
         }
         // 'all' filter shows everything (no filtering)
@@ -316,19 +331,20 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
         </div>
         
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-3">
-          <button
-            onClick={() => setFilter('ready')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              filter === 'ready'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            Ready for Scheduling
-          </button>
-          <button
-            onClick={() => setFilter('projects')}
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilter('ready')}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                filter === 'ready'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Ready for Scheduling
+            </button>
+            <button
+              onClick={() => setFilter('projects')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               filter === 'projects'
                 ? 'bg-blue-600 text-white'
@@ -337,8 +353,18 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
           >
             Projects
           </button>
-          <button
-            onClick={() => setFilter('all')}
+            <button
+              onClick={() => setFilter('meetings')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              filter === 'meetings'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            Meetings
+          </button>
+            <button
+              onClick={() => setFilter('all')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               filter === 'all'
                 ? 'bg-blue-600 text-white'
@@ -346,7 +372,8 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
             }`}
           >
             All
-          </button>
+            </button>
+          </div>
         </div>
         
         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -380,21 +407,12 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
         </p>
       </div>
 
-      {/* Instructions */}
-      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-        <div className="flex items-start gap-2">
-          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          <div className="text-xs text-blue-700 dark:text-blue-300">
-            <p className="mb-1">Drag tasks from here to the calendar to schedule them for specific days</p>
-            <p className="text-blue-600 dark:text-blue-400">💡 Hold <strong>Shift</strong> and click to select multiple tasks, then drag them together</p>
-          </div>
-        </div>
-      </div>
-
-      {/* TODO List */}
-      {loading ? (
+      {/* Meetings Panel, Projects Panel, or Task List */}
+      {filter === 'meetings' ? (
+        <MeetingTasksPanel />
+      ) : filter === 'projects' ? (
+        <ProjectTasksPanel />
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -404,76 +422,7 @@ export function MasterTodoList({ excludeIds }: MasterTodoListProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
           <p className="text-sm font-medium mb-1">No TODOs to schedule</p>
-          <p className="text-xs">
-            {filter === 'projects' 
-              ? 'Go to Projects page and click "Save All Tasks to TODO Workspace"' 
-              : 'Add TODOs from the workspace above'}
-          </p>
-        </div>
-      ) : filter === 'projects' ? (
-        // Grouped by project view
-        <div className="space-y-6">
-          {projects
-            .filter(project => todos.some(t => t.project_id === project.id && !excludeIds?.has(t.id)))
-            .map((project) => {
-              const projectTodos = todos.filter(t => t.project_id === project.id && !excludeIds?.has(t.id));
-              return (
-                <div key={project.id} className="space-y-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="text-2xl">📁</div>
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">{project.name}</h4>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">({projectTodos.length})</span>
-                  </div>
-                  {projectTodos.map((todo) => (
-                    <div
-                      key={todo.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, todo)}
-                      onClick={(e) => handleToggleSelect(todo.id, e.shiftKey)}
-                      className={`group relative p-3 rounded-lg border-2 transition-all ml-8 ${
-                        selectedIds.has(todo.id)
-                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500'
-                          : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
-                      }`}
-                      style={{ cursor: 'grab' }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-1">
-                          {selectedIds.has(todo.id) ? (
-                            <div className="w-5 h-5 rounded border-2 border-blue-600 bg-blue-600 flex items-center justify-center">
-                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          ) : (
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 dark:text-gray-100 break-words">
-                            {todo.text}
-                          </p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteTodo(todo.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-600 flex-shrink-0"
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+          <p className="text-xs">Add TODOs from the workspace above</p>
         </div>
       ) : (
         <div className="space-y-2">

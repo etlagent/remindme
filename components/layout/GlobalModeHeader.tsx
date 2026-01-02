@@ -52,6 +52,16 @@ export function GlobalModeHeader() {
       {/* Mode Switcher */}
       <div className="flex gap-6">
         <button
+          onClick={() => router.push('/projects')}
+          className={`text-lg transition-colors ${
+            isProjectsMode
+              ? 'text-purple-600 font-semibold'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Projects
+        </button>
+        <button
           onClick={() => router.push('/')}
           className={`text-lg transition-colors ${
             isRelationshipMode
@@ -72,16 +82,6 @@ export function GlobalModeHeader() {
           Business
         </button>
         <button
-          onClick={() => router.push('/todo')}
-          className={`text-lg transition-colors ${
-            isDecideMode
-              ? 'text-blue-600 font-semibold'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Decide To Do
-        </button>
-        <button
           onClick={() => router.push('/meetings')}
           className={`text-lg transition-colors ${
             isMeetingsMode
@@ -92,14 +92,14 @@ export function GlobalModeHeader() {
           Meetings
         </button>
         <button
-          onClick={() => router.push('/projects')}
+          onClick={() => router.push('/todo')}
           className={`text-lg transition-colors ${
-            isProjectsMode
-              ? 'text-purple-600 font-semibold'
+            isDecideMode
+              ? 'text-blue-600 font-semibold'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Projects
+          Decide To Do
         </button>
       </div>
 

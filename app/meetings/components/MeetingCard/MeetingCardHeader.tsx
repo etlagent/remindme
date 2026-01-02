@@ -3,6 +3,7 @@
 import { Meeting } from '@/lib/types/decide';
 import { useAttendees } from '../../hooks/useAttendees';
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface MeetingCardHeaderProps {
   meeting: Meeting;
@@ -23,6 +24,31 @@ export default function MeetingCardHeader({
   const [editingDate, setEditingDate] = useState(false);
   const [titleValue, setTitleValue] = useState(meeting.title);
   const [dateValue, setDateValue] = useState(meeting.meeting_date);
+  const [businessName, setBusinessName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (meeting.business_id) {
+      loadBusinessName();
+    } else {
+      setBusinessName(null);
+    }
+  }, [meeting.business_id]);
+
+  const loadBusinessName = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('name')
+        .eq('id', meeting.business_id)
+        .single();
+
+      if (data && !error) {
+        setBusinessName(data.name);
+      }
+    } catch (err) {
+      console.error('Error loading business name:', err);
+    }
+  };
   
   const handleSetStatus = async (status: 'draft' | 'preparing' | 'ready' | 'completed') => {
     await onUpdate({ status });
@@ -123,6 +149,15 @@ export default function MeetingCardHeader({
         
         <span className="text-gray-400">-</span>
         
+        {businessName && (
+          <>
+            <span className="text-sm font-semibold text-purple-600 dark:text-purple-400 flex-shrink-0">
+              {businessName}
+            </span>
+            <span className="text-gray-400">-</span>
+          </>
+        )}
+        
         {editingTitle ? (
           <input
             type="text"
@@ -168,6 +203,17 @@ export default function MeetingCardHeader({
       
       {/* Action Buttons */}
       <div className="flex gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={() => handleSetStatus('completed')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            meeting.status === 'completed'
+              ? 'bg-blue-600 text-white'
+              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Complete
+        </button>
+        
         <button
           onClick={() => handleSetStatus('ready')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${

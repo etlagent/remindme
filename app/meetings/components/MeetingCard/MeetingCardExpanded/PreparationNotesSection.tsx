@@ -13,7 +13,7 @@ export default function PreparationNotesSection({
   onUpdate
 }: PreparationNotesSectionProps) {
   const [notes, setNotes] = useState(meeting.preparation_notes || '');
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSave = async () => {

@@ -32,8 +32,12 @@ export function TodoWorkspace() {
     ? todos.filter(todo => todo.project_id === selectedProjectId)
     : todos;
 
-  const handleAddTodos = async (texts: string[]) => {
-    await createBulkTodos(texts, { ai_generated: false });
+  const handleAddTodos = async (texts: string[], sourceType?: string, sourceId?: string) => {
+    await createBulkTodos(texts, { 
+      ai_generated: false,
+      source_type: sourceType,
+      source_id: sourceId
+    });
   };
 
   const handleApplyBreakdown = async (subtasks: string[]) => {

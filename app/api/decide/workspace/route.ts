@@ -30,15 +30,25 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // 'draft', 'ready', 'converted'
+    const sourceType = searchParams.get('source_type'); // 'meeting', 'project', etc.
+    const sourceId = searchParams.get('source_id'); // specific meeting/project id
 
     let query = supabase
       .from('todo_workspace')
       .select('*')
       .eq('user_id', user.id)
-      .order('order_index', { ascending: true });
+      .order('order_index', { ascending: true});
 
     if (status) {
       query = query.eq('status', status);
+    }
+
+    if (sourceType) {
+      query = query.eq('source_type', sourceType);
+    }
+
+    if (sourceId) {
+      query = query.eq('source_id', sourceId);
     }
 
     const { data, error } = await query;
@@ -91,7 +101,8 @@ export async function POST(request: NextRequest) {
       estimated_minutes,
       source_type,
       source_id,
-      status 
+      status,
+      scheduled_for
     } = body;
 
     if (!text || text.trim() === '') {
@@ -121,7 +132,8 @@ export async function POST(request: NextRequest) {
         estimated_minutes: estimated_minutes || null,
         source_type: source_type || null,
         source_id: source_id || null,
-        status: status || 'draft'
+        status: status || 'draft',
+        scheduled_for: scheduled_for || null
       })
       .select()
       .single();

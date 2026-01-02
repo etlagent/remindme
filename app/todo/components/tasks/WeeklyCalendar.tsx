@@ -92,6 +92,105 @@ export function WeeklyCalendar({ startDate, daysToShow, onTasksScheduled, onTask
     const dateStr = date.toISOString().split('T')[0];
     
     try {
+      // Check for project task
+      const projectTaskId = e.dataTransfer.getData('projectTaskId');
+      if (projectTaskId) {
+        const projectTaskText = e.dataTransfer.getData('projectTaskText');
+        const projectId = e.dataTransfer.getData('projectId');
+        
+        console.log('Project task dropped:', { projectTaskId, projectTaskText, projectId, dateStr });
+        
+        // Create a new todo_workspace entry with status='ready'
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          console.error('No session for project task drop');
+          return;
+        }
+
+        const payload = {
+          text: projectTaskText,
+          status: 'ready',
+          source_type: 'project',
+          source_id: projectId,
+          scheduled_for: dateStr,
+        };
+        console.log('Creating todo_workspace entry:', payload);
+
+        const response = await fetch('/api/decide/workspace', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+        console.log('API response for project task:', result);
+        
+        if (result.success && result.data) {
+          console.log('Task created successfully:', result.data);
+          // Add to UI
+          const scheduledTask: ScheduledTask = {
+            ...result.data,
+            scheduled_for: dateStr,
+          };
+
+          setScheduledTasks(prev => {
+            const newMap = new Map(prev);
+            const dayTasks = newMap.get(dateStr) || [];
+            newMap.set(dateStr, [...dayTasks, scheduledTask]);
+            return newMap;
+          });
+        } else {
+          console.error('Failed to create project task:', result);
+        }
+        return;
+      }
+
+      // Check for meeting action item
+      const meetingActionItemId = e.dataTransfer.getData('meetingActionItemId');
+      if (meetingActionItemId) {
+        const meetingActionItemText = e.dataTransfer.getData('meetingActionItemText');
+        const meetingId = e.dataTransfer.getData('meetingId');
+        
+        // Create a new todo_workspace entry with status='ready'
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch('/api/decide/workspace', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            text: meetingActionItemText,
+            status: 'ready',
+            source_type: 'meeting',
+            source_id: meetingId,
+            scheduled_for: dateStr,
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Add to UI
+          const scheduledTask: ScheduledTask = {
+            ...result.data,
+            scheduled_for: dateStr,
+          };
+
+          setScheduledTasks(prev => {
+            const newMap = new Map(prev);
+            const dayTasks = newMap.get(dateStr) || [];
+            newMap.set(dateStr, [...dayTasks, scheduledTask]);
+            return newMap;
+          });
+        }
+        return;
+      }
+
       // Check for multiple todos first
       const todosData = e.dataTransfer.getData('todos');
       if (todosData) {
