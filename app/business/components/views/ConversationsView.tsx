@@ -463,7 +463,7 @@ export default function ConversationsView(props: ConversationsViewProps) {
                       
                       // Load steps from database
                       const { data: steps } = await supabase
-                        .from('conversation_steps')
+                        .from('meeting_conversation_steps')
                         .select('*')
                         .eq('strategy_id', strategy.id)
                         .order('step_order', { ascending: true });
@@ -791,7 +791,7 @@ export default function ConversationsView(props: ConversationsViewProps) {
                       
                       // Load steps from database
                       const { data: steps } = await supabase
-                        .from('conversation_steps')
+                        .from('meeting_conversation_steps')
                         .select('*')
                         .eq('strategy_id', strategy.id)
                         .order('step_order', { ascending: true });

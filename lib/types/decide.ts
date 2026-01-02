@@ -294,7 +294,18 @@ export interface Meeting {
   business_id?: string;
   goal?: string;
   key_message?: string;
+  key_ideas?: Array<{
+    id: string;
+    text: string;
+    order: number;
+  }>;
+  agenda_items?: Array<{
+    id: string;
+    title: string;
+    order: number;
+  }>;
   preparation_notes?: string;
+  meeting_summary?: string;
   conversation_strategy_id?: string;
   status: 'draft' | 'preparing' | 'ready' | 'completed';
   order_index: number;
@@ -322,7 +333,6 @@ export interface MeetingAttendee {
 }
 
 export interface MeetingWithDetails extends Meeting {
-  agenda_items?: MeetingAgendaItem[];
   attendees?: MeetingAttendee[];
   attendee_details?: Person[];
 }

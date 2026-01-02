@@ -48,7 +48,7 @@ export default function ConversationStrategySection({ meetingId }: ConversationS
       if (!session) return;
 
       const { data: strategies } = await supabase
-        .from('conversation_strategies')
+        .from('meeting_conversation_strategies_active')
         .select('*')
         .eq('meeting_id', meetingId)
         .order('created_at', { ascending: false });
@@ -82,7 +82,7 @@ export default function ConversationStrategySection({ meetingId }: ConversationS
     
     // Load steps
     const { data: steps } = await supabase
-      .from('conversation_steps')
+      .from('meeting_conversation_steps')
       .select('*')
       .eq('strategy_id', strategy.id)
       .order('step_order', { ascending: true });
@@ -384,7 +384,7 @@ export default function ConversationStrategySection({ meetingId }: ConversationS
                     }
                     try {
                       await supabase
-                        .from('conversation_steps')
+                        .from('meeting_conversation_steps')
                         .update({ description: e.target.value })
                         .eq('id', step.id);
                     } catch (error) {

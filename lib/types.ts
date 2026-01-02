@@ -343,8 +343,8 @@ export interface PersonBusinessNote {
 
 /**
  * ConversationStrategy - AI-powered conversation roadmap
- * DATABASE TABLE: conversation_strategies
- * RELATED TABLES: businesses, conversation_steps
+ * DATABASE TABLE: meeting_conversation_strategies_active
+ * RELATED TABLES: businesses, meeting_conversation_steps
  */
 export interface ConversationStrategy {
   id: string;
@@ -362,8 +362,8 @@ export interface ConversationStrategy {
 
 /**
  * ConversationStep - Individual step in conversation roadmap
- * DATABASE TABLE: conversation_steps
- * RELATED TABLES: conversation_strategies
+ * DATABASE TABLE: meeting_conversation_steps
+ * RELATED TABLES: meeting_conversation_strategies_active
  */
 export interface ConversationStep {
   id: string;

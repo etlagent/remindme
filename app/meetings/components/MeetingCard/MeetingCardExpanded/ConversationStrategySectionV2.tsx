@@ -27,14 +27,18 @@ export default function ConversationStrategySectionV2({
   const [conversationSteps, setConversationSteps] = useState<ConversationStep[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentStrategyId, setCurrentStrategyId] = useState<string | null>(null);
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
   const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
   const [clarifyingAnswers, setClarifyingAnswers] = useState<{[key: number]: string}>({});
+  const [storedClarifyingQA, setStoredClarifyingQA] = useState<Array<{question: string; answer: string}>>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [saveDescription, setSaveDescription] = useState('');
   const [savedStrategies, setSavedStrategies] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     fetchAttendees();
@@ -47,7 +51,7 @@ export default function ConversationStrategySectionV2({
       if (!session) return;
 
       const { data: strategies } = await supabase
-        .from('conversation_strategies')
+        .from('meeting_conversation_strategies_active')
         .select('*')
         .eq('meeting_id', meetingId)
         .order('created_at', { ascending: false })
@@ -57,8 +61,13 @@ export default function ConversationStrategySectionV2({
         const strategy = strategies[0];
         setCurrentStrategyId(strategy.id);
         
+        // Store clarifying Q&A for reuse on refresh
+        if (strategy.clarifying_qa && Array.isArray(strategy.clarifying_qa)) {
+          setStoredClarifyingQA(strategy.clarifying_qa);
+        }
+        
         const { data: steps } = await supabase
-          .from('conversation_steps')
+          .from('meeting_conversation_steps')
           .select('*')
           .eq('strategy_id', strategy.id)
           .order('step_order', { ascending: true });
@@ -95,41 +104,65 @@ export default function ConversationStrategySectionV2({
         ai_suggestion: step.ai_suggestion
       }));
 
-      // 1. Save to template table (meeting_conversation_strategies)
-      const templateData = {
-        name: templateName,
-        meeting_type: meetingType,
-        steps: stepsData
-      };
+      // 1. Save or update template (meeting_conversation_strategies)
+      if (currentTemplateId) {
+        // Update existing template
+        const { error: updateError } = await supabase
+          .from('meeting_conversation_strategies')
+          .update({
+            name: templateName,
+            description: saveDescription || null,
+            meeting_type: meetingType,
+            steps: stepsData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentTemplateId);
 
-      const templateResponse = await fetch('/api/conversation-strategies/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(templateData),
-      });
+        if (updateError) {
+          alert(`Failed to update template: ${updateError.message}`);
+          return;
+        }
+      } else {
+        // Create new template
+        const templateData = {
+          name: templateName,
+          description: saveDescription || undefined,
+          meeting_type: meetingType,
+          steps: stepsData
+        };
 
-      const templateResult = await templateResponse.json();
-      
-      if (!templateResult.success) {
-        alert(`Failed to save template: ${templateResult.error}`);
-        return;
+        const templateResponse = await fetch('/api/conversation-strategies/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(templateData),
+        });
+
+        const templateResult = await templateResponse.json();
+        
+        if (!templateResult.success) {
+          alert(`Failed to save template: ${templateResult.error}`);
+          return;
+        }
+
+        // Store the template ID for future updates
+        setCurrentTemplateId(templateResult.strategy.id);
       }
 
-      // 2. Update per-meeting strategy (conversation_strategies + conversation_steps)
+      // 2. Update per-meeting strategy (meeting_conversation_strategies_active + meeting_conversation_steps)
       if (currentStrategyId) {
         // Update existing strategy steps
         const { error: deleteError } = await supabase
-          .from('conversation_steps')
+          .from('meeting_conversation_steps')
           .delete()
           .eq('strategy_id', currentStrategyId);
 
         if (deleteError) throw deleteError;
 
         const { error: insertError } = await supabase
-          .from('conversation_steps')
+          .from('meeting_conversation_steps')
           .insert(
             conversationSteps.map((step, index) => ({
               strategy_id: currentStrategyId,
@@ -144,6 +177,7 @@ export default function ConversationStrategySectionV2({
       
       setShowSaveDialog(false);
       setSaveName('');
+      setSaveDescription('');
       alert('Strategy saved successfully!');
     } catch (error) {
       console.error('Error saving strategy:', error);
@@ -328,8 +362,19 @@ export default function ConversationStrategySectionV2({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">💬 Conversation Strategy</h3>
         <div className="flex items-center gap-2">
-          {hasSteps && (
+          {!isCollapsed && hasSteps && (
             <>
+              <button
+                onClick={() => handleGenerateStrategy(storedClarifyingQA)}
+                disabled={isGenerating}
+                className="px-3 py-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-300 rounded-md hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                title="Regenerate strategy with current context"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {isGenerating ? 'Generating...' : 'Refresh'}
+              </button>
               <button
                 onClick={() => setShowSaveDialog(true)}
                 className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
@@ -350,6 +395,7 @@ export default function ConversationStrategySectionV2({
                   setClarifyingQuestions([]);
                   setClarifyingAnswers({});
                   setConversationSteps([]);
+                  setCurrentTemplateId(null);
                 }}
                 className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-md hover:bg-blue-50"
               >
@@ -357,10 +403,19 @@ export default function ConversationStrategySectionV2({
               </button>
             </>
           )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-gray-500 hover:text-gray-700 transition-transform"
+            style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      {hasSteps ? (
+      {!isCollapsed && (hasSteps ? (
         /* Show Strategy Steps */
         <div className="overflow-x-auto pb-4" style={{ maxWidth: '100%' }}>
           <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
@@ -378,7 +433,7 @@ export default function ConversationStrategySectionV2({
                     setConversationSteps(conversationSteps.filter(s => s.id !== step.id));
                     if (!step.id.startsWith('step-')) {
                       await supabase
-                        .from('conversation_steps')
+                        .from('meeting_conversation_steps')
                         .delete()
                         .eq('id', step.id);
                     }
@@ -400,7 +455,7 @@ export default function ConversationStrategySectionV2({
                   if (!step.id.startsWith('step-')) {
                     try {
                       await supabase
-                        .from('conversation_steps')
+                        .from('meeting_conversation_steps')
                         .update({ description: e.target.value })
                         .eq('id', step.id);
                     } catch (error) {
@@ -506,7 +561,7 @@ export default function ConversationStrategySectionV2({
             </button>
           )}
         </div>
-      )}
+      ))}
 
       {/* Save Dialog */}
       {showSaveDialog && (
@@ -520,8 +575,16 @@ export default function ConversationStrategySectionV2({
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
               placeholder="e.g., Enterprise Discovery Flow, Partnership Pitch"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
               autoFocus
+            />
+            
+            <textarea
+              value={saveDescription}
+              onChange={(e) => setSaveDescription(e.target.value)}
+              placeholder="Optional: Describe when to use this strategy (e.g., 'Use for enterprise discovery calls with CTOs')"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 resize-none"
             />
             
             <div className="flex gap-2 justify-end">
@@ -529,6 +592,7 @@ export default function ConversationStrategySectionV2({
                 onClick={() => {
                   setShowSaveDialog(false);
                   setSaveName('');
+                  setSaveDescription('');
                 }}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
                 disabled={isSaving}

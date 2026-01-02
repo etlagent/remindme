@@ -126,9 +126,9 @@ export async function POST(request: NextRequest) {
     const messages = [
       {
         role: "system",
-          content: `You are an expert conversation strategist helping a business professional plan strategic conversations.
+          content: `You are an expert conversation strategist helping a business professional who tends to speak quickly and jump to conclusions before establishing foundational understanding.
 
-Your task is to break down a conversation goal into 3-5 logical, sequential steps. Each step should build on the previous one, creating a clear roadmap.
+Your task is to break down a conversation goal into AS MANY STEPS AS NEEDED to ensure the audience understands each concept before moving forward. This could be 2 steps for simple topics, or 6-8+ steps for complex topics.
 
 STRUCTURE YOUR RESPONSE:
 Return JSON in this exact format:
@@ -147,14 +147,15 @@ Return JSON in this exact format:
 
 IMPORTANT: Format each description with line breaks (\n\n) between key points or paragraphs. This makes it easier to read.
 
-Focus on:
-1. Building trust and rapport first
-2. Establishing context before diving into asks
-3. Addressing concerns and objections proactively
-4. Moving toward the goal naturally
-5. Clear progression from start to finish
+CRITICAL PRINCIPLES:
+1. Establish foundational concepts BEFORE advancing to complex ideas
+2. Each step should build logical understanding - don't skip ahead
+3. If the topic is complex, use MORE steps to break it down properly
+4. If the topic is simple, use FEWER steps - don't over-complicate
+5. Build trust and rapport first, then establish context, then dive deeper
+6. Address potential confusion or gaps in understanding at each stage
 
-ALWAYS return 3-5 steps. Make each step actionable and specific.`
+Use however many steps are needed to lead someone from where they are to complete understanding. Quality of understanding > arbitrary step count.`
         },
         {
           role: "user",
@@ -172,7 +173,7 @@ Clarifying Information:
 ${clarifying_qa.map((qa: any) => `Q: ${qa.question}\nA: ${qa.answer}`).join('\n\n')}
 ` : ''}
 
-Generate exactly 3-5 strategic conversation steps that create a clear roadmap from where they are now to achieving the goal.`
+Generate strategic conversation steps that create a clear roadmap from where they are now to achieving the goal. Use as many steps as needed to ensure proper foundational understanding before advancing concepts.`
         }
     ];
     
@@ -235,7 +236,7 @@ Generate exactly 3-5 strategic conversation steps that create a clear roadmap fr
     }
 
     const { data: strategy, error: strategyError } = await supabase
-      .from('conversation_strategies')
+      .from('meeting_conversation_strategies_active')
       .insert(strategyData)
       .select()
       .single();
@@ -262,7 +263,7 @@ Generate exactly 3-5 strategic conversation steps that create a clear roadmap fr
     console.log('Inserting steps:', stepsToInsert);
 
     const { data: savedSteps, error: stepsError } = await supabase
-      .from('conversation_steps')
+      .from('meeting_conversation_steps')
       .insert(stepsToInsert)
       .select();
 
@@ -294,7 +295,23 @@ function buildContextString(contextData: any, sources: string[]): string {
   if (contextData.meeting) {
     context += `Meeting: ${contextData.meeting.title}\n`;
     context += `Date: ${contextData.meeting.meeting_date || 'Not scheduled'}\n`;
-    context += `Goal: ${contextData.meeting.goal || 'N/A'}\n\n`;
+    context += `Goal: ${contextData.meeting.goal || 'N/A'}\n`;
+    
+    if (contextData.meeting.key_ideas && contextData.meeting.key_ideas.length > 0) {
+      context += `\nKey Ideas to Communicate:\n`;
+      contextData.meeting.key_ideas.forEach((idea: any, index: number) => {
+        context += `${index + 1}. ${idea.text}\n`;
+      });
+    }
+    
+    if (contextData.meeting.agenda_items && contextData.meeting.agenda_items.length > 0) {
+      context += `\nAgenda:\n`;
+      contextData.meeting.agenda_items.forEach((item: any, index: number) => {
+        context += `${index + 1}. ${item.title}\n`;
+      });
+    }
+    
+    context += '\n';
   }
 
   if (contextData.business) {

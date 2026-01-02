@@ -7,8 +7,10 @@ import GoalMessageSection from './MeetingCardExpanded/GoalMessageSection';
 import AgendaSection from './MeetingCardExpanded/AgendaSection';
 import AttendeesSection from './MeetingCardExpanded/AttendeesSection';
 import ContextBuilder from './MeetingCardExpanded/ContextBuilder';
+import KeyIdeasSection from './MeetingCardExpanded/KeyIdeasSection';
 import ConversationStrategySectionV2 from './MeetingCardExpanded/ConversationStrategySectionV2';
 import PreparationNotesSection from './MeetingCardExpanded/PreparationNotesSection';
+import MeetingSummarySection from './MeetingCardExpanded/MeetingSummarySection';
 
 interface MeetingCardExpandedProps {
   meeting: Meeting;
@@ -36,18 +38,15 @@ export default function MeetingCardExpanded({
         {/* Left Column - Meeting Details & Attendees (1/3 width, collapsible) */}
         {!leftColumnCollapsed && (
           <div className="w-1/3 space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📋 Meeting Details</h3>
-              <button
-                onClick={() => setLeftColumnCollapsed(true)}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-                title="Collapse details"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-              </button>
-            </div>
+            <button
+              onClick={() => setLeftColumnCollapsed(true)}
+              className="mb-4 text-gray-500 hover:text-gray-700 transition-colors"
+              title="Collapse details"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
             <MeetingDetailsSection meeting={meeting} onUpdate={onUpdate} />
             <AttendeesSection meetingId={meeting.id} />
           </div>
@@ -76,7 +75,9 @@ export default function MeetingCardExpanded({
           
           <GoalMessageSection meeting={meeting} onUpdate={onUpdate} />
           
-          <AgendaSection meetingId={meeting.id} />
+          <KeyIdeasSection meeting={meeting} onUpdate={onUpdate} />
+          
+          <AgendaSection meeting={meeting} onUpdate={onUpdate} />
           
           <ContextBuilder 
             meetingId={meeting.id} 
@@ -90,6 +91,8 @@ export default function MeetingCardExpanded({
           />
           
           <PreparationNotesSection meeting={meeting} onUpdate={onUpdate} />
+          
+          <MeetingSummarySection meeting={meeting} onUpdate={onUpdate} />
         </div>
       </div>
     </div>

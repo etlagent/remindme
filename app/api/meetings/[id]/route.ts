@@ -89,7 +89,10 @@ export async function PUT(
     if (body.location !== undefined) updateData.location = body.location;
     if (body.business_id !== undefined) updateData.business_id = body.business_id;
     if (body.goal !== undefined) updateData.goal = body.goal;
+    if (body.key_ideas !== undefined) updateData.key_ideas = body.key_ideas;
+    if (body.agenda_items !== undefined) updateData.agenda_items = body.agenda_items;
     if (body.preparation_notes !== undefined) updateData.preparation_notes = body.preparation_notes;
+    if (body.meeting_summary !== undefined) updateData.meeting_summary = body.meeting_summary;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.order_index !== undefined) updateData.order_index = body.order_index;
 

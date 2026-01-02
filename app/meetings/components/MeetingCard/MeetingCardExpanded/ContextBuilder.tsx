@@ -87,15 +87,42 @@ export default function ContextBuilder({ meetingId, onContextChange }: ContextBu
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Initialize fields when meeting type changes
+  // Load from localStorage on mount
   useEffect(() => {
+    const storageKey = `context_${meetingId}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const { fields, type, cardId } = JSON.parse(saved);
+        setContextFields(fields);
+        setMeetingType(type);
+        if (cardId) setLastAutoSavedId(cardId);
+        return; // Don't initialize default fields
+      } catch (e) {
+        console.error('Error loading saved context:', e);
+      }
+    }
+    
+    // Initialize fields when meeting type changes (only if no saved data)
     const fieldTemplates = MEETING_TYPE_FIELDS[meetingType] || MEETING_TYPE_FIELDS.other;
     const initialFields = fieldTemplates.map(template => ({
       ...template,
       value: ''
     }));
     setContextFields(initialFields);
-  }, [meetingType]);
+  }, [meetingId]);
+
+  // Save to localStorage when fields or type change
+  useEffect(() => {
+    if (contextFields.length > 0) {
+      const storageKey = `context_${meetingId}`;
+      localStorage.setItem(storageKey, JSON.stringify({
+        fields: contextFields,
+        type: meetingType,
+        cardId: lastAutoSavedId
+      }));
+    }
+  }, [contextFields, meetingType, lastAutoSavedId, meetingId]);
 
   // Notify parent of changes
   useEffect(() => {
@@ -310,6 +337,9 @@ export default function ContextBuilder({ meetingId, onContextChange }: ContextBu
         if (loadedData.meeting_type) {
           setMeetingType(loadedData.meeting_type);
         }
+        
+        // Set this as the current card ID so saves update instead of creating duplicates
+        setLastAutoSavedId(loadedData.id);
         
         setShowLoadDialog(false);
       } else {
