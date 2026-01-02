@@ -17,7 +17,7 @@ export default function MeetingsPage() {
   } = useMeetings();
 
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
-  const [calendarExpanded, setCalendarExpanded] = useState(true);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedMeetings, setSelectedMeetings] = useState<Set<string>>(new Set());
   const [inlineExpandedMeetingId, setInlineExpandedMeetingId] = useState<string | null>(null);
